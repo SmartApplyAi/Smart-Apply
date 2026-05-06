@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Login — SmartApply</title>
+  <link rel="stylesheet" href="css/main.css"/>
+  <style>
+    .btn-google{
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      width:100%;padding:12px 20px;background:var(--surface);color:var(--text);
+      border:1.5px solid var(--border);border-radius:var(--radius-sm);
+      font-family:"DM Sans",sans-serif;font-size:15px;font-weight:500;
+      cursor:pointer;transition:var(--transition);text-decoration:none;
+      min-height:var(--touch-target);
+    }
+    .btn-google:hover{background:var(--bg-2);border-color:var(--primary);box-shadow:var(--shadow);color:var(--text)}
+    .btn-google svg{flex-shrink:0}
+    .or-divider{display:flex;align-items:center;gap:12px;margin:8px 0;color:var(--text-3);font-size:13px}
+    .or-divider::before,.or-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+    .oauth-error{background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.3);border-radius:var(--radius-sm);color:var(--danger);padding:10px 14px;font-size:13px;margin-bottom:16px}
+    .mb-16{margin-bottom:16px}
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div id="toast-container"></div>
+  <div style="position:fixed;top:20px;right:20px;z-index:999">
+    <button id="theme-toggle" class="btn btn-ghost btn-sm" aria-label="Toggle theme" onclick="window.toggleTheme()">
+      <i class="fa-solid fa-moon"></i>
+    </button>
+  </div>
+  <div class="auth-wrapper">
+    <div class="auth-card fade-in">
+      <div class="logo"><div class="logo-dot"></div>Smart<span>Apply</span></div>
+      <h2>Welcome back</h2>
+      <p class="subtitle">Sign in to your account</p>
+
+      <div id="oauth-error" class="oauth-error" style="display:none"></div>
+      <div id="login-error" class="alert alert-error hidden mb-16"></div>
+      <div id="login-success" class="alert alert-success hidden mb-16"></div>
+
+      <a href="/api/auth/google" class="btn-google" id="btn-google">
+        <svg width="20" height="20" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Continue with Google
+      </a>
+
+      <div class="or-divider">or</div>
+
+      <form id="login-form" novalidate>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="form-group">
+            <label for="email"><i class="fa-solid fa-envelope"></i> Email</label>
+            <input type="email" id="email" placeholder="you@company.com" autocomplete="email"/>
+            <span class="field-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="password">
+              <i class="fa-solid fa-lock"></i> Password
+              <a href="forgot-password.html" style="float:right;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400">Forgot?</a>
+            </label>
+            <div class="pw-wrap">
+              <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password"/>
+              <button type="button" class="pw-toggle" id="toggle-pw" aria-label="Toggle password">
+                <i class="fa-regular fa-eye" id="pw-icon"></i>
+              </button>
+            </div>
+            <span class="field-error"></span>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-btn">
+            <span class="spinner"></span>
+            <span class="btn-text"><i class="fa-solid fa-right-to-bracket"></i> Sign In</span>
+          </button>
+        </div>
+      </form>
+      <div class="auth-footer">Don't have an account? <a href="signup.html">Create one free</a></div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    (function() {
+      const p = new URLSearchParams(window.location.search);
+      const e = p.get('error');
+      if (e) {
+        const msgs = {
+          google_cancelled:'Google sign-in was cancelled.',
+          state_mismatch:'Security check failed. Please try again.',
+          google_token_failed:'Could not connect to Google.',
+          google_profile_failed:'Could not retrieve your Google profile.',
+          google_no_email:'Your Google account has no public email.',
+          oauth_failed:'Sign-in failed. Please try again.',
+        };
+        const b = document.getElementById('oauth-error');
+        b.textContent = msgs[e] || 'Sign-in failed.';
+        b.style.display = 'block';
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    })();
+
+    auth.requireGuest();
+    if (window.updateThemeIcon) window.updateThemeIcon();
+    const probe = getParam('probe');
+    const msg = getParam('msg');
+    if (msg === 'verified') { document.getElementById('login-success').textContent = 'Email verified! You can now log in.'; document.getElementById('login-success').classList.remove('hidden'); }
+    if (msg === 'reset') { document.getElementById('login-success').textContent = 'Password reset successfully. Please sign in.'; document.getElementById('login-success').classList.remove('hidden'); }
+
+    document.getElementById('toggle-pw').addEventListener('click', () => {
+      const el = document.getElementById('password');
+      const ic = document.getElementById('pw-icon');
+      el.type = el.type === 'password' ? 'text' : 'password';
+      ic.className = el.type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+    });
+
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      clearErrors();
+      const btn      = document.getElementById('login-btn');
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errEl    = document.getElementById('login-error');
+      errEl.classList.add('hidden');
+      let hasError = false;
+      if (!email)    { markFieldError('email', 'Email is required'); hasError = true; }
+      if (!password) { markFieldError('password', 'Password is required'); hasError = true; }
+      if (hasError)  return;
+      setLoading(btn, true);
+      try {
+        const data = await api.post('/auth/login', { email, password });
+        auth.save(data.access_token, data.user);
+        showToast('Welcome back!', 'success');
+        setTimeout(() => { window.location.href = data.user.has_profile ? 'dashboard.html' : 'profile.html'; }, 800);
+      } catch (err) {
+        errEl.textContent = err.detail || 'Email or password is wrong.';
+        errEl.classList.remove('hidden');
+      } finally { setLoading(btn, false); }
+    });
+  </script>
+</body>
+</html>

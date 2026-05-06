@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile Setup — SmartApply</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <style>
+    .profile-layout{display:grid;grid-template-columns:220px 1fr;gap:32px;align-items:start}
+    .profile-nav{position:sticky;top:88px}
+    .profile-nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius-sm);font-size:14px;color:var(--text-2);cursor:pointer;transition:var(--transition);margin-bottom:2px;background:none;border:none;width:100%;text-align:left;font-family:"DM Sans",sans-serif}
+    .profile-nav-item:hover{background:var(--surface);color:var(--text)}
+    .profile-nav-item.active{background:rgba(79,124,255,0.1);color:var(--primary);font-weight:500}
+    .profile-nav-item .check{margin-left:auto;color:var(--primary);font-size:14px;display:none}
+    .profile-nav-item.done .check{display:block}
+    .section-panel{display:none}
+    .section-panel.active{display:block;animation:fadeIn 0.3s ease}
+    .tag-input-wrap{min-height:46px;background:var(--bg-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;cursor:text}
+    .tag-input-wrap:focus-within{border-color:var(--primary)}
+    /* ── AI button ── */
+    .ai-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius-sm);background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:var(--primary);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;transition:var(--transition);white-space:nowrap}
+    .ai-btn:hover{background:rgba(99,102,241,0.22)}
+    .ai-btn:disabled{opacity:0.5;cursor:not-allowed}
+    .ai-btn .ai-spin{width:11px;height:11px;border:1.5px solid rgba(99,102,241,0.3);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;display:none}
+    .ai-btn.ai-loading .ai-spin{display:inline-block}
+    .ai-btn.ai-loading .ai-lbl{display:none}
+    /* ── field header row (label + AI button) ── */
+    .field-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+    .field-hdr label{margin-bottom:0!important;font-size:13px;font-weight:500;color:var(--text-2);letter-spacing:0.03em;text-transform:uppercase}
+    /* ── section divider inside a card ── */
+    .sec-divider{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);padding:6px 0;border-bottom:1px solid var(--border);margin:20px 0 16px;display:flex;align-items:center;gap:8px}
+    /* ── 3-column grid ── */
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    @media(max-width:900px){.grid-3{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px){.grid-3{grid-template-columns:1fr}}
+    /* ── EEO info badge ── */
+    .eeo-note{background:rgba(79,124,255,0.06);border:1px solid rgba(79,124,255,0.15);border-radius:var(--radius-sm);padding:9px 13px;font-size:12px;color:var(--text-2);line-height:1.55;margin-bottom:14px}
+    @media(max-width:700px){.profile-layout{grid-template-columns:1fr}.profile-nav{display:none}}
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div id="toast-container"></div>
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="nav-logo"><div class="logo-dot"></div>Smart<span>Apply</span></a>
+      <div class="nav-links" id="nav-actions">
+        <button id="theme-toggle" class="btn btn-ghost btn-sm" aria-label="Toggle theme" onclick="window.toggleTheme()">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <a href="dashboard.html" class="btn btn-ghost btn-sm"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+        <a href="linkedin-optimizer.html" class="btn btn-ghost btn-sm"><i class="fa-brands fa-linkedin"></i> LinkedIn Optimizer</a>
+        <a href="settings.html" class="btn btn-ghost btn-sm"><i class="fa-solid fa-gear"></i> Settings</a>
+        <button onclick="auth.logout()" class="btn btn-ghost btn-sm"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page-wrapper">
+    <div class="container" style="padding-top:40px;padding-bottom:80px">
+      <div style="margin-bottom:36px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px">
+        <div>
+          <h2><i class="fa-solid fa-user-pen"></i> Profile Setup</h2>
+          <p class="text-muted" style="margin-top:6px">Fill in your details so the extension can apply accurately on your behalf</p>
+        </div>
+        <a href="resume.html" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Resume Upload</a>
+      </div>
+
+      <div class="profile-layout">
+        <!-- ── Sidebar nav ── -->
+        <nav class="profile-nav">
+          <div class="profile-nav-item active" data-section="personal" onclick="switchSection('personal')"><span><i class="fa-solid fa-user"></i></span> Personal <span class="check"><i class="fa-solid fa-circle-check"></i></span></div>
+          <div class="profile-nav-item" data-section="professional" onclick="switchSection('professional')"><span><i class="fa-solid fa-briefcase"></i></span> Professional <span class="check"><i class="fa-solid fa-circle-check"></i></span></div>
+          <div class="profile-nav-item" data-section="preferences" onclick="switchSection('preferences')"><span><i class="fa-solid fa-bullseye"></i></span> Job Preferences <span class="check"><i class="fa-solid fa-circle-check"></i></span></div>
+          <div class="profile-nav-item" data-section="custom" onclick="switchSection('custom')"><span><i class="fa-solid fa-list-check"></i></span> Additional Details <span class="check"><i class="fa-solid fa-circle-check"></i></span></div>
+          <div class="profile-nav-item" data-section="platforms" onclick="switchSection('platforms')"><span><i class="fa-solid fa-lock"></i></span> Platform Logins <span class="check"><i class="fa-solid fa-circle-check"></i></span></div>
+        </nav>
+
+        <div>
+          <!-- ══════════════════════════════════════════
+               SECTION 1 — PERSONAL
+          ══════════════════════════════════════════ -->
+          <div class="section-panel active" id="section-personal">
+            <div class="card">
+              <h4 style="margin-bottom:20px"><i class="fa-solid fa-id-card"></i> Personal Details</h4>
+
+              <!-- Name row (3 cols) -->
+              <div class="sec-divider"><i class="fa-solid fa-signature"></i> Full Name</div>
+              <div class="grid-3" style="margin-bottom:16px">
+                <div class="form-group"><label>First Name *</label><input type="text" id="first_name" placeholder="Sai"/></div>
+                <div class="form-group"><label>Middle Name</label><input type="text" id="middle_name" placeholder="Vignesh"/></div>
+                <div class="form-group"><label>Last Name *</label><input type="text" id="last_name" placeholder="Golla"/></div>
+              </div>
+
+              <!-- Contact -->
+              <div class="sec-divider"><i class="fa-solid fa-address-card"></i> Contact &amp; Location</div>
+              <div class="grid-3" style="margin-bottom:16px">
+                <div class="form-group">
+                  <label>Country Code *</label>
+                  <select id="phone_country_code">
+                    <option value="India (+91)">India (+91)</option>
+                    <option value="United States (+1)">United States (+1)</option>
+                    <option value="United Kingdom (+44)">United Kingdom (+44)</option>
+                    <option value="Canada (+1)">Canada (+1)</option>
+                    <option value="Australia (+61)">Australia (+61)</option>
+                    <option value="Germany (+49)">Germany (+49)</option>
+                    <option value="France (+33)">France (+33)</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Phone Number *</label><input type="tel" id="phone_number" placeholder="9876543210" maxlength="10"/></div>
+                <div class="form-group"><label>Current City</label><input type="text" id="current_city" placeholder="Hyderabad"/></div>
+              </div>
+              <div class="form-group" style="margin-bottom:16px">
+                <label>Street Address</label>
+                <input type="text" id="street" placeholder="123 Main Street, Colony / Area name"/>
+              </div>
+              <div class="grid-2" style="margin-bottom:16px">
+                <div class="form-group"><label>State</label><input type="text" id="state" placeholder="Telangana"/></div>
+                <div class="form-group"><label>Country</label><input type="text" id="country" value="India"/></div>
+                <div class="form-group"><label>Pincode / ZIP</label><input type="text" id="zipcode" placeholder="500001"/></div>
+                <div class="form-group"><label>Gender</label>
+                  <select id="gender">
+                    <option value="">Prefer not to say</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Non-binary">Non-binary</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- EEO / Equal Opportunity -->
+              <div class="sec-divider"><i class="fa-solid fa-shield-halved"></i> Equal Opportunity Data</div>
+              <div class="eeo-note">
+                <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+                These fields are used to auto-fill Equal Employment Opportunity (EEO) forms on job applications. They are stored securely and never shared externally.
+              </div>
+              <div class="grid-3">
+                <div class="form-group"><label>Ethnicity</label>
+                  <select id="ethnicity">
+                    <option value="Decline">Decline to identify</option>
+                    <option value="Hispanic or Latino">Hispanic or Latino</option>
+                    <option value="White">White</option>
+                    <option value="Black or African American">Black or African American</option>
+                    <option value="Asian">Asian</option>
+                    <option value="Native American or Alaska Native">Native American</option>
+                    <option value="Two or more races">Two or more races</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Disability Status</label>
+                  <select id="disability_status">
+                    <option value="Decline">Decline to identify</option>
+                    <option value="Yes">Yes — I have a disability</option>
+                    <option value="No">No disability</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Veteran Status</label>
+                  <select id="veteran_status">
+                    <option value="Decline">Decline to identify</option>
+                    <option value="Yes">Yes — Protected veteran</option>
+                    <option value="No">Not a veteran</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="margin-top:24px;text-align:right">
+                <button class="btn btn-primary" data-save-and-next="personal:professional">
+                  <i class="fa-solid fa-arrow-right"></i> Next: Professional
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════════════════════════════════════════
+               SECTION 2 — PROFESSIONAL
+          ══════════════════════════════════════════ -->
+          <div class="section-panel" id="section-professional">
+            <div class="card">
+              <h4 style="margin-bottom:20px"><i class="fa-solid fa-briefcase"></i> Professional Details</h4>
+
+              <!-- Online presence -->
+              <div class="sec-divider"><i class="fa-solid fa-link"></i> Online Presence</div>
+              <div class="grid-2" style="margin-bottom:16px">
+                <div class="form-group">
+                  <label><i class="fa-brands fa-linkedin" style="color:#0a66c2"></i> LinkedIn URL</label>
+                  <input type="url" id="linkedin_profile" placeholder="https://linkedin.com/in/yourname"/>
+                </div>
+                <div class="form-group">
+                  <label><i class="fa-brands fa-github"></i> GitHub URL</label>
+                  <input type="url" id="github" placeholder="https://github.com/yourname"/>
+                </div>
+                <div class="form-group">
+                  <label><i class="fa-solid fa-globe"></i> Portfolio / Website</label>
+                  <input type="url" id="website" placeholder="https://yourportfolio.com"/>
+                </div>
+              </div>
+
+              <!-- LinkedIn Headline with AI -->
+              <div class="form-group" style="margin-bottom:16px">
+                <div class="field-hdr">
+                  <label><i class="fa-solid fa-heading"></i> LinkedIn Headline</label>
+                  <button type="button" class="ai-btn" id="ai-headline-btn">
+                    <span class="ai-spin"></span>
+                    <span class="ai-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate</span>
+                  </button>
+                </div>
+                <input type="text" id="linkedin_headline" placeholder="e.g. Data Analyst | Python · SQL · Power BI | 2 Yrs Exp | Open to Work"/>
+                <span class="text-sm text-muted" style="margin-top:4px;display:block">Shown below your name on LinkedIn — max 220 characters</span>
+              </div>
+
+              <!-- Experience & compensation -->
+              <div class="sec-divider"><i class="fa-solid fa-chart-line"></i> Experience &amp; Compensation</div>
+              <div class="grid-3" style="margin-bottom:16px">
+                <div class="form-group"><label>Years of Experience</label>
+                  <select id="years_of_experience">
+                    <option value="0">0 — Fresher</option>
+                    <option value="1">1 year</option>
+                    <option value="2">2 years</option>
+                    <option value="3">3 years</option>
+                    <option value="4">4 years</option>
+                    <option value="5">5 years</option>
+                    <option value="6">6+ years</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Current CTC (₹ p.a.)</label><input type="number" id="current_ctc" placeholder="600000"/></div>
+                <div class="form-group"><label>Desired Salary (₹ p.a.)</label><input type="number" id="desired_salary" placeholder="800000"/></div>
+                <div class="form-group"><label>Notice Period (days)</label><input type="number" id="notice_period" placeholder="0"/></div>
+                <div class="form-group"><label>Recent Employer</label><input type="text" id="recent_employer" placeholder="Company name or Fresher"/></div>
+                <div class="form-group"><label>Confidence Level (1–10)</label><input type="number" id="confidence_level" placeholder="7" min="1" max="10" value="7"/></div>
+              </div>
+
+              <!-- Resume content blocks -->
+              <div class="sec-divider"><i class="fa-solid fa-file-lines"></i> Resume Content</div>
+              <div style="display:flex;flex-direction:column;gap:16px">
+
+                <!-- Skills with AI -->
+                <div class="form-group">
+                  <div class="field-hdr">
+                    <label>Skills Summary</label>
+                    <button type="button" class="ai-btn" id="ai-skills-btn">
+                      <span class="ai-spin"></span>
+                      <span class="ai-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate</span>
+                    </button>
+                  </div>
+                  <textarea id="skills_summary" rows="3" placeholder="Python, SQL, Excel, Power BI, Tableau, Machine Learning, Communication…"></textarea>
+                </div>
+
+                <!-- LinkedIn Summary with AI -->
+                <div class="form-group">
+                  <div class="field-hdr">
+                    <label>LinkedIn / Profile Summary</label>
+                    <button type="button" class="ai-btn" id="ai-summary-btn">
+                      <span class="ai-spin"></span>
+                      <span class="ai-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate</span>
+                    </button>
+                  </div>
+                  <textarea id="linkedin_summary" rows="4" placeholder="Professional summary shown in applications and LinkedIn About section…"></textarea>
+                </div>
+
+                <!-- Education + Experience side by side -->
+                <div class="grid-2">
+                  <div class="form-group">
+                    <label>Education Background</label>
+                    <textarea id="education_text" rows="5" placeholder="B.Tech in Computer Science&#10;XYZ University, 2020–2024, CGPA 8.5/10&#10;&#10;Class XII — 94%&#10;ABC School, 2020"></textarea>
+                    <span class="text-sm text-muted" style="margin-top:4px;display:block">Used to answer education questions on forms</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Work Experience</label>
+                    <textarea id="experience_text" rows="5" placeholder="Software Engineer, Company X&#10;Jun 2022 – Present&#10;• Built REST APIs with FastAPI&#10;• Reduced load time by 30%"></textarea>
+                    <span class="text-sm text-muted" style="margin-top:4px;display:block">Used by AI to answer experience questions</span>
+                  </div>
+                </div>
+
+                <!-- Cover Letter with AI -->
+                <div class="form-group">
+                  <div class="field-hdr">
+                    <label>Cover Letter Template</label>
+                    <button type="button" class="ai-btn" id="ai-cover-btn">
+                      <span class="ai-spin"></span>
+                      <span class="ai-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate</span>
+                    </button>
+                  </div>
+                  <textarea id="cover_letter" rows="7" placeholder="Dear Hiring Manager,&#10;&#10;I am [Name], a [Role] with [X] years of experience…"></textarea>
+                  <span class="text-sm text-muted" style="margin-top:4px;display:block">AI generates a fresh cover letter per job when the extension applies — this is the fallback template</span>
+                </div>
+              </div>
+
+              <div style="margin-top:24px;display:flex;gap:12px;justify-content:space-between">
+                <button class="btn btn-ghost" data-switch-to="personal"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                <button class="btn btn-primary" data-save-and-next="professional:preferences"><i class="fa-solid fa-arrow-right"></i> Next: Job Preferences</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════════════════════════════════════════
+               SECTION 3 — JOB PREFERENCES
+          ══════════════════════════════════════════ -->
+          <div class="section-panel" id="section-preferences">
+            <div class="card">
+              <h4 style="margin-bottom:20px"><i class="fa-solid fa-sliders"></i> Job Preferences</h4>
+              <div style="display:flex;flex-direction:column;gap:18px">
+
+                <!-- Search Terms with AI -->
+                <div class="form-group">
+                  <div class="field-hdr">
+                    <label>Search Terms (Job Titles)</label>
+                    <button type="button" class="ai-btn" id="ai-search-terms-btn">
+                      <span class="ai-spin"></span>
+                      <span class="ai-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Suggest</span>
+                    </button>
+                  </div>
+                  <div class="tag-input-wrap" id="search-terms-tags"></div>
+                  <input type="hidden" id="search_terms"/>
+                  <span class="text-sm text-muted" style="margin-top:4px;display:block">Press Enter or comma to add · AI suggests titles based on your resume</span>
+                </div>
+
+                <!-- Location -->
+                <div class="form-group">
+                  <label>Preferred Location</label>
+                  <input type="text" id="search_location" placeholder="India" value="India"/>
+                </div>
+
+                <!-- Experience level -->
+                <div class="form-group">
+                  <label>Experience Level</label>
+                  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+                    <label class="badge badge-neutral" style="cursor:pointer"><input type="checkbox" name="exp_level" value="Internship" style="margin-right:6px">Internship</label>
+                    <label class="badge badge-neutral" style="cursor:pointer"><input type="checkbox" name="exp_level" value="Entry level" checked style="margin-right:6px">Entry level</label>
+                    <label class="badge badge-neutral" style="cursor:pointer"><input type="checkbox" name="exp_level" value="Associate" style="margin-right:6px">Associate</label>
+                    <label class="badge badge-neutral" style="cursor:pointer"><input type="checkbox" name="exp_level" value="Mid-Senior level" style="margin-right:6px">Mid-Senior</label>
+                  </div>
+                </div>
+
+                <!-- Work mode -->
+                <div class="form-group">
+                  <label>Work Mode</label>
+                  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+                    <label class="badge badge-neutral" style="cursor:pointer"><input type="checkbox" name="on_site" value="On-site" checked style="margin-right:6px">On-site</label>
+                    <label class="badge badge-neutral" style="cursor:pointer"><input type="checkbox" name="on_site" value="Hybrid" checked style="margin-right:6px">Hybrid</label>
+                    <label class="badge badge-neutral" style="cursor:pointer"><input type="checkbox" name="on_site" value="Remote" checked style="margin-right:6px">Remote</label>
+                  </div>
+                </div>
+
+                <!-- Date posted / max apps -->
+                <div class="grid-2">
+                  <div class="form-group"><label>Date Posted Filter</label>
+                    <select id="date_posted">
+                      <option value="Past week">Past week</option>
+                      <option value="Past month" selected>Past month</option>
+                      <option value="Past 24 hours">Past 24 hours</option>
+                    </select>
+                  </div>
+                  <div class="form-group"><label>Max Applications / Session</label><input type="number" id="switch_number" value="15" min="1" max="200"/></div>
+                </div>
+
+                <!-- Easy apply toggle -->
+                <div class="toggle-row">
+                  <div>
+                    <div style="font-size:14px;font-weight:500">Easy Apply Only</div>
+                    <div class="text-sm text-muted">Only apply to one-click LinkedIn Easy Apply jobs</div>
+                  </div>
+                  <label class="toggle"><input type="checkbox" id="easy_apply_only" checked/><span class="toggle-slider"></span></label>
+                </div>
+
+                <!-- US Visa / citizenship -->
+                <div class="sec-divider"><i class="fa-solid fa-passport"></i> Work Authorisation</div>
+                <div class="grid-2">
+                  <div class="form-group"><label>US Citizenship / Work Status</label>
+                    <select id="us_citizenship">
+                      <option value="Other">Other / Not Applicable</option>
+                      <option value="U.S. Citizen/Permanent Resident">U.S. Citizen / Permanent Resident</option>
+                      <option value="Work Authorization">Have Work Authorization</option>
+                      <option value="Need Sponsorship">Need Sponsorship (H1-B etc.)</option>
+                    </select>
+                  </div>
+                  <div class="form-group"><label>Require Visa Sponsorship</label>
+                    <select id="require_visa">
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Bad words with AI -->
+                <div class="sec-divider"><i class="fa-solid fa-ban"></i> Job Filtering</div>
+                <div class="form-group">
+                  <div class="field-hdr">
+                    <label>Keywords to Skip (Bad Words)</label>
+                    <button type="button" class="ai-btn" id="ai-bad-words-btn">
+                      <span class="ai-spin"></span>
+                      <span class="ai-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Suggest</span>
+                    </button>
+                  </div>
+                  <div class="tag-input-wrap" id="bad-words-tags"></div>
+                  <input type="hidden" id="bad_words"/>
+                  <span class="text-sm text-muted" style="margin-top:4px;display:block">Jobs whose titles contain these words are automatically skipped · AI suggests words that don't match your profile</span>
+                </div>
+
+              </div>
+              <div style="margin-top:24px;display:flex;gap:12px;justify-content:space-between">
+                <button class="btn btn-ghost" data-switch-to="professional"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                <button class="btn btn-primary" data-save-and-next="preferences:custom"><i class="fa-solid fa-arrow-right"></i> Next: Additional Details</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════════════════════════════════════════
+               SECTION 3.5 — ADDITIONAL DETAILS
+          ══════════════════════════════════════════ -->
+          <div class="section-panel" id="section-custom">
+            <div class="card">
+              <h4 style="margin-bottom:20px"><i class="fa-solid fa-list-check"></i> Additional Details</h4>
+              <p class="text-muted" style="margin-bottom: 24px">Please answer these additional questions to complete your profile.</p>
+              
+              <div id="dynamic-questions-container" style="display:flex;flex-direction:column;gap:18px">
+                <div style="text-align:center;padding:40px;color:var(--text-3)">Loading questions...</div>
+              </div>
+
+              <div style="margin-top:24px;display:flex;gap:12px;justify-content:space-between">
+                <button class="btn btn-ghost" data-switch-to="preferences"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                <button class="btn btn-primary" data-save-and-next="custom:platforms"><i class="fa-solid fa-arrow-right"></i> Next: Platform Logins</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════════════════════════════════════════
+               SECTION 4 — PLATFORM LOGINS
+          ══════════════════════════════════════════ -->
+          <div class="section-panel" id="section-platforms">
+            <div class="card">
+              <div class="alert alert-info" style="margin-bottom:24px">
+                <i class="fa-solid fa-lock"></i>
+                <span>Credentials are AES-256 encrypted before storage and used <strong>only</strong> by the Chrome extension for automation. Passwords are never displayed or transmitted in plain text.</span>
+              </div>
+              <h4 style="margin-bottom:20px"><i class="fa-solid fa-key"></i> Platform Login Credentials</h4>
+              <div style="display:flex;flex-direction:column;gap:24px">
+                <div>
+                  <div style="font-weight:600;margin-bottom:12px"><i class="fa-brands fa-linkedin" style="color:#0a66c2"></i> LinkedIn</div>
+                  <div class="grid-2">
+                    <div class="form-group"><label>Email</label><input type="email" id="linkedin_email" placeholder="your@email.com"/></div>
+                    <div class="form-group"><label>Password</label>
+                      <div class="pw-wrap">
+                        <input type="password" id="linkedin_password" placeholder="Enter to update" autocomplete="new-password"/>
+                        <button type="button" class="pw-toggle" onclick="togglePw('linkedin_password')"><i class="fa-regular fa-eye"></i></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:28px;display:flex;gap:12px;justify-content:space-between">
+                <button class="btn btn-ghost" data-switch-to="custom"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                <button class="btn btn-accent btn-lg" id="finish-btn">
+                  <span class="spinner"></span>
+                  <span class="btn-text"><i class="fa-solid fa-check"></i> Save &amp; Go to Dashboard</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /right column -->
+      </div><!-- /profile-layout -->
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    if (!auth.requireAuth()) throw new Error('not authenticated');
+    if (window.updateThemeIcon) window.updateThemeIcon();
+
+    // ── Resume pre-fill data from upload ─────────────────────────────────────
+    var _parsedResume = null;
+    try { _parsedResume = JSON.parse(sessionStorage.getItem('parsed_profile') || 'null'); } catch(e) {}
+    var _resumeRawCtx = (_parsedResume && _parsedResume.user_information_all) || '';
+
+    // ── Tag helpers ───────────────────────────────────────────────────────────
+    var _stHelper, _bwHelper;
+    _stHelper = initTagInput('search-terms-tags', 'search_terms', []);
+    _bwHelper = initTagInput('bad-words-tags',    'bad_words',    ['US Citizen', '10+ years']);
+
+    // ── Utility ───────────────────────────────────────────────────────────────
+    function togglePw(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.type = el.type === 'password' ? 'text' : 'password';
+    }
+
+    function fillIf(id, val) {
+      if (val === undefined || val === null || val === '') return;
+      var el = document.getElementById(id);
+      if (el) el.value = val;
+    }
+
+    function switchSection(id) {
+      document.querySelectorAll('.profile-nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      
+      var nav   = document.querySelector('[data-section="' + id + '"]');
+      var panel = document.getElementById('section-' + id);
+      var step  = document.getElementById('step-' + id);
+      
+      if (nav)   nav.classList.add('active');
+      if (panel) panel.classList.add('active');
+      if (step)  step.classList.add('active');
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function markDone(id) {
+      var n = document.querySelector('[data-section="' + id + '"]');
+      var s = document.getElementById('step-' + id);
+      if (n) n.classList.add('done');
+      if (s) s.classList.add('completed');
+    }
+
+    // Nav wiring
+    document.querySelectorAll('.profile-nav-item').forEach(n =>
+      n.addEventListener('click', () => switchSection(n.getAttribute('data-section')))
+    );
+    document.querySelectorAll('[data-save-and-next]').forEach(b =>
+      b.addEventListener('click', () => {
+        var p = b.getAttribute('data-save-and-next').split(':');
+        markDone(p[0]); switchSection(p[1]);
+      })
+    );
+    document.querySelectorAll('[data-switch-to]').forEach(b =>
+      b.addEventListener('click', () => switchSection(b.getAttribute('data-switch-to')))
+    );
+
+    // ── AI helpers ────────────────────────────────────────────────────────────
+    function setAiLoading(id, on) {
+      var b = document.getElementById(id);
+      if (!b) return;
+      b.disabled = on;
+      on ? b.classList.add('ai-loading') : b.classList.remove('ai-loading');
+    }
+
+    function showAiFeedback(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      let wrap = el.parentElement;
+      if (!wrap.classList.contains('has-ai-badge')) {
+        wrap.classList.add('has-ai-badge');
+        wrap.style.position = 'relative';
+        const badge = document.createElement('div');
+        badge.className = 'ai-badge';
+        badge.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Generated';
+        badge.style.position = 'absolute';
+        badge.style.bottom = '12px';
+        badge.style.right = '12px';
+        badge.style.background = 'var(--primary)';
+        badge.style.color = '#fff';
+        badge.style.fontSize = '10px';
+        badge.style.fontWeight = '700';
+        badge.style.padding = '3px 8px';
+        badge.style.borderRadius = '99px';
+        badge.style.opacity = '0';
+        badge.style.transform = 'translateY(5px)';
+        badge.style.transition = 'all 0.3s ease';
+        badge.style.pointerEvents = 'none';
+        badge.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        wrap.appendChild(badge);
+      }
+      
+      el.style.transition = 'box-shadow 0.3s ease, border-color 0.3s ease';
+      el.style.borderColor = 'var(--primary)';
+      el.style.boxShadow = '0 0 0 4px rgba(0, 113, 227, 0.15)';
+      
+      const badge = wrap.querySelector('.ai-badge');
+      if (badge) {
+        badge.style.opacity = '1';
+        badge.style.transform = 'translateY(0)';
+      }
+      
+      setTimeout(() => {
+        el.style.boxShadow = '';
+        el.style.borderColor = '';
+      }, 2000);
+    }
+
+    /** Build rich context string from current form values + parsed resume */
+    function buildCtx() {
+      var fn  = document.getElementById('first_name').value.trim();
+      var mn  = document.getElementById('middle_name').value.trim();
+      var ln  = document.getElementById('last_name').value.trim();
+      var sk  = document.getElementById('skills_summary').value.trim();
+      var hl  = document.getElementById('linkedin_headline').value.trim();
+      var yoe = document.getElementById('years_of_experience').value;
+      var emp = document.getElementById('recent_employer').value.trim();
+      var edu = document.getElementById('education_text').value.trim();
+      var exp = document.getElementById('experience_text').value.trim();
+      var loc = document.getElementById('current_city').value.trim();
+      var gh  = document.getElementById('github').value.trim();
+      var cv  = document.getElementById('cover_letter').value.trim();
+
+      var parts = [];
+      if (fn || ln) parts.push('Name: ' + [fn, mn, ln].filter(Boolean).join(' '));
+      parts.push('Experience: ' + yoe + ' years');
+      if (emp)    parts.push('Recent Employer: ' + emp);
+      if (sk)     parts.push('Skills: ' + sk.slice(0, 400));
+      if (hl)     parts.push('Headline: ' + hl);
+      if (edu)    parts.push('Education: ' + edu.slice(0, 250));
+      if (exp)    parts.push('Work Experience: ' + exp.slice(0, 350));
+      if (loc)    parts.push('Location: ' + loc + ', India');
+      if (gh)     parts.push('GitHub: ' + gh);
+      if (cv)     parts.push('Cover Letter excerpt: ' + cv.slice(0, 200));
+      var extra = _resumeRawCtx ? '\n\nFull resume:\n' + _resumeRawCtx.slice(0, 1500) : '';
+      if (parts.length === 1 && !extra) return 'Job seeker in India. Fill in skills first for better suggestions.';
+      return parts.join('\n') + extra;
+    }
+
+    async function runAI(btnId, prompt, callback) {
+      setAiLoading(btnId, true);
+      try {
+        var r = await api.post('/ai/answer-question', { question: prompt, user_info: buildCtx() });
+        callback(r.answer || '');
+      } catch(e) {
+        showToast((e && e.detail) || 'AI service unavailable', 'error');
+      } finally {
+        setAiLoading(btnId, false);
+      }
+    }
+
+    // ── LinkedIn Headline AI ──────────────────────────────────────────────────
+    document.getElementById('ai-headline-btn').addEventListener('click', () => {
+      runAI('ai-headline-btn',
+        'Write a compelling LinkedIn headline for this candidate. Keep it under 220 characters. Format: Role | Skill · Skill · Skill | Notable Quality or CTA. Examples: "Data Analyst | Python · SQL · Power BI | 2 Yrs Exp | Open to Work" or "Software Engineer | React · Node.js · AWS | Building Scalable Apps". Return ONLY the headline string, no quotes, no extra text.',
+        val => {
+          val = val.trim().replace(/^["\'`]+|["\'`]+$/g, '');
+          if (val) { 
+            document.getElementById('linkedin_headline').value = val; 
+            showToast('Headline generated!', 'success'); 
+            showAiFeedback('linkedin_headline');
+          }
+        }
+      );
+    });
+
+    // ── LinkedIn Summary AI ───────────────────────────────────────────────────
+    document.getElementById('ai-summary-btn').addEventListener('click', () => {
+      runAI('ai-summary-btn',
+        'Write a LinkedIn About / profile summary for this candidate. 3–4 concise sentences, max 500 characters, written in first person, professional and confident tone. Mention their role, key skills, experience, and a brief value proposition. Return ONLY the summary text.',
+        val => {
+          val = val.trim().replace(/^["\'`]+|["\'`]+$/g, '');
+          if (val) { 
+            document.getElementById('linkedin_summary').value = val; 
+            showToast('Summary generated!', 'success'); 
+            showAiFeedback('linkedin_summary');
+          }
+        }
+      );
+    });
+
+    // ── Skills AI ─────────────────────────────────────────────────────────────
+    document.getElementById('ai-skills-btn').addEventListener('click', () => {
+      runAI('ai-skills-btn',
+        'Extract and list ALL technical and soft skills from this candidate\'s profile. Include programming languages, frameworks, tools, databases, platforms, analytical skills, and soft skills. Output as a single comma-separated string. Max 25 items. Return ONLY the list.',
+        val => {
+          val = val.trim().replace(/^["\'`]+|["\'`]+$/g, '').replace(/\n/g, ', ');
+          if (val) { 
+            document.getElementById('skills_summary').value = val; 
+            showToast('Skills generated!', 'success'); 
+            showAiFeedback('skills_summary');
+          }
+        }
+      );
+    });
+
+    // ── Cover Letter AI ───────────────────────────────────────────────────────
+    document.getElementById('ai-cover-btn').addEventListener('click', async () => {
+      var terms    = [];
+      try { terms = JSON.parse(document.getElementById('search_terms').value || '[]'); } catch(e) {}
+      var jobTitle = terms[0] || 'the target role';
+      setAiLoading('ai-cover-btn', true);
+      try {
+        var r   = await api.post('/ai/cover-letter', { user_info: buildCtx(), job_title: jobTitle, company: 'your organisation' });
+        var val = (r.cover_letter || '').trim();
+        if (val) { 
+          document.getElementById('cover_letter').value = val; 
+          showToast('Cover letter generated!', 'success'); 
+          showAiFeedback('cover_letter');
+        }
+      } catch(e) {
+        showToast((e && e.detail) || 'AI unavailable', 'error');
+      } finally {
+        setAiLoading('ai-cover-btn', false);
+      }
+    });
+
+    // ── Search Terms AI ───────────────────────────────────────────────────────
+    document.getElementById('ai-search-terms-btn').addEventListener('click', () => {
+      runAI('ai-search-terms-btn',
+        'Based on this candidate\'s skills, education, and experience, suggest 7–8 specific LinkedIn job search terms (job titles they should apply for). Be specific and realistic for their level. Return ONLY a valid JSON array of strings. Example: ["Data Analyst", "Business Analyst", "SQL Developer", "Power BI Developer", "MIS Analyst"]',
+        val => {
+          var raw = val.trim().replace(/^```json|```$/g, '').trim();
+          try {
+            var arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              var existing = _stHelper.getTags();
+              var toAdd = arr.filter(t => !existing.includes(t));
+              _stHelper.setTags(existing.concat(toAdd));
+              showToast(toAdd.length + ' job titles added!', 'success');
+              showAiFeedback('search-terms-tags');
+            }
+          } catch(e) { showToast('Could not parse AI suggestions', 'error'); }
+        }
+      );
+    });
+
+    // ── Bad Words AI ──────────────────────────────────────────────────────────
+    document.getElementById('ai-bad-words-btn').addEventListener('click', () => {
+      runAI('ai-bad-words-btn',
+        'Based on this candidate\'s experience level and skills, suggest 8–10 job title keywords they should SKIP to avoid wasting applications on irrelevant or over/under-levelled roles (e.g., too-senior titles, wrong domains, or unrelated roles). Return ONLY a valid JSON array of short keyword strings. Example: ["Vice President", "Director", "C-Level", "10+ years", "Intern only", "Unpaid", "Commission only"]',
+        val => {
+          var raw = val.trim().replace(/^```json|```$/g, '').trim();
+          try {
+            var arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              var existing = _bwHelper.getTags();
+              var toAdd = arr.filter(t => !existing.includes(t));
+              _bwHelper.setTags(existing.concat(toAdd));
+              showToast(toAdd.length + ' skip keywords suggested!', 'success');
+              showAiFeedback('bad-words-tags');
+            }
+          } catch(e) { showToast('Could not parse AI suggestions', 'error'); }
+        }
+      );
+    });
+
+    // ── Pre-fill from parsed resume ───────────────────────────────────────────
+    function applyParsedResume() {
+      if (!_parsedResume) return;
+      [
+        'first_name','middle_name','last_name','phone_country_code','phone_number','current_city','state',
+        'street','zipcode','country','years_of_experience','linkedin_profile','github',
+        'website','linkedin_headline','linkedin_summary','cover_letter','skills_summary',
+        'recent_employer','current_ctc','desired_salary','notice_period'
+      ].forEach(k => fillIf(k, _parsedResume[k]));
+      if (_parsedResume.search_terms?.length)
+        _stHelper = initTagInput('search-terms-tags', 'search_terms', _parsedResume.search_terms);
+      if (_parsedResume.user_information_all)
+        _resumeRawCtx = _parsedResume.user_information_all;
+      showToast('Profile pre-filled from your resume!', 'success');
+      sessionStorage.removeItem('parsed_profile');
+      _parsedResume = null;
+    }
+
+    // ── Load existing profile from API ────────────────────────────────────────
+    let dynamicQuestions = [];
+    
+    function renderDynamicQuestions() {
+      const container = document.getElementById('dynamic-questions-container');
+      if (!dynamicQuestions.length) {
+        container.innerHTML = '<p class="text-muted">No additional details required at this time.</p>';
+        return;
+      }
+      
+      let html = '';
+      dynamicQuestions.forEach(q => {
+        const reqStr = q.is_required ? ' *' : '';
+        const reqAttr = q.is_required ? 'required' : '';
+        html += `<div class="form-group" data-question-id="${q.id}">
+          <label>${escHtml(q.text)}${reqStr}</label>`;
+          
+        if (q.type === 'text') {
+          html += `<input type="text" class="dq-input" name="dq_${q.id}" ${reqAttr} />`;
+        } else if (q.type === 'textarea') {
+          html += `<textarea class="dq-input" name="dq_${q.id}" rows="3" ${reqAttr}></textarea>`;
+        } else if (q.type === 'numerical') {
+          html += `<input type="number" class="dq-input" name="dq_${q.id}" ${reqAttr} />`;
+        } else if (q.type === 'date') {
+          html += `<input type="date" class="dq-input" name="dq_${q.id}" ${reqAttr} />`;
+        } else if (q.type === 'dropdown') {
+          html += `<select class="dq-input" name="dq_${q.id}" ${reqAttr}>
+            <option value="">Select an option</option>
+            ${(q.options || []).map(opt => `<option value="${escHtml(opt)}">${escHtml(opt)}</option>`).join('')}
+          </select>`;
+        } else if (q.type === 'radio') {
+          html += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">`;
+          (q.options || []).forEach((opt, idx) => {
+            html += `<label class="badge badge-neutral" style="cursor:pointer">
+              <input type="radio" class="dq-input" name="dq_${q.id}" value="${escHtml(opt)}" ${reqAttr} style="margin-right:6px"> ${escHtml(opt)}
+            </label>`;
+          });
+          html += `</div>`;
+        }
+        html += `</div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    Promise.all([
+      api.get('/profile/me'),
+      api.get('/profile/questions').catch(() => ({ questions: [] }))
+    ]).then(([data, qData]) => {
+      dynamicQuestions = qData.questions || [];
+      renderDynamicQuestions();
+      
+      var p  = data.profile         || {};
+      var jp = data.job_preferences || {};
+      var pa = data.platform_accounts || {};
+
+      // Personal
+      ['first_name','middle_name','last_name','phone_country_code','phone_number','current_city','state',
+       'country','street','zipcode','gender','ethnicity','disability_status','veteran_status'
+      ].forEach(k => fillIf(k, p[k]));
+
+      // Professional
+      ['linkedin_profile','github','website','linkedin_headline','linkedin_summary',
+       'skills_summary','cover_letter','years_of_experience','current_ctc','desired_salary',
+       'notice_period','recent_employer','confidence_level','education_text','experience_text'
+      ].forEach(k => fillIf(k, p[k]));
+
+      // Preferences
+      fillIf('search_location', jp.search_location);
+      fillIf('date_posted',     jp.date_posted);
+      fillIf('us_citizenship',  jp.us_citizenship);
+      fillIf('require_visa',    jp.require_visa);
+      if (jp.switch_number !== undefined) fillIf('switch_number', jp.switch_number);
+      if (jp.easy_apply_only !== undefined) document.getElementById('easy_apply_only').checked = jp.easy_apply_only;
+      if (jp.search_terms?.length) _stHelper = initTagInput('search-terms-tags', 'search_terms', jp.search_terms);
+      if (jp.bad_words?.length)    _bwHelper = initTagInput('bad-words-tags',    'bad_words',    jp.bad_words);
+      ['exp_level','on_site'].forEach(name => {
+        var field = { exp_level: 'experience_level', on_site: 'on_site' }[name];
+        var vals  = jp[field] || [];
+        if (vals.length) document.querySelectorAll('[name="' + name + '"]').forEach(cb => {
+          cb.checked = vals.includes(cb.value);
+        });
+      });
+
+      // Platform logins (emails only — never pre-fill passwords)
+      Object.keys(pa).forEach(k => { if (k.indexOf('password') === -1) fillIf(k, pa[k]); });
+
+      // Dynamic Answers
+      if (p.dynamic_answers) {
+        Object.keys(p.dynamic_answers).forEach(qid => {
+          const els = document.querySelectorAll(`[name="dq_${qid}"]`);
+          if (!els.length) return;
+          const val = p.dynamic_answers[qid];
+          if (els[0].type === 'radio') {
+            els.forEach(el => { if (el.value === val) el.checked = true; });
+          } else {
+            els[0].value = val;
+          }
+        });
+      }
+
+      applyParsedResume();
+    }).catch((e) => {
+      console.error(e);
+      applyParsedResume();
+    });
+
+    // ── Save All & Go to Dashboard ────────────────────────────────────────────
+    document.getElementById('finish-btn').addEventListener('click', saveAll);
+
+    async function saveAll() {
+      const btn = document.getElementById('finish-btn');
+      
+      // Simple validation
+      const firstName = document.getElementById('first_name').value.trim();
+      const lastName = document.getElementById('last_name').value.trim();
+      const phone = document.getElementById('phone_number').value.trim();
+      
+      const validateField = (id, condition, msg) => {
+        const el = document.getElementById(id);
+        if (!condition) {
+          el.style.borderColor = 'var(--danger)';
+          showToast(msg, 'error');
+          return false;
+        }
+        el.style.borderColor = '';
+        return true;
+      };
+
+      if (!validateField('first_name', firstName, 'First name is required')) { switchSection('personal'); return; }
+      if (!validateField('last_name', lastName, 'Last name is required')) { switchSection('personal'); return; }
+      if (!validateField('phone_number', phone.length >= 10, 'Valid 10-digit phone number is required')) { switchSection('personal'); return; }
+
+      setLoading(btn, true);
+      var getChecked = name => Array.from(document.querySelectorAll('[name="' + name + '"]:checked')).map(c => c.value);
+
+      var profileData = {
+        // Personal
+        first_name:        document.getElementById('first_name').value.trim(),
+        middle_name:       document.getElementById('middle_name').value.trim(),
+        last_name:         document.getElementById('last_name').value.trim(),
+        phone_country_code:document.getElementById('phone_country_code').value,
+        phone_number:      document.getElementById('phone_number').value.trim(),
+        current_city:      document.getElementById('current_city').value.trim(),
+        street:            document.getElementById('street').value.trim(),
+        state:             document.getElementById('state').value.trim(),
+        country:           document.getElementById('country').value.trim(),
+        zipcode:           document.getElementById('zipcode').value.trim(),
+        gender:            document.getElementById('gender').value,
+        ethnicity:         document.getElementById('ethnicity').value,
+        disability_status: document.getElementById('disability_status').value,
+        veteran_status:    document.getElementById('veteran_status').value,
+        // Online
+        linkedin_profile:  document.getElementById('linkedin_profile').value.trim(),
+        github:            document.getElementById('github').value.trim(),
+        website:           document.getElementById('website').value.trim(),
+        // Professional bio
+        linkedin_headline: document.getElementById('linkedin_headline').value.trim(),
+        linkedin_summary:  document.getElementById('linkedin_summary').value.trim(),
+        skills_summary:    document.getElementById('skills_summary').value.trim(),
+        cover_letter:      document.getElementById('cover_letter').value.trim(),
+        // Experience & comp
+        years_of_experience: document.getElementById('years_of_experience').value,
+        current_ctc:       (document.getElementById('current_ctc').value !== '') ? parseInt(document.getElementById('current_ctc').value) : 0,
+        desired_salary:    (document.getElementById('desired_salary').value !== '') ? parseInt(document.getElementById('desired_salary').value) : null,
+        notice_period:     (document.getElementById('notice_period').value !== '') ? parseInt(document.getElementById('notice_period').value) : 0,
+        recent_employer:   document.getElementById('recent_employer').value.trim(),
+        confidence_level:  document.getElementById('confidence_level').value.trim() || '7',
+        // Resume blocks
+        education_text:    document.getElementById('education_text').value.trim(),
+        experience_text:   document.getElementById('experience_text').value.trim(),
+      };
+
+      // Collect Dynamic Answers
+      var dynamicAnswers = {};
+      let dqValid = true;
+      dynamicQuestions.forEach(q => {
+        const els = document.querySelectorAll(`[name="dq_${q.id}"]`);
+        if (!els.length) return;
+        let val = '';
+        if (q.type === 'radio') {
+          const checked = Array.from(els).find(e => e.checked);
+          val = checked ? checked.value : '';
+        } else {
+          val = els[0].value.trim();
+        }
+        
+        if (q.is_required && !val) {
+          dqValid = false;
+          if (q.type !== 'radio') els[0].style.borderColor = 'var(--danger)';
+        } else if (q.type !== 'radio') {
+          els[0].style.borderColor = '';
+        }
+        
+        if (val) dynamicAnswers[q.id] = val;
+      });
+      
+      if (!dqValid) {
+        setLoading(btn, false);
+        switchSection('custom');
+        showToast('Please fill out all required custom questions', 'error');
+        return;
+      }
+      
+      profileData.dynamic_answers = dynamicAnswers;
+
+      var jobPrefs = {
+        search_terms:     JSON.parse(document.getElementById('search_terms').value || '[]'),
+        search_location:  document.getElementById('search_location').value.trim(),
+        experience_level: getChecked('exp_level'),
+        on_site:          getChecked('on_site'),
+        date_posted:      document.getElementById('date_posted').value,
+        switch_number:    parseInt(document.getElementById('switch_number').value) || 15,
+        easy_apply_only:  document.getElementById('easy_apply_only').checked,
+        bad_words:        JSON.parse(document.getElementById('bad_words').value || '[]'),
+        good_words:       [],
+        job_type:         ['Full-time'],
+        us_citizenship:   document.getElementById('us_citizenship').value,
+        require_visa:     document.getElementById('require_visa').value,
+      };
+
+      var platforms = { linkedin_email: document.getElementById('linkedin_email').value.trim() };
+      var pw = document.getElementById('linkedin_password').value;
+      if (pw && pw.length >= 1) platforms.linkedin_password = pw;
+
+      try {
+        await api.post('/profile/save-all', {
+          profile: profileData,
+          job_preferences: jobPrefs,
+          platform_accounts: platforms
+        });
+        showToast('Profile saved successfully!', 'success');
+        setTimeout(() => window.location.href = 'dashboard.html', 900);
+      } catch(err) {
+        showToast((err && err.detail) || 'Could not save profile', 'error');
+        setLoading(btn, false);
+      }
+    }
+  </script>
+  <div id="li-preview-modal" style="
+    display:none;position:fixed;inset:0;z-index:3000;
+    background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);
+    align-items:center;justify-content:center;padding:20px;">
+    <div style="
+      background:var(--glass-bg);border:1px solid var(--border);
+      border-radius:24px;padding:clamp(24px,5vw,40px);
+      width:100%;max-width:560px;max-height:85vh;overflow-y:auto;
+      box-shadow:var(--shadow-lg);">
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(10,102,194,0.12);
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fa-brands fa-linkedin" style="color:#0a66c2;font-size:22px"></i>
+        </div>
+        <div>
+          <h4 style="margin:0">LinkedIn Profile Preview</h4>
+          <div class="text-muted text-sm">Review before saving to your profile</div>
+        </div>
+        <button onclick="closeLiModal()" style="margin-left:auto;background:none;border:none;
+                cursor:pointer;color:var(--text-2);font-size:22px;padding:4px">×</button>
+      </div>
+
+      <div id="li-preview-fields" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
+      </div>
+
+      <div class="toggle-row" style="padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px">
+        <div>
+          <div style="font-size:14px;font-weight:500">Overwrite existing fields</div>
+          <div class="text-muted text-sm">ON = replace all fields. OFF = only fill empty fields.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="li-overwrite-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="flex:1" onclick="confirmLinkedInSave()">
+          <i class="fa-solid fa-check"></i> Save to Profile
+        </button>
+        <button class="btn btn-ghost" onclick="closeLiModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    fetch("/api/config/extension")
+      .then(r => r.json())
+      .then(d => { window.SMARTAPPLY_EXTENSION_ID = d.extension_id; });
+  </script>
+  <script src="js/linkedin_bridge.js"></script>
+  <script>
+    let _liScrapedData = null;
+
+    async function triggerLinkedInImport() {
+      const btn = document.getElementById("li-import-btn");
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scraping LinkedIn…';
+
+      try {
+        const installed = await window.LinkedInBridge.isInstalled();
+        if (!installed) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-brands fa-linkedin" style="color:#0a66c2"></i> Sync LinkedIn Optimizer';
+          window.LinkedInBridge.scrapeProfile(); 
+          return;
+        }
+
+        const result = await window.LinkedInBridge.scrapeProfile();
+        if (!result.ok) {
+          const msgs = {
+            not_logged_in:  "Log in to LinkedIn first, then try again.",
+            scrape_failed:  "LinkedIn profile appears private or couldn't be read.",
+            timeout:        "Scrape took too long — try again when LinkedIn loads faster.",
+            scrape_error:   "Extension error. Try refreshing LinkedIn and retrying.",
+          };
+          showToast(msgs[result.error] || "LinkedIn import failed.", "error");
+          return;
+        }
+
+        _liScrapedData = result.data;
+        showLiPreview(result.data);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-brands fa-linkedin" style="color:#0a66c2"></i> Sync LinkedIn Optimizer';
+      }
+    }
+
+    function showLiPreview(data) {
+      const fields = [
+        ["Name",             [data.first_name, data.last_name].filter(Boolean).join(" ")],
+        ["Headline",         data.linkedin_headline],
+        ["Location",         data.current_city],
+        ["Experience",       data.years_of_experience ? data.years_of_experience + " years" : null],
+        ["Current Employer", data.recent_employer],
+        ["Skills",           data.skills_summary?.slice(0, 120)],
+        ["Education",        data.education_text?.split("\n")[0]],
+        ["LinkedIn URL",     data.linkedin_profile],
+        ["GitHub",           data.github],
+      ].filter(([, v]) => v);
+
+      document.getElementById("li-preview-fields").innerHTML = fields.map(([k, v]) => `
+        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-3);min-width:120px">${escHtml(k)}</div>
+          <div style="font-size:14px;color:var(--text);flex:1;word-break:break-word">${escHtml(String(v))}</div>
+        </div>
+      `).join("");
+
+      document.getElementById("li-preview-modal").style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeLiModal() {
+      document.getElementById("li-preview-modal").style.display = "none";
+      document.body.style.overflow = "";
+      _liScrapedData = null;
+    }
+
+    async function confirmLinkedInSave() {
+      if (!_liScrapedData) return;
+      const overwrite = document.getElementById("li-overwrite-toggle").checked;
+      const btn = document.querySelector("#li-preview-modal .btn-primary");
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+
+      try {
+        const token = localStorage.getItem("sa_token");
+        const res = await fetch("/api/profile/import-linkedin", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body:    JSON.stringify({ raw_linkedin_data: _liScrapedData, overwrite }),
+        });
+        const result = await res.json();
+        if (!res.ok) {
+          showToast("Save failed: " + (result.detail || res.status), "error");
+          return;
+        }
+        showToast(`✓ ${result.message}`, "success");
+        closeLiModal();
+        setTimeout(() => window.location.reload(), 1200);
+      } catch (e) {
+        showToast("Network error: " + e.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Save to Profile';
+      }
+    }
+
+    document.getElementById("li-preview-modal")?.addEventListener("click", function(e) {
+      if (e.target === this) closeLiModal();
+    });
+  </script>
+</body>
+</html>
