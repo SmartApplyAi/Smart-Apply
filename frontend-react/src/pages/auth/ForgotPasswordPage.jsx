@@ -7,6 +7,7 @@ import Logo from '../../components/common/Logo';
 import PasswordInput from '../../components/common/PasswordInput';
 import PasswordStrength from '../../components/common/PasswordStrength';
 import LoadingButton from '../../components/common/LoadingButton';
+import ThemeToggle from '../../components/common/ThemeToggle';
 
 export default function ForgotPasswordPage() {
   const token = getParam('token');
@@ -53,62 +54,87 @@ export default function ForgotPasswordPage() {
     } finally { setLoading(false); }
   };
 
-  if (step === 'reset') {
-    return (
-      <div className="auth-wrapper">
-        <div className="auth-card fade-in">
-          <Logo as="div" />
-          <h2>Set new password</h2>
-          <p className="subtitle">Choose a strong, secure password</p>
-          {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
-          <form onSubmit={handleReset} noValidate>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div className={`form-group${fieldErrors.newPassword ? ' has-error' : ''}`}>
-                <label><i className="fa-solid fa-lock"></i> New Password</label>
+  const inner = step === 'reset' ? (
+    <div className="auth-card fade-in">
+      <div className="auth-header">
+        <Logo as="div" className="auth-logo" />
+      </div>
+      
+      <h2>Set new password</h2>
+      <p className="subtitle">Choose a strong, secure password</p>
+      
+      {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+      
+      <div className="auth-body">
+        <form onSubmit={handleReset} noValidate>
+          <div className="form-stack">
+            <div className={`form-group${fieldErrors.newPassword ? ' has-error' : ''}`}>
+              <label><i className="fa-solid fa-lock"></i> New Password</label>
+              <div className="input-wrapper">
                 <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Min. 8 characters" autoComplete="new-password" />
-                <PasswordStrength password={newPassword} />
-                {fieldErrors.newPassword && <span className="field-error">{fieldErrors.newPassword}</span>}
               </div>
-              <div className={`form-group${fieldErrors.confirmPassword ? ' has-error' : ''}`}>
-                <label><i className="fa-solid fa-lock"></i> Confirm Password</label>
+              <PasswordStrength password={newPassword} />
+              {fieldErrors.newPassword && <span className="field-error">{fieldErrors.newPassword}</span>}
+            </div>
+
+            <div className={`form-group${fieldErrors.confirmPassword ? ' has-error' : ''}`}>
+              <label><i className="fa-solid fa-lock"></i> Confirm Password</label>
+              <div className="input-wrapper">
                 <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Repeat new password" autoComplete="new-password" />
-                {fieldErrors.confirmPassword && <span className="field-error">{fieldErrors.confirmPassword}</span>}
               </div>
-              <LoadingButton type="submit" className="btn btn-primary btn-block btn-lg" loading={loading}>
-                <i className="fa-solid fa-key"></i> Reset Password
-              </LoadingButton>
+              {fieldErrors.confirmPassword && <span className="field-error">{fieldErrors.confirmPassword}</span>}
             </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div className="auth-wrapper">
-      <div className="auth-card fade-in">
-        <Logo as="div" />
-        <h2>Reset password</h2>
-        <p className="subtitle">Enter your email and we will send a reset link</p>
-        {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
-        {success && <div className="alert alert-success" style={{ marginBottom: '16px' }}>{success}</div>}
+            <LoadingButton type="submit" className="btn btn-primary btn-block btn-lg" loading={loading}>
+              <i className="fa-solid fa-key"></i> Reset Password
+            </LoadingButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  ) : (
+    <div className="auth-card fade-in">
+      <div className="auth-header">
+        <Logo as="div" className="auth-logo" />
+      </div>
+
+      <h2>Reset password</h2>
+      <p className="subtitle">Enter your email and we will send a reset link</p>
+
+      {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+      {success && <div className="alert alert-success" style={{ marginBottom: '16px' }}>{success}</div>}
+
+      <div className="auth-body">
         <form onSubmit={handleRequest} noValidate>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="form-stack">
             <div className="form-group">
               <label><i className="fa-solid fa-envelope"></i> Email Address</label>
-              <input type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <div className="input-wrapper">
+                <input type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
             </div>
             <LoadingButton type="submit" className="btn btn-primary btn-block btn-lg" loading={loading}>
               <i className="fa-solid fa-paper-plane"></i> Send Reset Link
             </LoadingButton>
           </div>
         </form>
-        <div className="auth-footer">
-          <Link to="/login"><i className="fa-solid fa-arrow-left"></i> Back to login</Link>
-        </div>
+      </div>
+
+      <div className="auth-footer">
+        <Link to="/login"><i className="fa-solid fa-arrow-left"></i> Back to login</Link>
       </div>
     </div>
   );
+
+  return (
+    <div className="auth-container">
+      <div className="theme-toggle-fixed">
+        <ThemeToggle />
+      </div>
+      {inner}
+    </div>
+  );
 }
+

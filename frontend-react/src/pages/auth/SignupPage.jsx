@@ -4,11 +4,12 @@ import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import Logo from '../../components/common/Logo';
 import GoogleOAuthButton from '../../components/common/GoogleOAuthButton';
-import OrDivider from '../../components/common/OrDivider';
 import PasswordInput from '../../components/common/PasswordInput';
 import PasswordStrength from '../../components/common/PasswordStrength';
 import PinInput from '../../components/common/PinInput';
 import LoadingButton from '../../components/common/LoadingButton';
+import ThemeToggle from '../../components/common/ThemeToggle';
+
 
 export default function SignupPage() {
   const [step, setStep] = useState('signup'); // 'signup' | 'verify'
@@ -82,18 +83,29 @@ export default function SignupPage() {
 
   if (step === 'verify') {
     return (
-      <div className="auth-wrapper">
+      <div className="auth-container">
+        <div className="theme-toggle-fixed">
+          <ThemeToggle />
+        </div>
+
         <div className="auth-card fade-in">
-          <Logo as="div" />
+          <div className="auth-header">
+            <Logo as="div" className="auth-logo" />
+          </div>
+          
           <h2>Verify your email</h2>
           <p className="subtitle">Enter the 6-digit code sent to {email}</p>
-          {verifyError && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{verifyError}</div>}
-          <PinInput value={pin} onChange={setPin} />
-          <div style={{ marginTop: '16px' }}>
-            <LoadingButton className="btn btn-primary btn-block btn-lg" loading={verifyLoading} onClick={handleVerify}>
-              <i className="fa-solid fa-circle-check"></i> Verify Email
-            </LoadingButton>
+
+          <div className="auth-body">
+            {verifyError && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{verifyError}</div>}
+            <PinInput value={pin} onChange={setPin} />
+            <div style={{ marginTop: '16px' }}>
+              <LoadingButton className="btn btn-primary btn-block btn-lg" loading={verifyLoading} onClick={handleVerify}>
+                <i className="fa-solid fa-circle-check"></i> Verify Email
+              </LoadingButton>
+            </div>
           </div>
+
           <div className="auth-footer">
             {resendTimer > 0 ? (
               <span>Resend in {resendTimer}s</span>
@@ -107,46 +119,64 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="auth-wrapper">
+    <div className="auth-container">
+      <div className="theme-toggle-fixed">
+        <ThemeToggle />
+      </div>
+
       <div className="auth-card fade-in">
-        <Logo as="div" />
+        <div className="auth-header">
+          <Logo as="div" className="auth-logo" />
+        </div>
+        
         <h2>Create your account</h2>
         <p className="subtitle">Start automating your job applications today</p>
 
-        <GoogleOAuthButton label="Sign up with Google" />
-        <OrDivider text="or sign up with email" />
-
-        {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
-
-        <form onSubmit={handleSignup} noValidate>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className={`form-group${fieldErrors.email ? ' has-error' : ''}`}>
-              <label><i className="fa-solid fa-envelope"></i> Email Address</label>
-              <input type="email" placeholder="you@company.com" autoComplete="email"
-                value={email} onChange={(e) => setEmail(e.target.value)} />
-              {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
-            </div>
-
-            <div className={`form-group${fieldErrors.password ? ' has-error' : ''}`}>
-              <label><i className="fa-solid fa-lock"></i> Password</label>
-              <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 8 characters" autoComplete="new-password" />
-              <PasswordStrength password={password} />
-              {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
-            </div>
-
-            <div className={`form-group${fieldErrors.confirm ? ' has-error' : ''}`}>
-              <label><i className="fa-solid fa-lock"></i> Confirm Password</label>
-              <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat your password" autoComplete="new-password" />
-              {fieldErrors.confirm && <span className="field-error">{fieldErrors.confirm}</span>}
-            </div>
-
-            <LoadingButton type="submit" className="btn btn-primary btn-block btn-lg" loading={loading}>
-              <i className="fa-solid fa-user-plus"></i> Create Account
-            </LoadingButton>
+        <div className="auth-body">
+          <GoogleOAuthButton label="Sign up with Google" />
+          
+          <div className="divider">
+            <span>or sign up with email</span>
           </div>
-        </form>
+
+          {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+
+          <form onSubmit={handleSignup} noValidate>
+            <div className="form-stack">
+              <div className={`form-group${fieldErrors.email ? ' has-error' : ''}`}>
+                <label><i className="fa-solid fa-envelope"></i> Email Address</label>
+                <div className="input-wrapper">
+                  <input type="email" placeholder="you@company.com" autoComplete="email"
+                    value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
+              </div>
+
+              <div className={`form-group${fieldErrors.password ? ' has-error' : ''}`}>
+                <label><i className="fa-solid fa-lock"></i> Password</label>
+                <div className="input-wrapper">
+                  <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 8 characters" autoComplete="new-password" />
+                </div>
+                <PasswordStrength password={password} />
+                {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
+              </div>
+
+              <div className={`form-group${fieldErrors.confirm ? ' has-error' : ''}`}>
+                <label><i className="fa-solid fa-lock"></i> Confirm Password</label>
+                <div className="input-wrapper">
+                  <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat your password" autoComplete="new-password" />
+                </div>
+                {fieldErrors.confirm && <span className="field-error">{fieldErrors.confirm}</span>}
+              </div>
+
+              <LoadingButton type="submit" className="btn btn-primary btn-block btn-lg" loading={loading}>
+                <i className="fa-solid fa-user-plus"></i> Create Account
+              </LoadingButton>
+            </div>
+          </form>
+        </div>
 
         <div className="auth-footer">
           Already have an account? <Link to="/login">Sign in</Link>

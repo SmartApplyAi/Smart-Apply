@@ -5,9 +5,10 @@ import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import Logo from '../../components/common/Logo';
 import GoogleOAuthButton from '../../components/common/GoogleOAuthButton';
-import OrDivider from '../../components/common/OrDivider';
 import PasswordInput from '../../components/common/PasswordInput';
 import LoadingButton from '../../components/common/LoadingButton';
+import ThemeToggle from '../../components/common/ThemeToggle';
+
 
 const OAUTH_ERRORS = {
   google_cancelled: 'Google sign-in was cancelled.',
