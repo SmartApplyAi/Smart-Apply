@@ -243,7 +243,7 @@ async def extension_report_step(request: Request):
 
 
 @router.post("/extension/report-result")
-@limiter.limit("60/minute")
+@limiter.limit("20/minute")
 async def extension_report_result(request: Request):
     """Report a completed application result from the extension."""
     try:

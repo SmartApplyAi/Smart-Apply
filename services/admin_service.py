@@ -170,8 +170,10 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
     cursor = db.users.find({"email_verified": True, "is_active": True})
     
     from services.email_service import send_email, wrap_template
+    import asyncio
     
     count = 0
+    errors = 0
     async for user in cursor:
         user_id = str(user["_id"])
         profile = await db.user_profiles.find_one({"user_id": user_id})
@@ -188,6 +190,11 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
         )
         if success:
             count += 1
+        else:
+            errors += 1
+        # Throttle to avoid Brevo rate limit and event loop blocking
+        if (count + errors) % 10 == 0:
+            await asyncio.sleep(0.5)
             
     return {"sent_count": count}
 

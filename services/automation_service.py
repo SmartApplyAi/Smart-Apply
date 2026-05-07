@@ -300,13 +300,15 @@ async def extension_report_result(user_id: str, session_id: str, result_data: di
     else:
         logger.warning(f"Result reported with missing job_title or company for user {user_id}. Skipping application record.")
 
-    # Log the result
+    # Log the result (whitelist safe fields to avoid persisting sensitive data)
+    safe_keys = {"job_title", "company", "platform", "result", "job_link", "job_url", "error_detail"}
+    safe_data = {k: v for k, v in result_data.items() if k in safe_keys}
     await extension_report_step(
         user_id, session_id,
         step="application_result",
         status=result_type,
         message=f"{result_data.get('job_title', '')} at {result_data.get('company', '')}",
-        data=result_data,
+        data=safe_data,
     )
 
     # Broadcast update for real-time dashboard

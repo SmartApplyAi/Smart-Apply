@@ -60,8 +60,11 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
-    # ── Extension ─────────────────────────────────────
+    # ── Extension ─────────────────────────────────────────
     CHROME_EXTENSION_ID: str = ""
+
+    # ── Admin ─────────────────────────────────────────────
+    ADMIN_EMAIL: str = ""
 
     _nim_keys_cache: Optional[List[str]] = PrivateAttr(default=None)
 

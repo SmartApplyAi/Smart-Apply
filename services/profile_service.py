@@ -79,6 +79,13 @@ async def update_profile(user_id: str, data: dict) -> dict:
         "_linkedin_raw_languages", "dynamic_answers",
     }
 
+    # Validate and sanitize dynamic_answers to prevent payload abuse
+    if "dynamic_answers" in data:
+        answers = data["dynamic_answers"]
+        if not isinstance(answers, dict) or len(str(answers)) > 50000:
+            raise ValueError("dynamic_answers too large or invalid")
+        data["dynamic_answers"] = {str(k)[:100]: str(v)[:5000] for k, v in answers.items()}
+
     update_data = {}
     for k, v in data.items():
         if k in allowed_fields:

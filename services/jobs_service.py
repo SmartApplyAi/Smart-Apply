@@ -306,11 +306,13 @@ async def batch_create_applications(user_id: str, applications: list) -> dict:
     db = get_db()
     
     # 1. Collect all unique job links for bulk check
-    all_links = list(set(
-        app.get("job_link") or app.get("job_url", "") 
-        for app in applications 
+    raw_links = set(
+        app.get("job_link") or app.get("job_url", "")
+        for app in applications
         if app.get("job_link") or app.get("job_url")
-    ))
+    )
+    # Sanitize: must be string, start with http, cap length (prevents NoSQL injection)
+    all_links = [str(l)[:2048] for l in raw_links if isinstance(l, str) and l.startswith("http")]
     
     # 2. Bulk query existing links (check both job_link and job_url fields)
     existing_links = set()

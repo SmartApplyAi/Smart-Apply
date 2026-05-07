@@ -56,7 +56,7 @@ async def register_user(email: str, password: str) -> dict:
             return {"message": "Verification code resent to your email"}
 
     # Create user
-    role = "admin" if email.lower().strip() == "kovvurinandivardhanreddy2007@gmail.com" else "user"
+    role = "admin" if settings.ADMIN_EMAIL and email.lower().strip() == settings.ADMIN_EMAIL.lower() else "user"
     user_doc = {
         "email": email.lower().strip(),
         "password_hash": hash_password(password),
@@ -265,7 +265,7 @@ async def google_login_user(email: str, name: str, ip: str = "") -> dict:
     
     if not user:
         # Register new user
-        role = "admin" if email.lower().strip() == "kovvurinandivardhanreddy2007@gmail.com" else "user"
+        role = "admin" if settings.ADMIN_EMAIL and email.lower().strip() == settings.ADMIN_EMAIL.lower() else "user"
         user_doc = {
             "email": email,
             "password_hash": "", # No password for Google users
