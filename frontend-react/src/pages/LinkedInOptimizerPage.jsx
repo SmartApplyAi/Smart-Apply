@@ -72,9 +72,7 @@ export default function LinkedInOptimizerPage() {
   };
 
   return (
-    <div className="dashboard-layout">
-      <Sidebar activeTab="linkedin" userName={user?.email?.split('@')[0]} userEmail={user?.email} />
-      <main className="main-content">
+    <>
         <div className="action-banner" style={{ background: 'linear-gradient(135deg, rgba(10, 102, 194, 0.1), rgba(79, 124, 255, 0.1))', border: '1px solid rgba(10, 102, 194, 0.2)', borderRadius: '16px', padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '28px' }}>
           <div className="action-icon" style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#0a66c2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
             <i className="fa-brands fa-linkedin-in"></i>
@@ -184,11 +182,10 @@ export default function LinkedInOptimizerPage() {
             <button className="btn btn-ghost" onClick={() => { setShowPreview(false); setStatus('empty'); }}>Cancel</button>
           </div>
         </Modal>
-      </main>
 
       <style>{`
         .badge-neutral { background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); border-radius: 99px; padding: 4px 12px; font-size: 12px; }
       `}</style>
-    </div>
+    </>
   );
 }

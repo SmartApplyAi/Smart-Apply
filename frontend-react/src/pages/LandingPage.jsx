@@ -41,32 +41,6 @@ const FAQS = [
 
 export default function LandingPage() {
   const { isAuthenticated } = useAuth();
-  const statsRef = useRef(null);
-
-  useEffect(() => {
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) {
-          e.target.querySelectorAll('[data-count]').forEach((el) => {
-            const t = parseInt(el.dataset.count, 10);
-            let c = 0; const s = Math.ceil(t / 40);
-            const id = setInterval(() => { c = Math.min(c + s, t); el.textContent = c.toLocaleString() + (el.dataset.suffix || ''); if (c >= t) clearInterval(id); }, 30);
-          });
-          obs.unobserve(e.target);
-        }
-      });
-    }, { threshold: 0.3 });
-    if (statsRef.current) obs.observe(statsRef.current);
-    return () => obs.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('.reveal').forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, []);
 
   const authCTA = isAuthenticated
     ? <Link to="/dashboard" className="btn btn-primary btn-lg"><i className="fa-solid fa-gauge"></i> Go to Dashboard</Link>
@@ -74,19 +48,18 @@ export default function LandingPage() {
 
   return (
     <>
-      <div className="bg-grid"></div><div className="bg-glow bg-glow-1"></div><div className="bg-glow bg-glow-2"></div><div className="ambient-glow"></div>
       <Navbar variant="landing" />
 
-      <section className="hero" id="hero"><div className="container"><div className="hero-content">
+      <section className="hero" id="hero"><div className="container"><div className="hero-content reveal">
         <div className="hero-badge"><i className="fa-solid fa-bolt"></i> AI-Powered Job Applications</div>
-        <h1>Stop Applying Manually.<br /><span className="gradient-text">Let AI Do It For You.</span></h1>
+        <h1>Stop Applying Manually.<br /><span className="text-gradient">Let AI Do It For You.</span></h1>
         <p className="hero-subtitle">SmartApply automates your entire job search — from finding positions to filling out applications and generating tailored cover letters.</p>
         <div className="hero-actions">{authCTA}</div>
       </div></div></section>
 
-      <section className="section" ref={statsRef}><div className="container"><div className="stats-row reveal">
-        {[['10000','+','Applications Sent'],['500','+','Happy Users'],['95','%','Success Rate'],['50','x','Faster Than Manual']].map(([c,s,l],i) => (
-          <div className="stat-item" key={i}><div className="stat-number" data-count={c} data-suffix={s}>0</div><div className="stat-label">{l}</div></div>
+      <section className="section"><div className="container"><div className="stats-row stagger">
+        {[['10,000','+','Applications Sent'],['500','+','Happy Users'],['95','%','Success Rate'],['50','x','Faster Than Manual']].map(([c,s,l],i) => (
+          <div className="stat-item" key={i}><div className="stat-number stat-count">{c}</div><div className="stat-label">{l}</div></div>
         ))}
       </div></div></section>
 

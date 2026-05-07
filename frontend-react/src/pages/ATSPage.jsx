@@ -116,9 +116,7 @@ export default function ATSPage() {
   };
 
   return (
-    <div className="dashboard-layout">
-      <Sidebar activeTab="ats" userName={user?.email?.split('@')[0]} userEmail={user?.email} />
-      <main className="main-content">
+    <>
         <div className="page-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg,var(--primary),#7b61ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
@@ -282,10 +280,8 @@ export default function ATSPage() {
                 </p>
               </div>
             )}
-          </div>
         </div>
-      </main>
-
+      </div>
       <style>{`
         .tab-btn-ats {
           padding: 10px 20px;
@@ -305,6 +301,6 @@ export default function ATSPage() {
         .badge-accent { background: rgba(126,232,162,0.1); color: var(--accent); border: 1px solid rgba(126,232,162,0.2); border-radius: 99px; padding: 4px 12px; font-size: 12px; }
         .badge-danger { background: rgba(255,107,107,0.1); color: var(--danger); border: 1px solid rgba(255,107,107,0.2); border-radius: 99px; padding: 4px 12px; font-size: 12px; }
       `}</style>
-    </div>
+    </>
   );
 }

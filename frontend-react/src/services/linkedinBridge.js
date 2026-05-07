@@ -1,7 +1,7 @@
-/* ── SmartApply LinkedIn Bridge ─────────────────────────────────────────── */
-/* Communicates with the SmartApply Chrome Extension via chrome.runtime.sendMessage */
+/* ── SmartApply LinkedIn Bridge — Standardized Migration ───────────────────── */
 
 let _extensionId = null;
+const SCRAPE_TIMEOUT_MS = 30000;
 
 /** Set the extension ID (call once at app init) */
 export function setExtensionId(id) {
@@ -13,24 +13,29 @@ export function getExtensionId() {
   return _extensionId || window.SMARTAPPLY_EXTENSION_ID || localStorage.getItem('sa_ext_id') || '';
 }
 
-/** Send a message to the Chrome extension */
-function sendMessage(action, data = {}) {
+/** Send a message to the Chrome extension with timeout */
+function sendMessage(msg, timeoutMs = 10000) {
   return new Promise((resolve) => {
     const id = getExtensionId();
     if (!id || typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
       resolve({ ok: false, error: 'extension_not_found' });
       return;
     }
+
+    const timer = setTimeout(() => resolve({ ok: false, error: 'timeout' }), timeoutMs);
+
     try {
-      chrome.runtime.sendMessage(id, { action, ...data }, (response) => {
+      chrome.runtime.sendMessage(id, msg, (response) => {
+        clearTimeout(timer);
         if (chrome.runtime.lastError) {
-          resolve({ ok: false, error: 'extension_not_found' });
+          resolve({ ok: false, error: 'extension_not_found', detail: chrome.runtime.lastError.message });
         } else {
           resolve(response || { ok: false, error: 'no_response' });
         }
       });
-    } catch {
-      resolve({ ok: false, error: 'extension_not_found' });
+    } catch (e) {
+      clearTimeout(timer);
+      resolve({ ok: false, error: 'extension_not_found', detail: e.message });
     }
   });
 }
@@ -38,7 +43,7 @@ function sendMessage(action, data = {}) {
 const LinkedInBridge = {
   /** Check if the extension is installed and responsive */
   async isInstalled() {
-    const result = await sendMessage('ping');
+    const result = await sendMessage({ type: 'PING' }, 3000);
     return result?.ok === true;
   },
 
@@ -48,19 +53,26 @@ const LinkedInBridge = {
     if (!installed) {
       return { ok: false, error: 'extension_not_found' };
     }
-    const result = await sendMessage('scrape_profile');
-    return result;
+    return sendMessage({ type: 'SCRAPE_LINKEDIN' }, SCRAPE_TIMEOUT_MS);
   },
 
-  /** Sync cookies to the extension */
-  async syncCookies() {
-    return sendMessage('sync_cookies');
+  /** Get session cookies from extension */
+  async getSessionCookies() {
+    return sendMessage({ type: 'GET_COOKIES' }, 5000);
   },
 
   /** Full import flow: scrape + save to backend */
   async importAndSave(token, overwrite = false) {
     const scrapeResult = await LinkedInBridge.scrapeProfile();
-    if (!scrapeResult.ok) return scrapeResult;
+    if (!scrapeResult.ok) {
+      const msgs = {
+        not_logged_in: 'Not logged into LinkedIn. Please log in first.',
+        scrape_failed: 'Could not read LinkedIn profile.',
+        timeout: 'Scrape timed out. LinkedIn loaded too slowly.',
+        extension_not_found: 'SmartApply extension not found.',
+      };
+      return { ok: false, error: msgs[scrapeResult.error] || scrapeResult.error };
+    }
 
     try {
       const resp = await fetch('/api/profile/import-linkedin', {
