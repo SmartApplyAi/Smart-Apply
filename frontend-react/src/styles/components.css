@@ -1,0 +1,250 @@
+/* ══════════════════════════════════════
+   COMPONENTS — Glass, Cards, Forms, Buttons, Alerts, Badges, Tables
+   ══════════════════════════════════════ */
+
+/* ── Glass ── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(24px, 5vw, 40px);
+  transition: transform 0.4s var(--spring-bounce), box-shadow 0.4s var(--spring-soft), border-color 0.3s ease;
+  box-shadow: var(--shadow);
+  transform-style: preserve-3d;
+  position: relative;
+  overflow: hidden;
+}
+.card::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit; opacity: 0;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0, 113, 227, 0.06) 0%, transparent 60%);
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.card::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03; pointer-events: none; z-index: 0;
+}
+.card:hover::after { opacity: 1 }
+.card:hover { transform: translateY(-5px) scale(1.005); box-shadow: var(--shadow-lg), 0 0 0 1px var(--border-glow) }
+.table-wrapper .card:hover, td .card:hover, th .card:hover { transform: none; box-shadow: none }
+.card-sm { padding: clamp(14px, 3vw, 20px) clamp(16px, 4vw, 24px); border-radius: var(--radius) }
+
+/* ── Forms ── */
+.form-group { display: flex; flex-direction: column; gap: 7px; position: relative }
+.form-group label { font-size: 13px; font-weight: 600; color: var(--text-2); letter-spacing: 0.02em; display: flex; align-items: center; gap: 8px }
+
+.form-group input:not([type="checkbox"]):not([type="radio"]),
+.form-group select, .form-group textarea,
+input.input, textarea.input {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  width: 100%;
+  outline: none;
+  transition: all 0.25s var(--spring-soft);
+  min-height: var(--touch-target);
+  -webkit-appearance: none; appearance: none;
+  backdrop-filter: blur(10px);
+}
+.form-group input:not([type="checkbox"]):not([type="radio"])::placeholder,
+.form-group textarea::placeholder { color: var(--text-3) }
+
+.form-group input:not([type="checkbox"]):not([type="radio"]):focus,
+.form-group select:focus, .form-group textarea:focus, input.input:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+  transform: translateY(-1px);
+}
+.form-group select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238fa3c8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px }
+.form-group select option { background: var(--bg) }
+.form-group textarea { resize: vertical; min-height: 100px }
+.form-group input.error, .form-group select.error { border-color: var(--danger) }
+
+.field-error { font-size: 12px; color: var(--danger); margin-top: 3px; animation: slideDown 0.25s var(--spring-soft) }
+.form-group.has-error .field-error { display: block }
+.form-group.has-error input { border-color: var(--danger) }
+
+.input-wrapper input {
+  width: 100%; background: var(--surface-2);
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px 14px; color: var(--text); font-size: 15px;
+  transition: all 0.25s var(--spring-soft); outline: none;
+  font-family: 'Inter', sans-serif; min-height: var(--touch-target);
+}
+.input-wrapper input::placeholder { color: var(--text-3) }
+.input-wrapper input:focus { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12); transform: translateY(-1px) }
+
+.form-stack { display: flex; flex-direction: column; gap: 20px }
+.label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0 }
+.label-row label { margin-bottom: 0 }
+#forgot-link { font-size: 13px; color: var(--primary); text-decoration: none }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 22px; border-radius: 9999px;
+  font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  cursor: pointer; border: none; outline: none;
+  transition: transform 0.35s var(--spring-bounce), box-shadow 0.35s var(--spring-soft), background-color 0.2s ease, opacity 0.2s ease;
+  position: relative; overflow: hidden; white-space: nowrap;
+  min-height: var(--touch-target);
+  -webkit-tap-highlight-color: transparent; user-select: none; text-decoration: none;
+}
+.btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.25) 0%, transparent 70%);
+  opacity: 0; transform: scale(0);
+  transition: transform 0.5s ease, opacity 0.5s ease; border-radius: inherit;
+}
+.btn:active::before { transform: scale(2); opacity: 1; transition: none }
+.btn:active { transform: scale(0.96) !important; transition: transform 0.1s ease }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; pointer-events: none }
+.btn-primary { background: var(--primary); color: var(--btn-primary-text) }
+.btn-primary:hover { background: var(--primary-dim); transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 20px rgba(0, 113, 227, 0.25) }
+.btn-secondary { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); backdrop-filter: var(--glass-blur) }
+.btn-secondary:hover { background: var(--surface); border-color: var(--text-3); transform: translateY(-2px); box-shadow: var(--shadow) }
+.btn-outline { border: 1.5px solid var(--border); color: var(--text); background: transparent }
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); background: rgba(0, 113, 227, 0.05); transform: translateY(-2px) }
+.btn-ghost { background: transparent; color: var(--text); border: none }
+.btn-ghost:hover { background: var(--surface-2); color: var(--text) }
+.btn-danger { background: var(--danger); color: #fff }
+.btn-danger:hover { background: #ff2d20; box-shadow: 0 4px 16px rgba(255, 59, 48, 0.3); transform: translateY(-2px) }
+.btn-lg { padding: 15px 34px; font-size: 16px }
+.btn-sm { padding: 9px 18px; font-size: 13px; min-height: 38px }
+.btn-block { width: 100%; justify-content: center }
+.btn .spinner { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spinSmooth 0.7s linear infinite; display: none; flex-shrink: 0 }
+.btn.loading .spinner { display: block }
+.btn.loading .btn-text { opacity: 0; position: absolute }
+
+/* ── Alerts ── */
+.alert { padding: 14px 18px; border-radius: var(--radius-sm); font-size: 14px; display: flex; align-items: flex-start; gap: 12px; border-left: 4px solid; backdrop-filter: blur(10px); animation: slideDown 0.3s var(--spring-soft) }
+.alert-success { background: rgba(52, 199, 89, 0.1); border-color: var(--accent-4); color: var(--accent-4) }
+.alert-error { background: rgba(255, 59, 48, 0.1); border-color: var(--danger); color: var(--danger) }
+.alert-info { background: rgba(0, 113, 227, 0.1); border-color: var(--primary); color: var(--primary) }
+.alert-warning { background: rgba(255, 159, 10, 0.1); border-color: var(--accent-3); color: var(--accent-3) }
+
+/* ── Toast ── */
+#toast-container { position: fixed; bottom: clamp(12px, 3vw, 24px); right: clamp(12px, 3vw, 24px); z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; max-width: clamp(280px, 90vw, 380px) }
+.toast { background: var(--glass-bg); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06); animation: toastSlideIn 0.45s var(--spring-bounce) forwards; pointer-events: all; display: flex; align-items: center; gap: 12px; transform-origin: bottom right }
+.toast.success { border-left: 3px solid var(--accent-4) }
+.toast.error { border-left: 3px solid var(--danger) }
+.toast.info { border-left: 3px solid var(--primary) }
+.toast.warning { border-left: 3px solid var(--accent-3) }
+.toast.out { animation: toastSlideOut 0.35s var(--spring-soft) forwards }
+.toast-icon { font-size: 16px; flex-shrink: 0 }
+.toast.success .toast-icon { color: var(--accent-4) }
+.toast.error .toast-icon { color: var(--danger) }
+.toast.info .toast-icon { color: var(--primary) }
+.toast.warning .toast-icon { color: var(--accent-3) }
+
+/* ── Badges ── */
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 9999px; font-size: 12px; font-weight: 600; border: 1px solid; backdrop-filter: blur(8px); transition: all 0.2s ease }
+.badge-primary { background: rgba(0, 113, 227, 0.1); color: var(--primary); border-color: rgba(0, 113, 227, 0.2) }
+.badge-success { background: rgba(52, 199, 89, 0.1); color: var(--accent-4); border-color: rgba(52, 199, 89, 0.2) }
+.badge-warning { background: rgba(255, 159, 10, 0.1); color: var(--accent-3); border-color: rgba(255, 159, 10, 0.2) }
+.badge-danger { background: rgba(255, 59, 48, 0.1); color: var(--danger); border-color: rgba(255, 59, 48, 0.2) }
+.badge-neutral { background: var(--surface-2); color: var(--text-2); border-color: var(--border) }
+
+/* ── Status Dot ── */
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0 }
+.status-dot.running { background: var(--accent-4); box-shadow: 0 0 8px var(--accent-4); animation: statusPulse 1.8s infinite }
+.status-dot.stopped { background: var(--text-3) }
+.status-dot.starting { background: var(--accent-3); animation: statusPulse 1s infinite }
+
+/* ── Result Pills (Dashboard) ── */
+.result-pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; text-transform: capitalize }
+.result-Applied, .result-applied { background: rgba(0, 113, 227, 0.1); color: var(--primary) }
+.result-Failed, .result-failed { background: rgba(255, 59, 48, 0.1); color: var(--danger) }
+.result-Skipped, .result-skipped { background: rgba(255, 159, 10, 0.1); color: var(--accent-3) }
+
+/* ── Tables ── */
+.table-wrapper { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); -webkit-overflow-scrolling: touch; background: var(--glass-bg); backdrop-filter: var(--glass-blur) }
+table { width: 100%; border-collapse: collapse; min-width: 600px }
+thead { background: var(--surface-2) }
+th { padding: 13px 18px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border) }
+td { padding: 14px 18px; font-size: 14px; border-bottom: 1px solid var(--border); color: var(--text); transition: background 0.2s ease }
+tbody tr { transition: transform 0.2s ease, background 0.2s ease }
+tbody tr:hover { background: rgba(0, 113, 227, 0.03); transform: scale(1.001) }
+tbody tr:last-child td { border-bottom: none }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 12px; border: 1px solid var(--border); width: fit-content; flex-wrap: wrap; position: relative; z-index: 1; backdrop-filter: blur(10px) }
+.tab-btn { padding: 8px 20px; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; background: none; border: none; color: var(--text-2); transition: all 0.25s ease; min-height: var(--touch-target); position: relative; z-index: 2 }
+.tab-btn:hover { color: var(--text) }
+.tab-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); font-weight: 600 }
+.tab-panel { display: none; animation: fadeIn 0.35s var(--spring-soft) }
+.tab-panel.active { display: block }
+
+/* ── Filter Bar ── */
+.filter-bar { display: flex; gap: 4px; flex-wrap: wrap }
+.filter-btn { padding: 6px 14px; border-radius: 99px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); transition: all 0.2s ease }
+.filter-btn:hover { color: var(--text); background: var(--surface) }
+.filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary) }
+
+/* ── Toggle ── */
+.toggle { position: relative; width: 48px; height: 28px; flex-shrink: 0 }
+.toggle input { opacity: 0; width: 0; height: 0 }
+.toggle-slider { position: absolute; inset: 0; background: var(--surface-2); border-radius: 9999px; cursor: pointer; transition: background 0.3s ease, border-color 0.3s ease; border: 1px solid var(--border) }
+.toggle-slider::before { content: ''; position: absolute; width: 22px; height: 22px; left: 2px; top: 2px; background: var(--text-3); border-radius: 50%; transition: transform 0.35s var(--spring-bounce), background 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12) }
+.toggle input:checked+.toggle-slider { background: var(--accent-4); border-color: var(--accent-4) }
+.toggle input:checked+.toggle-slider::before { transform: translateX(20px); background: #fff; box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3) }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; gap: 16px }
+.toggle-row>div { flex: 1; min-width: 0 }
+
+/* ── Progress ── */
+.progress-bar { height: 5px; background: var(--bg-3); border-radius: 9999px; overflow: hidden }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent-5)); border-radius: 9999px; transition: width 0.5s var(--spring-soft); position: relative; overflow: hidden }
+.progress-fill::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent); animation: shimmerMove 1.5s linear infinite }
+
+/* ── Password Strength ── */
+.pw-strength { display: flex; gap: 5px; margin-top: 8px }
+.pw-bar { flex: 1; height: 3px; border-radius: 2px; background: var(--bg-3); transition: background 0.35s ease, transform 0.2s ease }
+.pw-bar.weak { background: var(--danger); transform: scaleY(1.5) }
+.pw-bar.medium { background: var(--accent-3); transform: scaleY(1.5) }
+.pw-bar.strong { background: var(--accent-4); transform: scaleY(1.5) }
+
+/* ── PIN Inputs ── */
+.pin-inputs { display: flex; gap: clamp(6px, 2vw, 12px); justify-content: center; margin: 24px 0; flex-wrap: nowrap }
+.pin-inputs input { width: clamp(40px, 13vw, 56px); height: clamp(48px, 12vw, 64px); text-align: center; font-size: clamp(20px, 5vw, 26px); font-family: 'Inter', sans-serif; font-weight: 700; background: var(--surface-2); border: 2px solid var(--border); border-radius: 12px; color: var(--text); outline: none; transition: all 0.25s var(--spring-soft); caret-color: var(--primary); backdrop-filter: blur(10px) }
+.pin-inputs input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12); transform: translateY(-2px) scale(1.06) }
+.pin-inputs input.filled { border-color: var(--primary); color: var(--primary); background: rgba(0, 113, 227, 0.05) }
+
+/* ── Upload Zone ── */
+.upload-zone { border: 2px dashed var(--text-3); border-radius: var(--radius-lg); padding: clamp(32px, 5vw, 56px) clamp(16px, 4vw, 32px); text-align: center; cursor: pointer; transition: all 0.35s var(--spring-soft); position: relative; background: var(--surface-2) }
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: rgba(0, 113, 227, 0.04); transform: scale(1.015) }
+.upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100% }
+.upload-icon { width: 64px; height: 64px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; border: 1px solid var(--border); color: var(--primary); box-shadow: var(--shadow-sm); transition: transform 0.4s var(--spring-bounce) }
+.upload-zone:hover .upload-icon { transform: translateY(-6px) scale(1.12); box-shadow: var(--shadow), var(--glow) }
+
+/* ── Divider ── */
+.divider { display: flex; align-items: center; gap: 16px; margin: 24px 0; color: var(--text-3); font-size: 13px; font-weight: 500 }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border) }
+.sec-divider { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--text-3); padding: 6px 0; border-bottom: 1px solid var(--border); margin: 20px 0 16px; display: flex; align-items: center; gap: 8px }
+
+/* ── Skeleton ── */
+.skeleton { background: var(--bg-3); position: relative; overflow: hidden; border-radius: var(--radius-sm) }
+.skeleton::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg-3), var(--bg-2) 50%), transparent); animation: skeletonShimmer 2s ease-in-out infinite }
+
+/* ── Loader ── */
+.loader-spin { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--bg-3); border-top-color: var(--primary); animation: spinSmooth 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite }
