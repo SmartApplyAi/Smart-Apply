@@ -104,21 +104,18 @@ async def get_history(
     if result:
         query["result"] = result
     
-    import re as re_module
     if q:
+        # Cap query length to prevent abuse
+        q = q[:100]
         try:
             query["$text"] = {"$search": q}
             total = await db.job_applications.count_documents(query)
         except Exception as e:
+            # Text index missing or broken — do NOT fall back to regex (ReDoS risk)
             logger.warning(f"Text search failed (index might be missing): {e}")
-            # Fallback: regex search if text index fails
-            del query["$text"]
-            safe_q = re_module.escape(q)
-            query["$or"] = [
-                {"job_title": {"$regex": safe_q, "$options": "i"}},
-                {"company": {"$regex": safe_q, "$options": "i"}}
-            ]
-            total = await db.job_applications.count_documents(query)
+            if "$text" in query:
+                del query["$text"]
+            total = 0
     else:
         total = await db.job_applications.count_documents(query)
 
@@ -165,11 +162,19 @@ async def create_application(user_id: str, data: dict) -> dict:
     # 1. Deduplication check (avoid literal "unknown" matching)
     existing = None
     query = {"user_id": user_id}
-    if job_title and job_title != "unknown" and company and company != "unknown":
+    
+    has_valid_title = job_title and job_title.lower() != "unknown" and len(job_title) > 2
+    has_valid_company = company and company.lower() != "unknown"
+    has_valid_link = job_link and job_link.lower() != "unknown"
+    
+    if has_valid_title and has_valid_company:
         query["job_title"] = job_title
         query["company"] = company
-    elif job_link and job_link != "unknown":
+    elif has_valid_link:
         query["job_link"] = job_link
+    else:
+        # Both identifiers unknown — cannot deduplicate; log and save anyway
+        logger.warning(f"Application with unknown title+link for user {user_id}, skipping dedup")
     
     # Only run query if we actually have dedup criteria beyond just user_id
     if len(query) > 1:

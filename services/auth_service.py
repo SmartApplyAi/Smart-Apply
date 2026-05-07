@@ -101,6 +101,16 @@ async def verify_email(email: str, pin: str) -> dict:
         }
     )
     if not token_doc:
+        # Track failed PIN attempts per email (#25 fix: brute-force lockout)
+        attempts_key = email.lower().strip()
+        attempt_doc = await db.pin_attempts.find_one({"email": attempts_key})
+        if attempt_doc and attempt_doc.get("count", 0) >= 5:
+            raise ValueError("Too many failed attempts. Please request a new verification code.")
+        await db.pin_attempts.update_one(
+            {"email": attempts_key},
+            {"$inc": {"count": 1}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+            upsert=True,
+        )
         raise ValueError("Invalid or expired verification code")
 
     # Mark user as verified
@@ -111,8 +121,9 @@ async def verify_email(email: str, pin: str) -> dict:
     if result.modified_count == 0:
         raise ValueError("User not found")
 
-    # Clean up tokens
+    # Clean up tokens and reset failed attempts
     await db.email_verification_tokens.delete_many({"email": email.lower().strip()})
+    await db.pin_attempts.delete_many({"email": email.lower().strip()})
     logger.info(f"Email verified: {email}")
 
     return {"message": "Email verified successfully"}
@@ -170,7 +181,10 @@ async def login_user(email: str, password: str, ip: str = "") -> dict:
         raise ValueError("Invalid email or password")
         
     if not user.get("password_hash"):
-        raise ValueError("This account uses Google Sign-In. Please use the 'Sign in with Google' button.")
+        # Google-only account — run dummy bcrypt to prevent timing-based detection
+        # then return the SAME generic error message (no oracle)
+        verify_password("dummy_password", "$2b$12$LJ3m4ys3Lf5B3lGm8f3jKOB4yMOLRFnXs2s1v9HDeaFrusHNKFIy2")
+        raise ValueError("Invalid email or password")
 
     if not verify_password(password, user["password_hash"]):
         raise ValueError("Invalid email or password")
@@ -367,14 +381,12 @@ async def refresh_access_token(refresh_token: str) -> dict:
     if stored["expires_at"] < datetime.now(timezone.utc):
         raise ValueError("Refresh token expired")
 
-    # Decode to get user data
-    try:
-        payload = decode_token(refresh_token)
-        if not payload or payload.get("type") != "refresh":
-            raise ValueError("Invalid token type")
-    except Exception as e:
-        if isinstance(e, ValueError): raise e
-        raise ValueError("Invalid refresh token")
+    # Decode to get user data — decode_token returns None on any error
+    payload = decode_token(refresh_token)
+    if not payload:
+        raise ValueError("Invalid or expired refresh token")
+    if payload.get("type") != "refresh":
+        raise ValueError("Invalid token type")
 
     user_id = payload.get("sub")
     user = await db.users.find_one({"_id": ObjectId(user_id)})
@@ -389,7 +401,29 @@ async def refresh_access_token(refresh_token: str) -> dict:
     }
     new_access_token = create_access_token(token_data)
 
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    # Rotate refresh token (#9 fix): delete old, issue new
+    await db.refresh_tokens.update_one(
+        {"token": refresh_token},
+        {"$set": {"revoked": True}}
+    )
+    new_refresh_token = create_refresh_token(token_data)
+    await db.refresh_tokens.insert_one(
+        {
+            "token": new_refresh_token,
+            "user_id": user_id,
+            "expires_at": datetime.now(timezone.utc)
+            + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+            "created_at": datetime.now(timezone.utc),
+            "ip": stored.get("ip", ""),
+            "revoked": False,
+        }
+    )
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+    }
 
 
 async def logout_user(user_id: str, access_token: Optional[str] = None) -> dict:

@@ -3,6 +3,7 @@ Email service using Brevo (Sendinblue) API.
 Handles all transactional emails: verification, password reset, alerts, etc.
 """
 
+import html as html_module
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 from config import settings
@@ -133,8 +134,8 @@ async def send_verification_email(email: str, pin: str, name: str = "") -> bool:
     <p class="muted">This code expires in 15 minutes. If you didn't create an account, ignore this email.</p>
     """
     body_template = await get_template("verification_email", default_body)
-    display_name = name if name else 'User'
-    body = body_template.replace("{name}", display_name).replace("{pin}", pin)
+    display_name = html_module.escape(name if name else 'User')
+    body = body_template.replace("{name}", display_name).replace("{pin}", html_module.escape(pin))
     
     html_content = await wrap_template("Email Verification", body)
     return await send_email(email, name, "Verify your email — SmartApply", html_content)
@@ -153,8 +154,8 @@ async def send_password_reset_email(email: str, reset_url: str, name: str = "") 
     <p class="muted" style="word-break: break-all;">Or copy this URL: {{reset_url}}</p>
     """
     body_template = await get_template("password_reset", default_body)
-    display_name = name if name else 'User'
-    body = body_template.replace("{name}", display_name).replace("{reset_url}", reset_url)
+    display_name = html_module.escape(name if name else 'User')
+    body = body_template.replace("{name}", display_name).replace("{reset_url}", html_module.escape(reset_url))
     
     html_content = await wrap_template("Password Reset", body)
     return await send_email(email, name, "Reset your password — SmartApply", html_content)
@@ -174,9 +175,9 @@ async def send_application_alert(email: str, job_title: str, company: str, statu
     <p><a href="{settings.FRONTEND_URL}/dashboard.html" class="btn">View Dashboard</a></p>
     """
     body_template = await get_template("application_alert", default_body)
-    display_name = name if name else 'User'
+    display_name = html_module.escape(name if name else 'User')
     color = "#22c55e" if status in ("Applied", "submitted") else "#ef4444" if status in ("Failed", "failed") else "#94a3b8"
-    body = body_template.replace("{name}", display_name).replace("{company}", company).replace("{job_title}", job_title).replace("{status}", status).replace("{color}", color)
+    body = body_template.replace("{name}", display_name).replace("{company}", html_module.escape(company)).replace("{job_title}", html_module.escape(job_title)).replace("{status}", html_module.escape(status)).replace("{color}", color)
     
     html_content = await wrap_template("Application Alert", body)
     return await send_email(email, name, f"Application Update: {job_title} — SmartApply", html_content)
@@ -201,7 +202,7 @@ async def send_automation_summary(
     <p><a href="{settings.FRONTEND_URL}/dashboard.html" class="btn">View Details</a></p>
     """
     body_template = await get_template("automation_summary", default_body)
-    display_name = name if name else 'User'
+    display_name = html_module.escape(name if name else 'User')
     body = body_template.replace("{name}", display_name).replace("{total}", str(total)).replace("{applied}", str(applied)).replace("{failed}", str(failed)).replace("{skipped}", str(skipped))
     
     html_content = await wrap_template("Automation Summary", body)
@@ -222,8 +223,8 @@ async def send_security_alert(email: str, event: str, ip: str = "", name: str = 
     <p><a href="{settings.FRONTEND_URL}/forgot-password.html" class="btn" style="background: #f59e0b;">Secure My Account</a></p>
     """
     body_template = await get_template("security_alert", default_body)
-    display_name = name if name else 'User'
-    body = body_template.replace("{name}", display_name).replace("{event}", event).replace("{ip}", ip)
+    display_name = html_module.escape(name if name else 'User')
+    body = body_template.replace("{name}", display_name).replace("{event}", html_module.escape(event)).replace("{ip}", html_module.escape(ip))
     
     html_content = await wrap_template("Security Alert", body)
     return await send_email(email, name, "Security Alert — SmartApply", html_content)
@@ -244,7 +245,7 @@ async def send_weekly_digest(
     <p><a href="{settings.FRONTEND_URL}/dashboard.html" class="btn">View Full Dashboard</a></p>
     """
     body_template = await get_template("weekly_digest", default_body)
-    display_name = name if name else 'User'
+    display_name = html_module.escape(name if name else 'User')
     body = body_template.replace("{name}", display_name).replace("{total}", str(stats.get('total', 0)))
     
     html_content = await wrap_template("Weekly Digest", body)

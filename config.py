@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     RESET_TOKEN_EXPIRE_MINUTES: int = 30
+    ENCRYPTION_KEY: str = ""  # Separate key for Fernet encryption — set in .env for production
 
     # ── MongoDB ───────────────────────────────────────
     MONGODB_URL: str = "mongodb://localhost:27017"
@@ -69,33 +70,25 @@ class Settings(BaseSettings):
     APP_BASE_URL: Optional[str] = None
     KEEP_ALIVE_INTERVAL: int = 10  # minutes
 
-    # Lock for NIM API keys cache to prevent race conditions during refresh
+    # Lock for NIM API keys cache — lazily initialized inside async context only.
+    # NOTE: asyncio.Lock() MUST be created from within a running event loop (Python 3.10+).
+    # Never create it at import time or from a threading context.
     _nim_lock: Optional[asyncio.Lock] = PrivateAttr(default=None)
-    _init_lock = PrivateAttr(default_factory=lambda: __import__("threading").Lock())
 
     def _get_nim_lock(self) -> asyncio.Lock:
+        """Return the asyncio lock, creating it lazily on first async call."""
         if self._nim_lock is None:
-            with self._init_lock:
-                if self._nim_lock is None:
-                    try:
-                        loop = asyncio.get_running_loop()
-                        self._nim_lock = asyncio.Lock()
-                    except RuntimeError:
-                        # If no loop yet, we can't create asyncio.Lock properly
-                        # But this is only called from async functions, so loop should exist
-                        pass
-        if self._nim_lock is None:
-             # Fallback: create it anyway, but this is risky if done outside loop
-             self._nim_lock = asyncio.Lock()
+            # Safe: this is always called from within an async function (running loop exists)
+            self._nim_lock = asyncio.Lock()
         return self._nim_lock
 
     async def reset_nim_cache(self):
-        """Reset the cached NIM API keys (thread-safe)."""
+        """Reset the cached NIM API keys (async-safe)."""
         async with self._get_nim_lock():
             self._nim_keys_cache = None
 
     async def get_nim_api_key_list(self) -> List[str]:
-        """Parse comma-separated NIM API keys into a list (cached, thread-safe)."""
+        """Parse comma-separated NIM API keys into a list (cached, async-safe)."""
         async with self._get_nim_lock():
             if self._nim_keys_cache is None:
                 self._nim_keys_cache = [k.strip() for k in self.NIM_API_KEYS.split(",") if k.strip()]
@@ -104,6 +97,11 @@ class Settings(BaseSettings):
     @property
     def r2_endpoint_url(self) -> str:
         return f"https://{self.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+    @property
+    def encryption_key(self) -> str:
+        """Return ENCRYPTION_KEY if set, else derive from SECRET_KEY (backward compat)."""
+        return self.ENCRYPTION_KEY if self.ENCRYPTION_KEY else self.SECRET_KEY
 
     @property
     def is_production(self) -> bool:

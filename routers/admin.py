@@ -77,12 +77,13 @@ async def get_active_sessions(admin: dict = Depends(require_admin)):
 
 @router.get("/admin/audit-logs")
 async def get_audit_logs(
-    limit: int = Query(100, le=500),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     user_id: Optional[str] = Query(None),
     admin: dict = Depends(require_admin)
 ):
-    """View admin audit logs."""
-    logs = await admin_service.get_audit_logs(limit, user_id)
+    """View admin audit logs with pagination."""
+    logs = await admin_service.get_audit_logs(limit, user_id, skip=skip)
     return {"logs": logs}
 
 @router.post("/admin/broadcast")

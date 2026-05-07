@@ -21,28 +21,45 @@ import asyncio
 _keys_cycle = None
 _keys_lock = asyncio.Lock()
 
+# Module-level HTTP client with connection pooling (#27 fix)
+_http_client: httpx.AsyncClient | None = None
+
+def _get_http_client() -> httpx.AsyncClient:
+    """Reuse a single httpx client with connection pooling instead of creating one per call."""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=90.0,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+        )
+    return _http_client
+
 
 async def _get_api_key() -> str:
     """Round-robin through available NIM API keys (thread-safe cycle)."""
     global _keys_cycle
     
+    # Fetch keys WITHOUT holding _keys_lock to avoid deadlock with settings._nim_lock
+    if _keys_cycle is None:
+        keys = await settings.get_nim_api_key_list()
+        if not keys:
+            raise ValueError("No NVIDIA NIM API keys configured. Add NIM_API_KEYS to .env")
+        async with _keys_lock:
+            if _keys_cycle is None:  # double-check after acquiring lock
+                _keys_cycle = itertools.cycle(keys)
+    
     async with _keys_lock:
-        if _keys_cycle is None:
-            keys = await settings.get_nim_api_key_list()
-            if not keys:
-                raise ValueError("No NVIDIA NIM API keys configured. Add NIM_API_KEYS to .env")
-            _keys_cycle = itertools.cycle(keys)
-        
         return next(_keys_cycle)
 
 
 async def reset_keys_cycle():
     """Reset the API key cycle (useful when keys are updated in settings)."""
     global _keys_cycle
+    # 1. Clear the cached list in settings first — do NOT hold _keys_lock
+    #    because reset_nim_cache acquires its own _nim_lock (avoids deadlock)
+    await settings.reset_nim_cache()
+    # 2. Null out the cycle so it's recreated on next call
     async with _keys_lock:
-        # 1. Clear the cached list in settings first (async)
-        await settings.reset_nim_cache()
-        # 2. Null out the cycle so it's recreated on next call
         _keys_cycle = None
     logger.info("NVIDIA NIM API key cycle reset.")
 
@@ -56,11 +73,10 @@ async def _call_nim(
     """Call the NVIDIA NIM API with multiple keys and exponential backoff."""
     import asyncio
     
-    # 1. Get number of keys to determine retries (thread-safe setup)
-    async with _keys_lock:
-        keys = await settings.get_nim_api_key_list()
-        num_keys = len(keys)
-        
+    # 1. Get number of keys to determine retries — no lock needed, settings has its own lock
+    keys = await settings.get_nim_api_key_list()
+    num_keys = len(keys)
+    
     max_retries = max(num_keys * 2, 5) # Try each key twice or at least 5 times
     
     for attempt in range(max_retries):
@@ -82,28 +98,28 @@ async def _call_nim(
         }
 
         try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
-                response = await client.post(
-                    f"{NIM_BASE_URL}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                )
-                
+            client = _get_http_client()
+            response = await client.post(
+                f"{NIM_BASE_URL}/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+            
                 # Success
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("choices") and len(data["choices"]) > 0:
-                        return data["choices"][0]["message"]["content"].strip()
-                    return ""
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("choices") and len(data["choices"]) > 0:
+                    return data["choices"][0]["message"]["content"].strip()
+                return ""
                 
-                # Rate limit or Auth error
-                if response.status_code in (401, 403, 429):
-                    wait_time = min(2**attempt + (random.randint(0, 1000) / 1000), 10)
-                    logger.warning(f"NIM API error {response.status_code} (attempt {attempt+1}/{max_retries}). Retrying in {wait_time:.2f}s with next key…")
-                    await asyncio.sleep(wait_time)
-                    continue
-                
-                response.raise_for_status()
+            # Rate limit or Auth error
+            if response.status_code in (401, 403, 429):
+                wait_time = min(2**attempt + (random.randint(0, 1000) / 1000), 10)
+                logger.warning(f"NIM API error {response.status_code} (attempt {attempt+1}/{max_retries}). Retrying in {wait_time:.2f}s with next key…")
+                await asyncio.sleep(wait_time)
+                continue
+            
+            response.raise_for_status()
 
         except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.ConnectError) as e:
             wait_time = min(2**attempt + (random.randint(0, 1000) / 1000), 10)

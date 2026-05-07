@@ -159,7 +159,7 @@ async def ats_analyze(
     
     if body.object_key:
         import os
-        from urllib.parse import unquote
+        import urllib.parse
         
         raw_key = body.object_key
         
@@ -169,10 +169,21 @@ async def ats_analyze(
             logger.warning(f"Security: Raw traversal attempt blocked for user {user['id']}: {raw_key}")
             raise HTTPException(status_code=403, detail="Invalid object key format")
         
-        # Phase 2: Fully decode (handle double-encoding)
-        clean_key = unquote(unquote(raw_key))
+        # Phase 2: Iteratively decode up to 3 levels to catch %252f, %25252f etc.
+        decoded = raw_key
+        for _ in range(3):
+            next_decoded = urllib.parse.unquote(decoded)
+            if next_decoded == decoded:
+                break
+            decoded = next_decoded
+        clean_key = decoded
         
-        # Phase 3: Check decoded output
+        # Phase 3: Check decoded output against expanded dangerous patterns
+        DANGEROUS = ["../", "..\\", "%2e%2e", "%252e", "\x00", "/etc/", "/proc/"]
+        if any(d in clean_key.lower() for d in DANGEROUS):
+            logger.warning(f"Security: Decoded traversal attempt blocked for user {user['id']}: {clean_key}")
+            raise HTTPException(status_code=403, detail="Invalid object key format")
+        
         if ".." in clean_key or clean_key.startswith("/") or clean_key.startswith("\\") or "\x00" in clean_key:
             logger.warning(f"Security: Decoded traversal attempt blocked for user {user['id']}: {clean_key}")
             raise HTTPException(status_code=403, detail="Invalid object key format")

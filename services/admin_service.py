@@ -116,14 +116,14 @@ async def get_active_sessions() -> list:
         })
     return sessions
 
-async def get_audit_logs(limit: int = 100, user_id: str = None) -> list:
-    """View admin audit logs."""
+async def get_audit_logs(limit: int = 100, user_id: str = None, skip: int = 0) -> list:
+    """View admin audit logs with pagination."""
     db = get_db()
     query = {}
     if user_id:
         query["user_id"] = user_id
         
-    cursor = db.audit_logs.find(query).sort("timestamp", -1).limit(limit)
+    cursor = db.audit_logs.find(query).sort("timestamp", -1).skip(skip).limit(min(limit, 100))
     logs = []
     async for doc in cursor:
         doc["id"] = str(doc["_id"])
@@ -134,7 +134,10 @@ async def get_audit_logs(limit: int = 100, user_id: str = None) -> list:
     return logs
 
 async def hard_delete_user(user_id: str) -> bool:
-    """Hard delete a user and all their data."""
+    """Hard delete a user and all their data.
+    R2 file deletions are performed inline but with error handling to prevent
+    partial failures from blocking DB cleanup.
+    """
     from services.profile_service import delete_full_profile
     return await delete_full_profile(user_id)
 
@@ -174,7 +177,7 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
         profile = await db.user_profiles.find_one({"user_id": user_id})
         first_name = profile.get("first_name", "User") if profile else "User"
         
-        personalized_message = message_html.replace("{{user-name}}", first_name)
+        personalized_message = _sanitize_html(message_html.replace("{{user-name}}", first_name))
         
         html_content = await wrap_template("Announcement", personalized_message)
         success = await send_email(
@@ -187,6 +190,28 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
             count += 1
             
     return {"sent_count": count}
+
+
+def _sanitize_html(content: str) -> str:
+    """Sanitize HTML to prevent XSS/phishing injection in broadcast emails.
+    
+    Strips dangerous tags (script, iframe, form, object, embed, link, meta, base, style),
+    event handlers (onload, onclick, etc.), and javascript: hrefs.
+    """
+    import re as _re
+    # Remove dangerous tags (both paired and self-closing)
+    dangerous = r'<(script|iframe|form|object|embed|link|meta|base|style)[^>]*>.*?</\1>'
+    content = _re.sub(dangerous, '', content, flags=_re.IGNORECASE | _re.DOTALL)
+    # Remove self-closing dangerous tags
+    content = _re.sub(r'<(script|iframe|form|object|embed|link|meta|base|style)[^>]*/>', '', content, flags=_re.IGNORECASE)
+    # Remove unclosed dangerous tags
+    content = _re.sub(r'<(script|iframe|form|object|embed|link|meta|base|style)[^>]*>', '', content, flags=_re.IGNORECASE)
+    # Remove event handlers (e.g., onload="...", onclick='...')
+    content = _re.sub(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', '', content, flags=_re.IGNORECASE)
+    content = _re.sub(r'\s+on\w+\s*=\s*\S+', '', content, flags=_re.IGNORECASE)
+    # Remove javascript: hrefs
+    content = _re.sub(r'href\s*=\s*["\']javascript:[^"\']*["\']', 'href="#"', content, flags=_re.IGNORECASE)
+    return content
 
 async def get_platform_trends() -> dict:
     """Get platform-wide application trends for Chart.js."""

@@ -27,6 +27,35 @@ try:
 except ImportError:
     _HAS_PYPDF2 = False
 
+# Pre-compiled regex patterns for resume field extraction (#28 fix)
+_RE_TITLE_CASE_NAME = re.compile(r"^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}$")
+_RE_ALL_CAPS_NAME = re.compile(r"^[A-Z]{2,}(?:\s+[A-Z]{2,}){1,3}$")
+_RE_EMAIL = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b")
+_RE_PHONE = re.compile(r"\b(?:\+\d{1,3}[\s\-]?)?(?:\(?\d{3}\)?[\s\-]?)?\d{3,4}[\s\-]?\d{3,4}\b")
+_RE_LINKEDIN = re.compile(r"(?:https?://)?(?:www\.)?linkedin\.com/in/[\w\-]+/?", re.IGNORECASE)
+_RE_GITHUB = re.compile(r"(?:https?://)?(?:www\.)?github\.com/[\w\-]+/?", re.IGNORECASE)
+_RE_SKILLS = re.compile(
+    r"(?:skills|technical skills|key skills|core competencies)[:\s]*\n?([\s\S]{20,500}?)(?:\n\n|\n[A-Z]|$)",
+    re.IGNORECASE,
+)
+_RE_CITY = re.compile(r"(?:location|city|address)\s*:?\s*([\w\s,]+?)(?:\n|$)", re.IGNORECASE)
+_RE_EXP = re.compile(r"(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)", re.IGNORECASE)
+
+# Expanded blocklist for name extraction false positives (#4 fix)
+_NAME_BLOCKLIST_WORDS = {
+    "RESUME", "CURRICULUM", "VITAE", "CV", "PROFILE", "SUMMARY", "CONTACT",
+    "EXPERIENCE", "EDUCATION", "SKILLS", "OBJECTIVE", "REFERENCES", "PROJECTS",
+    "WORK", "PROFESSIONAL", "TECHNICAL", "KEY", "CORE", "COMPETENCIES",
+    "PAGE", "ABOUT", "CAREER", "PERSONAL", "INFORMATION", "DETAILS",
+}
+_NAME_BLOCKLIST_PHRASES = {
+    "PAGE ONE", "PAGE TWO", "PAGE 1", "PAGE 2",
+    "OBJECTIVE SUMMARY", "WORK EXPERIENCE", "PROFESSIONAL EXPERIENCE",
+    "KEY SKILLS", "CORE COMPETENCIES", "TECHNICAL SKILLS",
+    "PERSONAL INFORMATION", "CONTACT INFORMATION", "CAREER OBJECTIVE",
+    "PROFESSIONAL SUMMARY", "EDUCATION DETAILS",
+}
+
 
 async def upload_resume(
     user_id: str, file_bytes: bytes, filename: str, label: str
@@ -150,11 +179,15 @@ async def get_resume_bytes(user_id: str, object_key: str) -> tuple:
     if not resume:
         raise ValueError("Resume not found")
 
-    # Check file size if metadata exists (prevent loading huge files into memory)
-    if resume.get("file_size") and resume["file_size"] > 10 * 1024 * 1024:
+    # Check file size — enforce cap even if metadata field is missing (prevent OOM)
+    file_size = resume.get("file_size") or 0
+    if file_size > 10 * 1024 * 1024:
         raise ValueError("Resume file too large to load (limit 10MB)")
 
     file_bytes = await get_file_from_r2(object_key)
+    # Safety net: also cap unknown-size files by checking actual downloaded bytes
+    if len(file_bytes) > 10 * 1024 * 1024:
+        raise ValueError("Resume file too large to serve inline")
     return file_bytes, resume.get("filename", "resume.pdf")
 
 
@@ -275,17 +308,22 @@ def _extract_fields(text: str) -> dict:
     # Heuristic: First few lines, often all caps or Title Case
     lines = [l.strip() for l in text.split('\n') if l.strip()][:10]
     
-    # Common words to ignore in name extraction
-    ignore_words = {"RESUME", "CURRICULUM", "VITAE", "CV", "PROFILE", "SUMMARY", "CONTACT", "EXPERIENCE"}
-    
     for line in lines:
         # Check for all caps or Title Case names (2-3 words)
         if 3 <= len(line) <= 40:
-            if line.upper() in ignore_words:
+            # Blocklist check BEFORE regex (#4 fix): reject known section headers
+            line_upper = line.upper()
+            if line_upper in _NAME_BLOCKLIST_WORDS:
+                continue
+            if line_upper in _NAME_BLOCKLIST_PHRASES:
+                continue
+            # Also reject if ALL words in the line are blocklisted individually
+            line_words_upper = set(line_upper.split())
+            if line_words_upper and line_words_upper.issubset(_NAME_BLOCKLIST_WORDS):
                 continue
             
             # Match 2-4 words that are either Title Case or ALL CAPS
-            if re.match(r"^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}$", line) or re.match(r"^[A-Z]{2,}(?:\s+[A-Z]{2,}){1,3}$", line):
+            if _RE_TITLE_CASE_NAME.match(line) or _RE_ALL_CAPS_NAME.match(line):
                 words = line.split()
                 result["first_name"] = words[0].capitalize()
                 if len(words) > 2:
@@ -304,40 +342,30 @@ def _extract_fields(text: str) -> dict:
                     result["last_name"] = parts[-1]
                     break
 
-    # Email (Improved to avoid capturing trailing punctuation like dots or commas)
-    email_match = re.search(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b", text)
+    # Email (using pre-compiled regex)
+    email_match = _RE_EMAIL.search(text)
     if email_match:
         result["email"] = email_match.group().strip().rstrip('.,')
 
-    # Phone (Improved: require word boundaries and more specific digit structure)
-    phone_match = re.search(
-        r"\b(?:\+\d{1,3}[\s\-]?)?(?:\(?\d{3}\)?[\s\-]?)?\d{3,4}[\s\-]?\d{3,4}\b", text
-    )
+    # Phone (using pre-compiled regex)
+    phone_match = _RE_PHONE.search(text)
     if phone_match:
         result["phone_number"] = re.sub(r"[^\d+]", "", phone_match.group())
 
     # LinkedIn
-    linkedin_match = re.search(
-        r"(?:https?://)?(?:www\.)?linkedin\.com/in/[\w\-]+/?", text, re.IGNORECASE
-    )
+    linkedin_match = _RE_LINKEDIN.search(text)
     if linkedin_match:
         url = linkedin_match.group()
         result["linkedin_profile"] = url if url.startswith("http") else "https://" + url
 
     # GitHub
-    github_match = re.search(
-        r"(?:https?://)?(?:www\.)?github\.com/[\w\-]+/?", text, re.IGNORECASE
-    )
+    github_match = _RE_GITHUB.search(text)
     if github_match:
         url = github_match.group()
         result["github"] = url if url.startswith("http") else "https://" + url
 
     # Skills (look for a skills section)
-    skills_match = re.search(
-        r"(?:skills|technical skills|key skills|core competencies)[:\s]*\n?([\s\S]{20,500}?)(?:\n\n|\n[A-Z]|$)",
-        text,
-        re.IGNORECASE,
-    )
+    skills_match = _RE_SKILLS.search(text)
     if skills_match:
         skills_text = skills_match.group(1).strip()
         skills_text = re.sub(r"\s*[•·▪◦●\-]\s*", ", ", skills_text)
@@ -345,15 +373,13 @@ def _extract_fields(text: str) -> dict:
         skills_text = re.sub(r",\s*,", ",", skills_text).strip(", ")
         result["skills_summary"] = skills_text[:500]
 
-    # Location / City (Make colon optional to match LinkedIn imports)
-    city_match = re.search(
-        r"(?:location|city|address)\s*:?\s*([\w\s,]+?)(?:\n|$)", text, re.IGNORECASE
-    )
+    # Location / City
+    city_match = _RE_CITY.search(text)
     if city_match:
         result["current_city"] = city_match.group(1).strip()[:100]
 
     # Years of experience
-    exp_match = re.search(r"(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)", text, re.IGNORECASE)
+    exp_match = _RE_EXP.search(text)
     if exp_match:
         result["years_of_experience"] = exp_match.group(1)
 

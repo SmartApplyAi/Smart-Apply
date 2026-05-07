@@ -160,7 +160,7 @@ async def save_linkedin_cookies(
 # ── Extension endpoints ─────────────────────────────────────────────────────
 
 @router.get("/extension/download")
-async def download_extension():
+async def download_extension(user: dict = Depends(get_current_user)):
     """Download the Chrome extension."""
     from pathlib import Path
     ext_path = Path(__file__).resolve().parent.parent / "extension.zip"
@@ -199,6 +199,7 @@ async def extension_connect(
 
 
 @router.post("/extension/heartbeat")
+@limiter.limit("60/minute")
 async def extension_heartbeat(request: Request):
     """Extension heartbeat to keep the connection alive."""
     try:

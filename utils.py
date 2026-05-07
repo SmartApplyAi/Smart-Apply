@@ -47,7 +47,14 @@ def create_refresh_token(data: dict) -> str:
 
 
 def decode_token(token: str) -> Optional[dict]:
-    """Decode and verify a JWT token. Explicitly checks expiry."""
+    """Decode and verify a JWT token. Explicitly checks expiry.
+    
+    SECURITY NOTE (#22): iss (issuer) and aud (audience) claims are NOT validated.
+    This is intentional for this single-issuer, single-audience application where
+    all tokens are created and consumed by this backend only. If this app shares
+    a SECRET_KEY with another service, tokens from that service would be accepted.
+    In that case, add iss/aud claims to create_access_token and validate here.
+    """
     try:
         payload = jwt.decode(
             token, 
@@ -83,13 +90,14 @@ from cryptography.hazmat.primitives import hashes
 
 def _get_fernet():
     # Derive a 32-byte key using HKDF (stronger than bare SHA-256)
+    # Uses separate encryption_key to isolate from JWT SECRET_KEY
     hkdf = HKDF(
         algorithm=hashes.SHA256(),
         length=32,
         salt=b"smartapply-fernet-v1",
         info=b"platform-credential-encryption",
     )
-    key = hkdf.derive(settings.SECRET_KEY.encode())
+    key = hkdf.derive(settings.encryption_key.encode())
     return Fernet(base64.urlsafe_b64encode(key))
 
 

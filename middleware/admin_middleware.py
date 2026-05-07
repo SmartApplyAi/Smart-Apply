@@ -26,7 +26,7 @@ class AdminAuditMiddleware(BaseHTTPMiddleware):
         user_id = "anonymous"
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         if not token:
-            token = request.cookies.get("sa_token") # Try cookie too
+            token = request.cookies.get("access_token") # Match cookie name used in dependencies.py
             
         if token:
             try:
@@ -44,27 +44,23 @@ class AdminAuditMiddleware(BaseHTTPMiddleware):
         request.state.user_id = user_id
         response = await call_next(request)
         
-        # We only log successful or partially successful actions
-        if response.status_code < 400:
-            try:
-                # Log action asynchronously
-                db = get_db()
-                
-                audit_entry = {
-                    "user_id": request.state.user_id,
-                    "method": request.method,
-                    "path": request.url.path,
-                    "query_params": dict(request.query_params),
-                    "status_code": response.status_code,
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "timestamp": datetime.now(timezone.utc)
-                }
-                
-                # We don't log the body for security/privacy (might contain sensitive keys)
-                # unless it's a specific safe action.
-                # Log action
-                await db.audit_logs.insert_one(audit_entry)
-            except Exception as e:
-                logger.error(f"Failed to log admin action: {e}")
+        # Log ALL admin requests (including errors) for complete audit trail
+        try:
+            db = get_db()
+            
+            audit_entry = {
+                "user_id": request.state.user_id,
+                "method": request.method,
+                "path": request.url.path,
+                "query_params": dict(request.query_params),
+                "status_code": response.status_code,
+                "ip_address": request.client.host if request.client else "unknown",
+                "timestamp": datetime.now(timezone.utc)
+            }
+            
+            # We don't log the body for security/privacy (might contain sensitive keys)
+            await db.audit_logs.insert_one(audit_entry)
+        except Exception as e:
+            logger.error(f"Failed to log admin action: {e}")
 
         return response

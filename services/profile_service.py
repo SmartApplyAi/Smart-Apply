@@ -35,7 +35,7 @@ async def get_full_profile(user_id: str) -> dict:
     platform_data = {}
     if platforms:
         for key, value in platforms.items():
-            if key in ("_id", "user_id", "created_at", "updated_at") or key.startswith("_linkedin_raw_"):
+            if key in ("_id", "user_id", "created_at", "updated_at", "linkedin_cookies") or key.startswith("_linkedin_raw_"):
                 continue
 
             # Security: Do NOT decrypt passwords in general profile calls
@@ -167,8 +167,24 @@ async def update_platform_accounts(user_id: str, data: dict) -> dict:
     return {"message": "Platform accounts updated"}
 
 
-async def get_decrypted_platform_accounts(user_id: str) -> dict:
-    """Get platform accounts with decrypted passwords (for extension use only)."""
+async def get_decrypted_platform_accounts(user_id: str, caller_verified: bool = False) -> dict:
+    """Get platform accounts with decrypted passwords.
+    
+    SECURITY WARNING: This function returns plaintext credentials.
+    It MUST only be called from authenticated, authorized contexts (e.g.,
+    extension auto-login for the owning user). Never expose via a public
+    endpoint without strict ownership verification.
+    
+    Args:
+        user_id: The user whose credentials to decrypt.
+        caller_verified: Must be explicitly set to True by the caller to
+            confirm that the requesting user has been authenticated and
+            authorized to access these credentials.
+    """
+    if not caller_verified:
+        logger.warning(f"get_decrypted_platform_accounts called without caller_verified for user {user_id}")
+        raise ValueError("Caller must explicitly verify authorization before accessing decrypted credentials")
+    
     db = get_db()
     platforms = await db.platform_accounts.find_one({"user_id": user_id})
     if not platforms:

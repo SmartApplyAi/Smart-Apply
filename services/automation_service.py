@@ -198,6 +198,7 @@ async def extension_connect(
         "last_active": datetime.now(timezone.utc),
         "revoked": False,
         "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=90),
     }
     await db.extension_tokens.insert_one(doc)
 
@@ -225,7 +226,11 @@ async def validate_extension_token(token: str) -> Optional[str]:
     db = get_db()
 
     try:
-        doc = await db.extension_tokens.find_one({"token": token, "revoked": False})
+        doc = await db.extension_tokens.find_one({
+            "token": token,
+            "revoked": False,
+            "expires_at": {"$gt": datetime.now(timezone.utc)},
+        })
         if not doc:
             return None
         return doc["user_id"]
