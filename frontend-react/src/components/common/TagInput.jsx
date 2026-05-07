@@ -1,23 +1,17 @@
 import { useState, useRef, useCallback } from 'react';
 
-export default function TagInput({ id, hiddenId, initialTags = [], onChange, placeholder = 'Type and press Enter' }) {
-  const [tags, setTags] = useState(initialTags);
+export default function TagInput({ id, hiddenId, tags = [], onChange, placeholder = 'Type and press Enter' }) {
   const inputRef = useRef(null);
-
-  const updateTags = useCallback((newTags) => {
-    setTags(newTags);
-    if (onChange) onChange(newTags);
-  }, [onChange]);
 
   const addTag = useCallback((text) => {
     const trimmed = text.trim();
     if (!trimmed || tags.includes(trimmed)) return;
-    updateTags([...tags, trimmed]);
-  }, [tags, updateTags]);
+    if (onChange) onChange([...tags, trimmed]);
+  }, [tags, onChange]);
 
   const removeTag = useCallback((index) => {
-    updateTags(tags.filter((_, i) => i !== index));
-  }, [tags, updateTags]);
+    if (onChange) onChange(tags.filter((_, i) => i !== index));
+  }, [tags, onChange]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ',') {

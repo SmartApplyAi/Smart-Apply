@@ -59,6 +59,7 @@ export default function AdminPage() {
     is_required: false,
     options: ''
   });
+  const [showPreview, setShowPreview] = useState(false);
 
   // Redirect if not admin
   useEffect(() => {
@@ -103,6 +104,23 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, [showToast]);
+
+  const handleTemplateChange = (e) => {
+    const id = e.target.value;
+    setSelectedTemplateId(id);
+    const template = templates.find(t => t.id === id);
+    setTemplateContent(template ? template.content : '');
+  };
+
+  const saveTemplate = async () => {
+    try {
+      await api.put(`/admin/email-templates/${selectedTemplateId}`, { content: templateContent });
+      showToast('Template saved', 'success');
+      fetchData('templates');
+    } catch (err) {
+      showToast(err.detail || 'Failed to save template', 'error');
+    }
+  };
 
   useEffect(() => {
     fetchData(activeTab);
@@ -365,8 +383,17 @@ export default function AdminPage() {
               <input type="text" className="input" value={broadcast.subject} onChange={e => setBroadcast({ ...broadcast, subject: e.target.value })} />
             </div>
             <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label>Message (HTML Supported)</label>
-              <textarea className="input" style={{ height: '200px' }} value={broadcast.message} onChange={e => setBroadcast({ ...broadcast, message: e.target.value })}></textarea>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ marginBottom: 0 }}>Message (HTML Supported)</label>
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowPreview(!showPreview)}>
+                  {showPreview ? 'Edit' : 'Preview'}
+                </button>
+              </div>
+              {showPreview ? (
+                <div className="input" style={{ height: '200px', overflowY: 'auto', background: 'var(--bg-2)' }} dangerouslySetInnerHTML={{ __html: broadcast.message || '<p class="text-muted">Empty</p>' }}></div>
+              ) : (
+                <textarea className="input" style={{ height: '200px' }} value={broadcast.message} onChange={e => setBroadcast({ ...broadcast, message: e.target.value })} maxLength={5000}></textarea>
+              )}
             </div>
             <button className="btn btn-primary w-full" onClick={sendBroadcast}>Send to All Users</button>
           </div>

@@ -12,6 +12,7 @@ export default function ThemeToggle({ className = '' }) {
     <button
       className={`btn btn-ghost btn-sm ${className}`}
       aria-label="Toggle theme"
+      title={`Theme: ${theme}`}
       onClick={toggleTheme}
       id="theme-toggle"
     >

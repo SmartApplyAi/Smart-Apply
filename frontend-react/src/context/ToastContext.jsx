@@ -4,9 +4,10 @@ import toast, { Toaster } from 'react-hot-toast';
 const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
-  const showToast = useCallback((message, type = 'info', duration = 4000) => {
+  const showToast = useCallback((message, type = 'info', duration) => {
+    const finalDuration = duration || (type === 'error' ? 8000 : 4000);
     const opts = {
-      duration,
+      duration: finalDuration,
       style: {
         background: 'var(--surface)',
         color: 'var(--text)',

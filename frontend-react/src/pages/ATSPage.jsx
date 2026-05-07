@@ -129,7 +129,7 @@ export default function ATSPage() {
           </div>
         </div>
 
-        <div className="ats-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '28px' }}>
+        <div className="ats-layout" style={{ display: 'grid', gap: '28px' }}>
           <div>
             <div className="card" style={{ marginBottom: '20px' }}>
               <h4 style={{ marginBottom: '16px' }}><i className="fa-solid fa-file-pdf"></i> Your Resume</h4>
@@ -300,6 +300,10 @@ export default function ATSPage() {
         }
         .badge-accent { background: rgba(126,232,162,0.1); color: var(--accent); border: 1px solid rgba(126,232,162,0.2); border-radius: 99px; padding: 4px 12px; font-size: 12px; }
         .badge-danger { background: rgba(255,107,107,0.1); color: var(--danger); border: 1px solid rgba(255,107,107,0.2); border-radius: 99px; padding: 4px 12px; font-size: 12px; }
+        .stat-pill { background: var(--surface-2); border: 1px solid var(--border); padding: 8px 14px; border-radius: 99px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; }
+        .stat-pill span { font-weight: 700; color: var(--text); }
+        @media (min-width: 901px) { .ats-layout { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px) { .ats-layout { grid-template-columns: 1fr; } }
       `}</style>
     </>
   );

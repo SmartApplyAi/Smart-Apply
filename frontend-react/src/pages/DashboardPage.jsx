@@ -18,10 +18,13 @@ export default function DashboardPage() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('overview');
   const [summary, setSummary] = useState(null);
-  const [history, setHistory] = useState({ applications: [], total: 0 });
-  const [historyFilter, setHistoryFilter] = useState(null);
   const [historyPage, setHistoryPage] = useState(0);
+  const [historyFilter, setHistoryFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [history, setHistory] = useState({ applications: [], total: 0, pages: 0 });
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
   const searchTimer = useRef(null);
 
   useEffect(() => {
@@ -43,15 +46,17 @@ export default function DashboardPage() {
   }, []);
 
   const loadHistory = useCallback(async () => {
+    setHistoryLoading(true); setHistoryError('');
     try {
-      const skip = historyPage * PAGE_SIZE;
-      let url = `/jobs/history?skip=${skip}&limit=${PAGE_SIZE}`;
-      if (historyFilter) url += `&result=${historyFilter}`;
-      if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
+      let url = `/history/applications?skip=${historyPage * 10}&limit=10`;
+      if (historyFilter) url += `&status=${historyFilter}`;
+      if (debouncedSearchQuery) url += `&query=${encodeURIComponent(debouncedSearchQuery)}`;
       const data = await api.get(url);
-      setHistory({ applications: data.applications || [], total: data.total || 0 });
-    } catch { /* fail silently */ }
-  }, [historyPage, historyFilter, searchQuery]);
+      setHistory(data);
+    } catch (err) {
+      setHistoryError('Failed to load history');
+    } finally { setHistoryLoading(false); }
+  }, [historyPage, historyFilter, debouncedSearchQuery]);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
   useEffect(() => { if (activeTab === 'history') loadHistory(); }, [activeTab, loadHistory]);
@@ -71,6 +76,7 @@ export default function DashboardPage() {
     setSearchQuery(val);
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
+      setDebouncedSearchQuery(val);
       setHistoryFilter(null);
       setHistoryPage(0);
     }, 400);
@@ -105,11 +111,17 @@ export default function DashboardPage() {
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div>
-              <div className="stats-overview stagger">
-                <StatCard label="Total Applied" value={summary?.total || 0} sub="across all platforms" />
-                <StatCard label="Successful" value={summary?.applied || 0} valueColor="var(--primary)" sub={`${summary?.success_rate || 0}% success rate`} />
-                <StatCard label="Failed / Skipped" value={(summary?.failed || 0) + (summary?.skipped || 0)} sub={`${summary?.failed || 0} failed · ${summary?.skipped || 0} skipped`} />
-              </div>
+              {summary === null ? (
+                <div className="stats-overview stagger">
+                  {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: '100px', borderRadius: 'var(--radius)' }}></div>)}
+                </div>
+              ) : (
+                <div className="stats-overview stagger">
+                  <StatCard label="Total Applications" value={summary.total_applications} sub="All time" className="active" />
+                  <StatCard label="Interviews Landed" value={summary.interviews_landed} sub={`${summary.success_rate}% success rate`} className="active" />
+                  <StatCard label="Active Sessions" value={summary.active_sessions} sub={summary.last_active ? 'Last active recently' : 'No recent runs'} className="active" />
+                </div>
+              )}
               <div className="overview-panels" style={{ marginTop: '28px' }}>
                 <div className="card">
                   <h4 style={{ marginBottom: '16px' }}><i className="fa-solid fa-clock-rotate-left"></i> Recent Applications</h4>
@@ -148,16 +160,21 @@ export default function DashboardPage() {
                     <input type="text" className="input" placeholder="Search jobs or companies..." style={{ paddingLeft: '36px', height: '38px', fontSize: '14px' }} value={searchQuery} onChange={(e) => handleSearch(e.target.value)} />
                   </div>
                   <div className="filter-bar" style={{ marginBottom: 0 }}>
-                    {[null, 'Applied', 'Failed', 'Skipped'].map((f) => (
-                      <button key={f || 'all'} className={`filter-btn${historyFilter === f ? ' active' : ''}`} onClick={() => { setHistoryFilter(f); setHistoryPage(0); loadHistory(); }}>
-                        {f || 'All'}
-                      </button>
+                    {['All', 'Applied', 'Failed', 'Skipped'].map(f => (
+                      <button key={f} className={`filter-btn ${historyFilter === (f === 'All' ? null : f) ? 'active' : ''}`} onClick={() => { setHistoryFilter(f === 'All' ? null : f); setHistoryPage(0); }}>{f}</button>
                     ))}
                   </div>
                 </div>
               </div>
-              <div className="table-wrapper"><table><thead><tr><th>Job Title</th><th>Company</th><th>Platform</th><th>Status</th><th>Applied</th><th>Link</th></tr></thead><tbody>
-                {!history.applications.length ? <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>No applications found.</td></tr> : history.applications.map((a, i) => (
+              <div className="table-wrapper"><table><thead><tr><th>Job Title</th><th>Company</th><th>Platform</th><th>Status</th><th>Applied</th><th>Link</th></tr></thead>
+                  <tbody>
+                    {historyLoading ? (
+                      <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}><div className="loader-spin mx-auto"></div></td></tr>
+                    ) : historyError ? (
+                      <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--danger)' }}><i className="fa-solid fa-triangle-exclamation"></i> {historyError}</td></tr>
+                    ) : history.applications.length === 0 ? (
+                      <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>No applications found.</td></tr>
+                    ) : history.applications.map((a, i) => (
                   <tr key={i}><td><div style={{ fontWeight: 500 }}>{a.job_title}</div></td><td className="text-sm">{a.company}</td><td style={{ textTransform: 'capitalize' }}>{a.platform || 'unknown'}</td><td><span className={`result-pill result-${a.result}`}>{a.result}</span></td><td className="text-sm">{formatDate(a.applied_at)}</td><td><a href={a.job_link || a.job_url || '#'} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ padding: '4px' }}><i className="fa-solid fa-external-link"></i></a></td></tr>
                 ))}
               </tbody></table></div>

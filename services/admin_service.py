@@ -268,7 +268,6 @@ async def update_question(question_id: str, payload: dict) -> dict:
 async def delete_question(question_id: str) -> dict:
     """Delete a dynamic profile question."""
     db = get_db()
-    await db.email_templates.delete_one({"_id": ObjectId(question_id)}) # oops, this is a bug in my previous implementation, I'll fix it now
     await db.dynamic_questions.delete_one({"_id": ObjectId(question_id)})
     return {"message": "Question deleted"}
 

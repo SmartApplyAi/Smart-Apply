@@ -117,6 +117,17 @@ export default function ProfilePage() {
   };
 
   const handleSave = async (isFinish = false) => {
+    if (!profile.first_name || !profile.phone_number) {
+      showToast('Please fill in required fields (First Name, Phone)', 'error');
+      if (!profile.first_name) document.getElementById('first_name')?.classList.add('error');
+      if (!profile.phone_number) document.getElementById('phone_number')?.classList.add('error');
+      return;
+    }
+    
+    // Clear errors if present
+    document.getElementById('first_name')?.classList.remove('error');
+    document.getElementById('phone_number')?.classList.remove('error');
+    
     setLoading(true);
     try {
       const payload = {
@@ -584,7 +595,7 @@ export default function ProfilePage() {
           .profile-nav { position: sticky; top: 88px; }
           .profile-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; color: var(--text-2); cursor: pointer; transition: var(--transition); margin-bottom: 2px; background: none; border: none; width: 100%; text-align: left; font-family: inherit; }
           .profile-nav-item:hover { background: var(--surface); color: var(--text); }
-          .profile-nav-item.active { background: rgba(79,124,255,0.1); color: var(--primary); font-weight: 500; }
+          .profile-nav-item.active { background: rgba(0, 113, 227, 0.1); color: var(--primary); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(0,113,227,0.2); }
           .profile-nav-item .check { display: none; }
           .profile-nav-item.done .check { display: block; }
           .section-panel { display: none; }

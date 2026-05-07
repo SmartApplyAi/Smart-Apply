@@ -18,6 +18,8 @@ export default function ResumePage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPdf, setPreviewPdf] = useState({ key: '', label: '', filename: '' });
 
+  function encodeKey(key) { return key.split('/').map(encodeURIComponent).join('/'); }
+
   const loadResumes = useCallback(async () => {
     try {
       const data = await api.get('/resume/list');
@@ -30,19 +32,17 @@ export default function ResumePage() {
   const handleUpload = async () => {
     if (!selectedFile) return;
     setUploading(true); setUploadPct(0);
-    let pct = 0;
-    const interval = setInterval(() => { pct = Math.min(pct + 8, 85); setUploadPct(pct); }, 180);
     const form = new FormData();
     form.append('file', selectedFile);
     form.append('label', label.trim() || 'Default');
     try {
       const data = await api.upload('/resume/upload', form);
-      clearInterval(interval); setUploadPct(100);
+      setUploadPct(100);
       setParsedData(data.parsed);
       if (data.warning) showToast(data.warning, 'info', 8000);
       else showToast('Resume uploaded and parsed!', 'success');
       loadResumes();
-    } catch (err) { clearInterval(interval); showToast(err.detail || 'Upload failed', 'error'); }
+    } catch (err) { showToast(err.detail || 'Upload failed', 'error'); }
     finally { setUploading(false); setTimeout(() => setUploadPct(0), 1000); }
   };
 
@@ -70,8 +70,6 @@ export default function ResumePage() {
     catch (err) { showToast(err.detail || 'Could not remove', 'error'); }
   };
 
-  function encodeKey(key) { return key.split('/').map(encodeURIComponent).join('/'); }
-
   const parsedFields = parsedData ? [
     ['Name', [parsedData.first_name, parsedData.middle_name, parsedData.last_name].filter(Boolean).join(' ')],
     ['Email', parsedData.email],
@@ -96,13 +94,15 @@ export default function ResumePage() {
               <input type="text" id="resume-label" placeholder="e.g. Java_Developer_Resume" value={label} onChange={(e) => setLabel(e.target.value)} />
             </div>
             <DropZone id="upload-zone" onFileSelect={setSelectedFile} />
-            {uploadPct > 0 && (
+            {(uploading || uploadPct > 0) && (
               <div style={{ marginTop: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
                   <span className="text-muted">{selectedFile?.name || 'Uploading…'}</span>
-                  <span className="text-muted">{uploadPct}%</span>
+                  {uploadPct === 100 && <span className="text-success">100%</span>}
                 </div>
-                <div className="progress-bar"><div className="progress-fill" style={{ width: uploadPct + '%' }}></div></div>
+                <div className="progress-bar">
+                  <div className={`progress-fill ${uploading && uploadPct < 100 ? 'progress-indeterminate' : ''}`} style={{ width: uploadPct === 100 ? '100%' : uploading ? '50%' : '0%' }}></div>
+                </div>
               </div>
             )}
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>

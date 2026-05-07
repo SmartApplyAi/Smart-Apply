@@ -46,7 +46,7 @@ export default function Navbar({ variant = 'default', onMenuClick }) {
           </button>
           <Logo />
         </div>
-        <div className="nav-links" id="nav-actions">
+        <div className="nav-links hide-mobile" id="nav-actions">
           <ThemeToggle />
           <Link to="/dashboard" className={`btn btn-ghost btn-sm ${isActive('/dashboard')}`}>
             <i className="fa-solid fa-gauge"></i> Dashboard

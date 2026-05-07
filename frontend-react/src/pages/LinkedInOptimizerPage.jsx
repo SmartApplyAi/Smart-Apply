@@ -88,7 +88,7 @@ export default function LinkedInOptimizerPage() {
 
         {status === 'empty' && (
           <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-3)' }}>
-            <i className="fa-solid fa-wand-magic-sparkles" style={{ fontSize: '3rem', marginBottom: '20px', opacity: 0.3, display: 'block' }}></i>
+            <i className="fa-solid fa-wand-magic-sparkles" style={{ fontSize: '3rem', marginBottom: '20px', opacity: 0.5, display: 'block' }}></i>
             <h4>Ready to level up your LinkedIn?</h4>
             <p>Click the sync button above to analyze your profile.</p>
           </div>
@@ -164,7 +164,7 @@ export default function LinkedInOptimizerPage() {
           </div>
         )}
 
-        <Modal show={showPreview} onClose={() => { setShowPreview(false); setStatus('empty'); }} title="LinkedIn Profile Synced">
+        <Modal open={showPreview} onClose={() => { setShowPreview(false); setStatus('empty'); }} title="LinkedIn Profile Synced">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', minWidth: '100px' }}>Name</div>

@@ -158,7 +158,7 @@ export default function LandingPage() {
             <p>Questions or feedback? Send us a message.</p>
           </div>
           <div className="contact-card">
-            <form>
+            <form onSubmit={e => e.preventDefault()}>
               <div className="form-group">
                 <label>Name</label>
                 <input type="text" placeholder="Your name" />

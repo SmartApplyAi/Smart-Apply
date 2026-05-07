@@ -52,6 +52,15 @@ const api = {
     return handleResponse(resp);
   },
 
+  async patch(path, body) {
+    const resp = await fetch(BASE_URL + path, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body),
+    });
+    return handleResponse(resp);
+  },
+
   async delete(path) {
     const resp = await fetch(BASE_URL + path, {
       method: 'DELETE',

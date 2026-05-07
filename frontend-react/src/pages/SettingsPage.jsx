@@ -149,8 +149,9 @@ export default function SettingsPage() {
         
         @media(max-width: 768px) { 
           .settings-grid { grid-template-columns: 1fr; } 
-          .settings-nav { flex-direction: row; overflow-x: auto; position: static; margin-bottom: 24px; padding-bottom: 8px; }
-          .settings-nav-item { white-space: nowrap; width: auto; }
+          .settings-nav { flex-direction: row; overflow-x: auto; position: static; margin-bottom: 24px; padding-bottom: 8px; scroll-snap-type: x mandatory; }
+          .settings-nav::-webkit-scrollbar { display: none; }
+          .settings-nav-item { white-space: nowrap; width: auto; scroll-snap-align: start; }
         }
       `}</style>
     </>
