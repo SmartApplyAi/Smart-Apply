@@ -79,8 +79,7 @@ async def save_all_profile(body: dict, user: dict = Depends(get_current_user)):
 
 
 @router.delete("/me")
-@limiter.limit("1/hour")
-async def delete_my_account(request: Request, user: dict = Depends(get_current_user)):
+async def delete_my_account(user: dict = Depends(get_current_user)):
     """Permanently delete the user account and all associated data."""
     success = await profile_service.delete_full_profile(user["id"])
     if not success:

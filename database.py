@@ -114,18 +114,6 @@ async def _ensure_indexes():
     await db.blacklisted_tokens.create_index("token", unique=True)
     await db.blacklisted_tokens.create_index("expires_at", expireAfterSeconds=0)
 
-    # OAuth handoffs (TTL — auto-cleanup expired codes)
-    await db.oauth_handoffs.create_index("expires_at", expireAfterSeconds=0)
-    await db.oauth_handoffs.create_index("id", unique=True, sparse=True)
-
-    # Extension tokens — TTL index for auto-expiry
-    await db.extension_tokens.create_index("expires_at", expireAfterSeconds=0)
-    # Compound index for faster token+revoked lookups
-    await db.extension_tokens.create_index([("token", 1), ("revoked", 1)], background=True)
-
-    # Audit logs — compound index for admin filtering by endpoint
-    await db.audit_logs.create_index([("path", 1), ("timestamp", -1)], background=True)
-
     logger.info("MongoDB indexes ensured.")
 
 
@@ -133,15 +121,13 @@ async def _load_dynamic_config():
     """Load settings from DB 'config' collection and update settings object."""
     db = get_db()
     try:
-        nim_keys_value = None
         cursor = db.config.find({})
         async for doc in cursor:
             if doc["key"] == "nvidia_nim_keys":
-                nim_keys_value = doc["value"]
-                object.__setattr__(settings, "NIM_API_KEYS", nim_keys_value)
+                object.__setattr__(settings, "NIM_API_KEYS", doc["value"])
                 
-        # Trigger NIM cycle reset only if keys were actually found in DB
-        if nim_keys_value:
+        # Trigger NIM cycle reset only if keys found
+        if settings.NIM_API_KEYS:
             try:
                 # Local import to prevent circular dependency
                 from services.ai_service import reset_keys_cycle

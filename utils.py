@@ -4,7 +4,7 @@ Utility helpers: JWT creation, password hashing, crypto, pagination.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
-import jwt as pyjwt
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 from config import settings
 import hashlib
@@ -25,12 +25,6 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-# ── Log Injection Prevention ────────────────────────────────────────────────
-def safe_log(val: str, max_len: int = 100) -> str:
-    """Sanitize user-controlled strings before logging to prevent log injection."""
-    return str(val).replace('\n', '\\n').replace('\r', '\\r')[:max_len]
-
-
 # ── JWT Tokens ───────────────────────────────────────────────────────────────
 def create_access_token(
     data: dict, expires_delta: Optional[timedelta] = None
@@ -40,7 +34,7 @@ def create_access_token(
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire, "type": "access"})
-    return pyjwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_refresh_token(data: dict) -> str:
@@ -49,27 +43,20 @@ def create_refresh_token(data: dict) -> str:
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
     to_encode.update({"exp": expire, "type": "refresh"})
-    return pyjwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_token(token: str) -> Optional[dict]:
-    """Decode and verify a JWT token. Explicitly checks expiry.
-    
-    SECURITY NOTE (#22): iss (issuer) and aud (audience) claims are NOT validated.
-    This is intentional for this single-issuer, single-audience application where
-    all tokens are created and consumed by this backend only. If this app shares
-    a SECRET_KEY with another service, tokens from that service would be accepted.
-    In that case, add iss/aud claims to create_access_token and validate here.
-    """
+    """Decode and verify a JWT token. Explicitly checks expiry."""
     try:
-        payload = pyjwt.decode(
+        payload = jwt.decode(
             token, 
             settings.SECRET_KEY, 
             algorithms=[settings.ALGORITHM],
             options={"verify_exp": True, "verify_aud": False}
         )
         return payload
-    except pyjwt.PyJWTError:
+    except JWTError:
         return None
 
 
@@ -91,24 +78,8 @@ def generate_extension_token() -> str:
 from cryptography.fernet import Fernet
 import base64
 
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
-
 def _get_fernet():
-    # Derive a 32-byte key using HKDF (stronger than bare SHA-256)
-    # Uses separate encryption_key to isolate from JWT SECRET_KEY
-    hkdf = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=b"smartapply-fernet-v1",
-        info=b"platform-credential-encryption",
-    )
-    key = hkdf.derive(settings.encryption_key.encode())
-    return Fernet(base64.urlsafe_b64encode(key))
-
-
-def _get_legacy_fernet():
-    # Derive a 32-byte key from the SECRET_KEY for Fernet (Legacy)
+    # Derive a 32-byte key from the SECRET_KEY for Fernet
     key = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
     return Fernet(base64.urlsafe_b64encode(key))
 
@@ -127,13 +98,8 @@ def decrypt_value(enc: str) -> str:
     try:
         return _get_fernet().decrypt(enc.encode()).decode()
     except Exception:
-        # Try legacy SHA-256 key for backward compatibility
-        try:
-            return _get_legacy_fernet().decrypt(enc.encode()).decode()
-        except Exception:
-            from loguru import logger
-            logger.warning(f"Failed to decrypt value (length={len(enc)}). Possible data corruption or key mismatch.")
-            return ""
+        # Fallback for old XOR-encrypted values or invalid data
+        return ""
 
 
 # ── Pagination ──────────────────────────────────────────────────────────────

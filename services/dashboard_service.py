@@ -39,8 +39,7 @@ async def get_summary(user_id: str) -> dict:
                     {
                         "$addFields": {
                             # Fallback chain: applied_at -> created_at -> current date (as last resort)
-                            # NOTE: $ifNull accepts exactly 2 args; nest for 3-level fallback
-                            "activity_date": {"$ifNull": ["$applied_at", {"$ifNull": ["$created_at", datetime.now(timezone.utc)]}]}
+                            "activity_date": {"$ifNull": ["$applied_at", "$created_at", datetime.now(timezone.utc)]}
                         }
                     },
                     # Ensure we have a valid date for the match

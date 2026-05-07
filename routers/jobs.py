@@ -88,9 +88,8 @@ async def get_recent(
 # ── CRUD ────────────────────────────────────────────────────────────────────
 
 @router.post("/applications")
-@limiter.limit("30/minute")
 async def create_application(
-    request: Request, body: CreateApplicationRequest, user: dict = Depends(get_current_user)
+    body: CreateApplicationRequest, user: dict = Depends(get_current_user)
 ):
     """Create a new job application record."""
     try:
@@ -132,9 +131,8 @@ async def delete_application(app_id: str, user: dict = Depends(get_current_user)
 
 
 @router.post("/applications/batch")
-@limiter.limit("10/minute")
 async def batch_create(
-    request: Request, body: BatchApplicationRequest, user: dict = Depends(get_current_user)
+    body: BatchApplicationRequest, user: dict = Depends(get_current_user)
 ):
     """Batch create applications (from extension)."""
     if len(body.applications) > 100:
@@ -160,7 +158,7 @@ async def save_linkedin_cookies(
 # ── Extension endpoints ─────────────────────────────────────────────────────
 
 @router.get("/extension/download")
-async def download_extension(user: dict = Depends(get_current_user)):
+async def download_extension():
     """Download the Chrome extension."""
     from pathlib import Path
     ext_path = Path(__file__).resolve().parent.parent / "extension.zip"
@@ -199,7 +197,6 @@ async def extension_connect(
 
 
 @router.post("/extension/heartbeat")
-@limiter.limit("60/minute")
 async def extension_heartbeat(request: Request):
     """Extension heartbeat to keep the connection alive."""
     try:
@@ -232,14 +229,9 @@ async def extension_report_step(request: Request):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid extension token")
 
-    # M4: Verify session ownership — prevent writing to another user's session
-    session_id = body.get("session_id", "")
-    if session_id:
-        await _verify_session_ownership(session_id, user_id)
-
     return await automation_service.extension_report_step(
         user_id,
-        session_id=session_id,
+        session_id=body.get("session_id", ""),
         step=body.get("step", ""),
         status=body.get("status", ""),
         message=body.get("message", ""),
@@ -248,7 +240,7 @@ async def extension_report_step(request: Request):
 
 
 @router.post("/extension/report-result")
-@limiter.limit("20/minute")
+@limiter.limit("60/minute")
 async def extension_report_result(request: Request):
     """Report a completed application result from the extension."""
     try:
@@ -262,34 +254,14 @@ async def extension_report_result(request: Request):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid extension token")
 
-    # M4: Verify session ownership
-    session_id = body.get("session_id", "")
-    if session_id:
-        await _verify_session_ownership(session_id, user_id)
-
     return await automation_service.extension_report_result(
         user_id,
-        session_id=session_id,
+        session_id=body.get("session_id", ""),
         result_data=body.get("result", body),
     )
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
-
-async def _verify_session_ownership(session_id: str, user_id: str):
-    """M4: Verify that a session belongs to the authenticated user."""
-    from database import get_db
-    from bson import ObjectId
-    try:
-        db = get_db()
-        session = await db.automation_sessions.find_one({"_id": ObjectId(session_id)})
-        if session and session.get("user_id") != user_id:
-            raise HTTPException(status_code=403, detail="Session ownership mismatch")
-    except HTTPException:
-        raise
-    except Exception:
-        pass  # Invalid ObjectId or missing session — let downstream handle it
-
 
 def _get_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")

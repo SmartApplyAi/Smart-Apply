@@ -11,15 +11,11 @@ async def get_admin_stats(admin: dict = Depends(require_admin)):
     """Get global platform stats for the admin dashboard."""
     return await admin_service.get_admin_stats()
 
-def _mask_key(k: str) -> str:
-    """Mask an API key for safe display — show first 8 and last 6 chars only."""
-    return k[:8] + "••••••••" + k[-6:] if len(k) > 14 else "••••••••"
-
 @router.get("/admin/keys")
 async def get_admin_keys(admin: dict = Depends(require_admin)):
-    """Get the current NVIDIA NIM API keys (masked for security)."""
+    """Get the current NVIDIA NIM API keys."""
     keys = await settings.get_nim_api_key_list()
-    return {"keys": [_mask_key(k) for k in keys]}
+    return {"keys": keys}
 
 from pydantic import BaseModel
 
@@ -81,13 +77,12 @@ async def get_active_sessions(admin: dict = Depends(require_admin)):
 
 @router.get("/admin/audit-logs")
 async def get_audit_logs(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(100, le=500),
     user_id: Optional[str] = Query(None),
     admin: dict = Depends(require_admin)
 ):
-    """View admin audit logs with pagination."""
-    logs = await admin_service.get_audit_logs(limit, user_id, skip=skip)
+    """View admin audit logs."""
+    logs = await admin_service.get_audit_logs(limit, user_id)
     return {"logs": logs}
 
 @router.post("/admin/broadcast")

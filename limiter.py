@@ -15,24 +15,4 @@ def get_client_ip(request):
         
     return "127.0.0.1"
 
-
-def get_user_or_ip(request):
-    """Rate limit by user ID if authenticated, else by IP.
-    
-    Prevents VPN rotation from bypassing per-IP rate limits on
-    authenticated endpoints. Falls back to IP for anonymous requests.
-    """
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    if token:
-        try:
-            from utils import decode_token
-            payload = decode_token(token)
-            if payload and payload.get("sub"):
-                return f"user:{payload['sub']}"
-        except Exception:
-            pass
-    return get_client_ip(request)
-
-
 limiter = Limiter(key_func=get_client_ip)
-user_limiter = Limiter(key_func=get_user_or_ip)

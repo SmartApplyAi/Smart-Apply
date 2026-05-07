@@ -482,11 +482,12 @@
         // The backend validates the JWT, then redirects to R2 presigned URL.
         // fetch() follows the redirect and returns the PDF bytes.
         loaderTx.textContent = 'Downloading resume…';
-        // C2: Token is httpOnly cookie — just use credentials: include
+        const token = localStorage.getItem('sa_token') || '';
         let resp;
         try {
           resp = await fetch(previewUrl, {
             credentials: 'include',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
           });
         } catch (networkErr) {
           throw new Error(`Network error: ${networkErr.message}`);

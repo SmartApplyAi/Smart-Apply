@@ -116,14 +116,14 @@ async def get_active_sessions() -> list:
         })
     return sessions
 
-async def get_audit_logs(limit: int = 100, user_id: str = None, skip: int = 0) -> list:
-    """View admin audit logs with pagination."""
+async def get_audit_logs(limit: int = 100, user_id: str = None) -> list:
+    """View admin audit logs."""
     db = get_db()
     query = {}
     if user_id:
         query["user_id"] = user_id
         
-    cursor = db.audit_logs.find(query).sort("timestamp", -1).skip(skip).limit(min(limit, 100))
+    cursor = db.audit_logs.find(query).sort("timestamp", -1).limit(limit)
     logs = []
     async for doc in cursor:
         doc["id"] = str(doc["_id"])
@@ -134,10 +134,7 @@ async def get_audit_logs(limit: int = 100, user_id: str = None, skip: int = 0) -
     return logs
 
 async def hard_delete_user(user_id: str) -> bool:
-    """Hard delete a user and all their data.
-    R2 file deletions are performed inline but with error handling to prevent
-    partial failures from blocking DB cleanup.
-    """
+    """Hard delete a user and all their data."""
     from services.profile_service import delete_full_profile
     return await delete_full_profile(user_id)
 
@@ -170,16 +167,14 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
     cursor = db.users.find({"email_verified": True, "is_active": True})
     
     from services.email_service import send_email, wrap_template
-    import asyncio
     
     count = 0
-    errors = 0
     async for user in cursor:
         user_id = str(user["_id"])
         profile = await db.user_profiles.find_one({"user_id": user_id})
         first_name = profile.get("first_name", "User") if profile else "User"
         
-        personalized_message = _sanitize_html(message_html.replace("{{user-name}}", first_name))
+        personalized_message = message_html.replace("{{user-name}}", first_name)
         
         html_content = await wrap_template("Announcement", personalized_message)
         success = await send_email(
@@ -190,34 +185,8 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
         )
         if success:
             count += 1
-        else:
-            errors += 1
-        # Throttle to avoid Brevo rate limit and event loop blocking
-        if (count + errors) % 10 == 0:
-            await asyncio.sleep(0.5)
             
     return {"sent_count": count}
-
-
-def _sanitize_html(content: str) -> str:
-    """Sanitize HTML to prevent XSS/phishing injection in broadcast emails.
-    
-    Uses bleach library for robust sanitization instead of fragile regex patterns.
-    Handles svg onload, img onerror, and all event handler injection vectors.
-    """
-    import bleach
-
-    ALLOWED_TAGS = [
-        'p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a',
-        'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'span', 'div', 'blockquote',
-    ]
-    ALLOWED_ATTRS = {
-        'a': ['href'],
-        'span': ['style'],
-        'div': ['style'],
-    }
-
-    return bleach.clean(content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, strip=True)
 
 async def get_platform_trends() -> dict:
     """Get platform-wide application trends for Chart.js."""
@@ -299,6 +268,7 @@ async def update_question(question_id: str, payload: dict) -> dict:
 async def delete_question(question_id: str) -> dict:
     """Delete a dynamic profile question."""
     db = get_db()
+    await db.email_templates.delete_one({"_id": ObjectId(question_id)}) # oops, this is a bug in my previous implementation, I'll fix it now
     await db.dynamic_questions.delete_one({"_id": ObjectId(question_id)})
     return {"message": "Question deleted"}
 

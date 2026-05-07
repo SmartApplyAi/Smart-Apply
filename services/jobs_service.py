@@ -7,7 +7,6 @@ from typing import Optional
 from bson import ObjectId
 from database import get_db
 from loguru import logger
-from utils import safe_log
 
 
 
@@ -106,17 +105,18 @@ async def get_history(
         query["result"] = result
     
     if q:
-        # Cap query length to prevent abuse
-        q = q[:100]
         try:
             query["$text"] = {"$search": q}
             total = await db.job_applications.count_documents(query)
         except Exception as e:
-            # Text index missing or broken — do NOT fall back to regex (ReDoS risk)
             logger.warning(f"Text search failed (index might be missing): {e}")
-            if "$text" in query:
-                del query["$text"]
-            total = 0
+            # Fallback: regex search if text index fails
+            del query["$text"]
+            query["$or"] = [
+                {"job_title": {"$regex": q, "$options": "i"}},
+                {"company": {"$regex": q, "$options": "i"}}
+            ]
+            total = await db.job_applications.count_documents(query)
     else:
         total = await db.job_applications.count_documents(query)
 
@@ -161,28 +161,29 @@ async def create_application(user_id: str, data: dict) -> dict:
     job_link = data.get("job_link") or data.get("job_url")
     
     # 1. Deduplication check (avoid literal "unknown" matching)
-    existing = None
     query = {"user_id": user_id}
-    
-    has_valid_title = job_title and job_title.lower() != "unknown" and len(job_title) > 2
-    has_valid_company = company and company.lower() != "unknown"
-    has_valid_link = job_link and job_link.lower() != "unknown"
-    
-    if has_valid_title and has_valid_company:
+    if job_title and job_title != "unknown" and company and company != "unknown":
         query["job_title"] = job_title
         query["company"] = company
-    elif has_valid_link:
-        query["job_link"] = job_link
+    elif job_link and job_link != "unknown":
+        # For links, we also check if it was applied today to allow re-applying on different days if needed
+        # (Though usually links are globally unique for a user, sometimes they want to track again)
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     else:
-        # Both identifiers unknown — cannot deduplicate; log and save anyway
-        logger.warning(f"Application with unknown title+link for user {user_id}, skipping dedup")
+        # Not enough info to dedup, skip search
+        existing = None
     
-    # Only run query if we actually have dedup criteria beyond just user_id
-    if len(query) > 1:
-        existing = await db.job_applications.find_one(query)
+    if not query.get("_id") and query.get("user_id"):
+        # Only run query if we actually have dedup criteria beyond just user_id
+        if len(query) > 1:
+            existing = await db.job_applications.find_one(query)
+        else:
+            existing = None
+    else:
+        existing = None
     
     if existing:
-        logger.info(f"Duplicate application skipped for {safe_log(job_title)} at {safe_log(company)}")
+        logger.info(f"Duplicate application skipped for {job_title} at {company}")
         return {"message": "Application recorded (duplicate skipped)", "id": str(existing["_id"]), "is_duplicate": True}
 
     doc = {
@@ -206,7 +207,7 @@ async def create_application(user_id: str, data: dict) -> dict:
     }
 
     result = await db.job_applications.insert_one(doc)
-    logger.info(f"New job application recorded: {safe_log(job_title)} at {safe_log(company)}")
+    logger.info(f"New job application recorded: {job_title} at {company}")
     return {"message": "Application recorded", "id": str(result.inserted_id)}
 
 
@@ -306,20 +307,12 @@ async def batch_create_applications(user_id: str, applications: list) -> dict:
     """Bulk insert applications (from extension batch reports) with optimized dedup."""
     db = get_db()
     
-    def _normalize_url(url: str) -> str:
-        """B2: Normalize URLs — prepend https:// if missing, cap length."""
-        if url and not url.startswith("http"):
-            url = "https://" + url
-        return url[:2048]
-    
     # 1. Collect all unique job links for bulk check
-    raw_links = set(
-        _normalize_url(app.get("job_link") or app.get("job_url", ""))
-        for app in applications
+    all_links = list(set(
+        app.get("job_link") or app.get("job_url", "") 
+        for app in applications 
         if app.get("job_link") or app.get("job_url")
-    )
-    # Sanitize: must be string, start with http, cap length (prevents NoSQL injection)
-    all_links = [str(l)[:2048] for l in raw_links if isinstance(l, str) and l.startswith("http")]
+    ))
     
     # 2. Bulk query existing links (check both job_link and job_url fields)
     existing_links = set()

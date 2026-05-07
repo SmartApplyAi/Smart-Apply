@@ -137,13 +137,13 @@
       // POST to backend
       _toast("Saving LinkedIn data to your profile…", "info");
       try {
-        // C2: Token is httpOnly cookie — use credentials: include
+        const token = localStorage.getItem("sa_token");
         const res = await fetch("/api/profile/import-linkedin", {
           method:  "POST",
           headers: {
             "Content-Type":  "application/json",
+            "Authorization": `Bearer ${token}`,
           },
-          credentials: "include",
           body: JSON.stringify({ raw_linkedin_data: data, overwrite }),
         });
 

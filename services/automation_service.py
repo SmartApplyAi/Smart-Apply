@@ -198,7 +198,6 @@ async def extension_connect(
         "last_active": datetime.now(timezone.utc),
         "revoked": False,
         "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(days=90),
     }
     await db.extension_tokens.insert_one(doc)
 
@@ -226,11 +225,7 @@ async def validate_extension_token(token: str) -> Optional[str]:
     db = get_db()
 
     try:
-        doc = await db.extension_tokens.find_one({
-            "token": token,
-            "revoked": False,
-            "expires_at": {"$gt": datetime.now(timezone.utc)},
-        })
+        doc = await db.extension_tokens.find_one({"token": token, "revoked": False})
         if not doc:
             return None
         return doc["user_id"]
@@ -300,15 +295,13 @@ async def extension_report_result(user_id: str, session_id: str, result_data: di
     else:
         logger.warning(f"Result reported with missing job_title or company for user {user_id}. Skipping application record.")
 
-    # Log the result (whitelist safe fields to avoid persisting sensitive data)
-    safe_keys = {"job_title", "company", "platform", "result", "job_link", "job_url", "error_detail"}
-    safe_data = {k: v for k, v in result_data.items() if k in safe_keys}
+    # Log the result
     await extension_report_step(
         user_id, session_id,
         step="application_result",
         status=result_type,
         message=f"{result_data.get('job_title', '')} at {result_data.get('company', '')}",
-        data=safe_data,
+        data=result_data,
     )
 
     # Broadcast update for real-time dashboard

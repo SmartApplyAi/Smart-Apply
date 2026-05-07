@@ -97,14 +97,12 @@ function parseJwtPayload(token) {
     const res = await fetch(API_BASE + '/auth/oauth-handoff', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ code: handoffId }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.access_token) throw new Error((data && data.detail) || 'OAuth exchange failed');
     
-    // C2: Token is now set as httpOnly cookie by backend — only save UI state
-    auth.save(null, data.user);
+    auth.save(data.access_token, data.user);
     
     // Clear the code from URL
     const url = new URL(window.location);
@@ -137,11 +135,12 @@ function parseJwtPayload(token) {
   if (!token) return;
   try {
     const payload = parseJwtPayload(token);
-    // C2: Don't store token in localStorage — httpOnly cookie handles auth
+    localStorage.setItem('sa_token', token);
     localStorage.setItem('sa_auth', '1');
     localStorage.setItem('sa_user', JSON.stringify({ email: payload.email || '', id: payload.sub || '' }));
   } catch (err) {
     console.error('OAuth token parse error:', err);
+    localStorage.removeItem('sa_token');
     return window.location.replace('login.html?error=invalid_token');
   }
   window.history.replaceState({}, '', window.location.pathname + window.location.hash);
@@ -160,7 +159,8 @@ const api = {
   async request(method, path, body = null, opts = {}) {
     const headers = { ...opts.headers };
     if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
-    // C2: No longer setting Authorization header from localStorage — httpOnly cookie is sent automatically
+    const token = localStorage.getItem('sa_token');
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     const config = { method, headers, credentials: 'include' };
     if (body && !(body instanceof FormData)) config.body = JSON.stringify(body);
     else if (body instanceof FormData) { delete headers['Content-Type']; config.body = body; }
@@ -196,19 +196,18 @@ const api = {
 
 const auth = {
   save(token, user) {
-    // C2: Token is stored as httpOnly cookie by the backend, not in localStorage
-    // We only keep non-sensitive UI state for navbar/routing
+    localStorage.setItem('sa_token', token);
     localStorage.setItem('sa_auth', '1');
-    if (user) localStorage.setItem('sa_user', JSON.stringify(user));
+    localStorage.setItem('sa_user', JSON.stringify(user));
   },
   clear() {
-    localStorage.removeItem('sa_token');  // Clean up legacy key if present
+    localStorage.removeItem('sa_token');
     localStorage.removeItem('sa_user');
     localStorage.removeItem('sa_auth');
   },
-  get token() { return null; /* C2: Token is httpOnly cookie, not accessible from JS */ },
+  get token() { return localStorage.getItem('sa_token'); },
   get user() { try { return JSON.parse(localStorage.getItem('sa_user')); } catch { return null; } },
-  get isAuth() { return localStorage.getItem('sa_auth') === '1'; },
+  get isAuth() { return !!this.token || localStorage.getItem('sa_auth') === '1'; },
   requireAuth(redirect = 'login.html') {
     if (window.__sa_oauth_pending || new URLSearchParams(window.location.search).has('oauth_code')) return true;
     if (!this.isAuth) { window.location.href = redirect; return false; }

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt as pyjwt
+from jose import jwt, JWTError
 from database import get_db
 from config import settings
 from bson import ObjectId
@@ -39,7 +39,7 @@ async def get_current_user(
         )
 
     try:
-        payload = pyjwt.decode(
+        payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         user_id: str = payload.get("sub")
@@ -50,16 +50,16 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise HTTPException(status_code=401, detail="Invalid token type")
 
-    except pyjwt.PyJWTError:
+        # Check if token is blacklisted
+        db = get_db()
+        blacklisted = await db.blacklisted_tokens.find_one({"token": token})
+        if blacklisted:
+            raise HTTPException(status_code=401, detail="Token has been revoked")
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    # Check if token is blacklisted BEFORE fetching user (fail fast, save DB round-trip)
-    db = get_db()
-    blacklisted = await db.blacklisted_tokens.find_one({"token": token})
-    if blacklisted:
-        raise HTTPException(status_code=401, detail="Token has been revoked")
-
     # Fetch user from DB
+    db = get_db()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
