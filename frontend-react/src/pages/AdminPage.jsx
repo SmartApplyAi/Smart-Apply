@@ -470,12 +470,6 @@ export default function AdminPage() {
           </div>
         )}
       </main>
-
-      <style>{`
-        .badge-warning { background: rgba(255,166,0,0.1); color: orange; border: 1px solid rgba(255,166,0,0.2); border-radius: 99px; padding: 2px 8px; font-size: 11px; }
-        .badge-neutral { background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); border-radius: 99px; padding: 2px 8px; font-size: 11px; }
-        .badge-success { background: rgba(126,232,162,0.1); color: var(--accent); border: 1px solid rgba(126,232,162,0.2); border-radius: 99px; padding: 2px 8px; font-size: 11px; }
-      `}</style>
     </div>
   );
 }
