@@ -1111,10 +1111,11 @@
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
 
       try {
-        const token = localStorage.getItem("sa_token");
+        // C2: Token is httpOnly cookie — use credentials: include
         const res = await fetch("/api/profile/import-linkedin", {
           method:  "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body:    JSON.stringify({ raw_linkedin_data: _liScrapedData, overwrite }),
         });
         const result = await res.json();

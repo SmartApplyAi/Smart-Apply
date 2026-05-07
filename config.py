@@ -5,7 +5,7 @@ Loads all settings from environment variables via pydantic-settings.
 
 from typing import List, Optional
 from pydantic_settings import BaseSettings
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 import os
 import asyncio
 from pathlib import Path
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # ── Security ──────────────────────────────────────
-    SECRET_KEY: str = "dev_secret_key_change_me_in_production_1234567890abcdef"
+    SECRET_KEY: str = ""  # No default — must be set via .env
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -109,6 +109,19 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
+
+    @model_validator(mode='after')
+    def validate_secrets(self):
+        """Enforce strong secrets in production; provide safe fallback in dev."""
+        if self.APP_ENV == "production":
+            if not self.SECRET_KEY or len(self.SECRET_KEY) < 32:
+                raise ValueError("SECRET_KEY must be set (32+ chars) in production")
+            if not self.ENCRYPTION_KEY:
+                raise ValueError("ENCRYPTION_KEY must be set in production")
+        elif not self.SECRET_KEY:
+            # In dev, use a clearly-labeled insecure key so the app still boots
+            object.__setattr__(self, 'SECRET_KEY', 'dev-only-insecure-key-do-not-use-in-prod')
+        return self
 
     model_config = {
         "env_file": str(_env_file),

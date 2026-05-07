@@ -3,6 +3,8 @@ Resume API routes.
 Matches frontend expectations at /api/resume/*.
 """
 
+import os
+import urllib.parse
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
 from fastapi.responses import RedirectResponse, StreamingResponse
 from dependencies import get_current_user
@@ -10,6 +12,15 @@ from services import resume_service
 import io
 
 router = APIRouter(prefix="/resume", tags=["Resume"])
+
+
+def sanitize_object_key(raw_key: str, user_id: str) -> str:
+    """M6: Validate and normalize object keys to prevent path traversal attacks."""
+    decoded = urllib.parse.unquote(raw_key)
+    normalized = os.path.normpath(decoded).replace("\\", "/")
+    if ".." in normalized or not normalized.startswith(f"resumes/{user_id}/"):
+        raise HTTPException(status_code=403, detail="Invalid object key")
+    return normalized
 
 
 @router.post("/upload")
@@ -61,6 +72,7 @@ async def activate_resume(
     object_key: str, user: dict = Depends(get_current_user)
 ):
     """Set a resume as the active/primary resume."""
+    object_key = sanitize_object_key(object_key, user["id"])
     try:
         return await resume_service.activate_resume_by_key(user["id"], object_key)
     except ValueError as e:
@@ -72,6 +84,7 @@ async def download_resume(
     object_key: str, user: dict = Depends(get_current_user)
 ):
     """Download a resume via presigned R2 URL."""
+    object_key = sanitize_object_key(object_key, user["id"])
     try:
         from services.audit_service import log_action
         await log_action(user["id"], "download_resume", "resume", metadata={"object_key": object_key})
@@ -86,6 +99,7 @@ async def view_resume(
     object_key: str, user: dict = Depends(get_current_user)
 ):
     """Stream the resume PDF for inline viewing."""
+    object_key = sanitize_object_key(object_key, user["id"])
     try:
         file_bytes, filename = await resume_service.get_resume_bytes(
             user["id"], object_key
@@ -107,6 +121,7 @@ async def delete_resume(
     object_key: str, user: dict = Depends(get_current_user)
 ):
     """Delete a resume from R2 and the database."""
+    object_key = sanitize_object_key(object_key, user["id"])
     try:
         return await resume_service.delete_resume(user["id"], object_key)
     except ValueError as e:

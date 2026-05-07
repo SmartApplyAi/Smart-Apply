@@ -7,6 +7,7 @@ from typing import Optional
 from bson import ObjectId
 from database import get_db
 from loguru import logger
+from utils import safe_log
 
 
 
@@ -181,7 +182,7 @@ async def create_application(user_id: str, data: dict) -> dict:
         existing = await db.job_applications.find_one(query)
     
     if existing:
-        logger.info(f"Duplicate application skipped for {job_title} at {company}")
+        logger.info(f"Duplicate application skipped for {safe_log(job_title)} at {safe_log(company)}")
         return {"message": "Application recorded (duplicate skipped)", "id": str(existing["_id"]), "is_duplicate": True}
 
     doc = {
@@ -205,7 +206,7 @@ async def create_application(user_id: str, data: dict) -> dict:
     }
 
     result = await db.job_applications.insert_one(doc)
-    logger.info(f"New job application recorded: {job_title} at {company}")
+    logger.info(f"New job application recorded: {safe_log(job_title)} at {safe_log(company)}")
     return {"message": "Application recorded", "id": str(result.inserted_id)}
 
 
@@ -305,9 +306,15 @@ async def batch_create_applications(user_id: str, applications: list) -> dict:
     """Bulk insert applications (from extension batch reports) with optimized dedup."""
     db = get_db()
     
+    def _normalize_url(url: str) -> str:
+        """B2: Normalize URLs — prepend https:// if missing, cap length."""
+        if url and not url.startswith("http"):
+            url = "https://" + url
+        return url[:2048]
+    
     # 1. Collect all unique job links for bulk check
     raw_links = set(
-        app.get("job_link") or app.get("job_url", "")
+        _normalize_url(app.get("job_link") or app.get("job_url", ""))
         for app in applications
         if app.get("job_link") or app.get("job_url")
     )

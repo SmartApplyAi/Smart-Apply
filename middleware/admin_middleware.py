@@ -1,6 +1,6 @@
 """
-Admin Audit Logging Middleware.
-Logs all /api/admin/* requests to the audit_logs collection.
+Admin & Security Audit Logging Middleware.
+Logs /api/admin/* requests and sensitive user actions to the audit_logs collection.
 """
 
 from fastapi import Request
@@ -11,10 +11,27 @@ from loguru import logger
 import json
 from utils import decode_token
 
+# M3: Sensitive paths to audit beyond /api/admin/*
+_AUDIT_PATHS = {
+    "/api/auth/change-password",
+    "/api/auth/login",
+    "/api/resume/upload",
+}
+_AUDIT_PATH_PREFIXES = ("/api/admin",)
+
+
 class AdminAuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Only log admin routes
-        if not request.url.path.startswith("/api/admin"):
+        path = request.url.path
+
+        # Decide whether to audit this request
+        should_audit = path.startswith(_AUDIT_PATH_PREFIXES)
+        audit_sensitive = path in _AUDIT_PATHS
+        # Also audit DELETE on profile
+        if request.method == "DELETE" and path == "/api/profile/me":
+            audit_sensitive = True
+
+        if not should_audit and not audit_sensitive:
             return await call_next(request)
 
         # Get user from state (if already authenticated by Depends)

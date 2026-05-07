@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+import jwt as pyjwt
 from database import get_db
 from config import settings
 from bson import ObjectId
@@ -39,7 +39,7 @@ async def get_current_user(
         )
 
     try:
-        payload = jwt.decode(
+        payload = pyjwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         user_id: str = payload.get("sub")
@@ -50,7 +50,7 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise HTTPException(status_code=401, detail="Invalid token type")
 
-    except JWTError:
+    except pyjwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     # Check if token is blacklisted BEFORE fetching user (fail fast, save DB round-trip)

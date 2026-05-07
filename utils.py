@@ -4,7 +4,7 @@ Utility helpers: JWT creation, password hashing, crypto, pagination.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
-from jose import jwt, JWTError
+import jwt as pyjwt
 from passlib.context import CryptContext
 from config import settings
 import hashlib
@@ -25,6 +25,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+# ── Log Injection Prevention ────────────────────────────────────────────────
+def safe_log(val: str, max_len: int = 100) -> str:
+    """Sanitize user-controlled strings before logging to prevent log injection."""
+    return str(val).replace('\n', '\\n').replace('\r', '\\r')[:max_len]
+
+
 # ── JWT Tokens ───────────────────────────────────────────────────────────────
 def create_access_token(
     data: dict, expires_delta: Optional[timedelta] = None
@@ -34,7 +40,7 @@ def create_access_token(
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire, "type": "access"})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return pyjwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_refresh_token(data: dict) -> str:
@@ -43,7 +49,7 @@ def create_refresh_token(data: dict) -> str:
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
     to_encode.update({"exp": expire, "type": "refresh"})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return pyjwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_token(token: str) -> Optional[dict]:
@@ -56,14 +62,14 @@ def decode_token(token: str) -> Optional[dict]:
     In that case, add iss/aud claims to create_access_token and validate here.
     """
     try:
-        payload = jwt.decode(
+        payload = pyjwt.decode(
             token, 
             settings.SECRET_KEY, 
             algorithms=[settings.ALGORITHM],
             options={"verify_exp": True, "verify_aud": False}
         )
         return payload
-    except JWTError:
+    except pyjwt.PyJWTError:
         return None
 
 

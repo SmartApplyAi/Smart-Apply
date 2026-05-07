@@ -232,9 +232,14 @@ async def extension_report_step(request: Request):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid extension token")
 
+    # M4: Verify session ownership — prevent writing to another user's session
+    session_id = body.get("session_id", "")
+    if session_id:
+        await _verify_session_ownership(session_id, user_id)
+
     return await automation_service.extension_report_step(
         user_id,
-        session_id=body.get("session_id", ""),
+        session_id=session_id,
         step=body.get("step", ""),
         status=body.get("status", ""),
         message=body.get("message", ""),
@@ -257,14 +262,34 @@ async def extension_report_result(request: Request):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid extension token")
 
+    # M4: Verify session ownership
+    session_id = body.get("session_id", "")
+    if session_id:
+        await _verify_session_ownership(session_id, user_id)
+
     return await automation_service.extension_report_result(
         user_id,
-        session_id=body.get("session_id", ""),
+        session_id=session_id,
         result_data=body.get("result", body),
     )
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
+async def _verify_session_ownership(session_id: str, user_id: str):
+    """M4: Verify that a session belongs to the authenticated user."""
+    from database import get_db
+    from bson import ObjectId
+    try:
+        db = get_db()
+        session = await db.automation_sessions.find_one({"_id": ObjectId(session_id)})
+        if session and session.get("user_id") != user_id:
+            raise HTTPException(status_code=403, detail="Session ownership mismatch")
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # Invalid ObjectId or missing session — let downstream handle it
+
 
 def _get_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")

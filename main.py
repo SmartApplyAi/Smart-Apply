@@ -8,6 +8,7 @@ import os
 import uuid
 import time
 import asyncio
+import secrets
 
 # Create logs directory if it doesn't exist
 os.makedirs("logs", exist_ok=True)
@@ -66,6 +67,16 @@ async def lifespan(app: FastAPI):
     
     logger.info("All systems ready ✓")
     yield
+
+    # B1: Close AI service HTTP client on shutdown to prevent resource leak
+    try:
+        from services.ai_service import _http_client
+        if _http_client and not _http_client.is_closed:
+            await _http_client.aclose()
+            logger.info("AI service HTTP client closed.")
+    except Exception as e:
+        logger.warning(f"Failed to close AI HTTP client: {e}")
+
     await close_db()
     logger.info("Shutdown complete.")
 
@@ -134,22 +145,63 @@ app.add_middleware(RequestContextMiddleware)
 
 # ── Security Headers Middleware ──────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    # H2: Allowed origins for CSRF protection
+    _CSRF_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+    def _get_allowed_origins(self) -> list:
+        if settings.is_production:
+            return [settings.FRONTEND_URL]
+        return [
+            settings.FRONTEND_URL,
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+        ]
+
     async def dispatch(self, request: Request, call_next):
+        # H2: CSRF protection — verify Origin/Referer on state-changing requests
+        if request.method not in self._CSRF_SAFE_METHODS:
+            origin = request.headers.get("origin", "")
+            referer = request.headers.get("referer", "")
+            allowed = self._get_allowed_origins()
+
+            # Skip CSRF for extension endpoints (they use their own token auth)
+            is_extension = request.url.path.startswith("/api/jobs/extension/")
+
+            if not is_extension and origin:
+                if not any(origin.startswith(a) for a in allowed):
+                    if not referer or not any(referer.startswith(a) for a in allowed):
+                        return JSONResponse(
+                            status_code=403,
+                            content={"detail": "CSRF check failed: origin not allowed"}
+                        )
+
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        # Content-Security-Policy (#11 fix): restrict script/style sources to mitigate XSS
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: https:; "
-            "connect-src 'self' https://integrate.api.nvidia.com https://accounts.google.com; "
-            "frame-src https://accounts.google.com;"
+        # B4: Block clipboard access in addition to camera/mic/geo
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), clipboard-read=(), clipboard-write=()"
         )
+
+        # H1: CSP with per-request nonces instead of unsafe-inline
+        nonce = secrets.token_urlsafe(16)
+        response.headers["Content-Security-Policy"] = (
+            f"default-src 'self'; "
+            f"script-src 'self' 'nonce-{nonce}' https://accounts.google.com "
+            f"https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+            f"font-src 'self' https://fonts.gstatic.com data:; "
+            f"img-src 'self' data: https:; "
+            f"connect-src 'self' https://integrate.api.nvidia.com https://accounts.google.com; "
+            f"frame-src https://accounts.google.com; "
+            f"object-src 'none'; base-uri 'self'; form-action 'self';"
+        )
+        # Expose nonce to frontend for dynamic script injection
+        response.headers["X-CSP-Nonce"] = nonce
+
         if settings.is_production:
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"

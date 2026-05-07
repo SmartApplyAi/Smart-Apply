@@ -11,11 +11,15 @@ async def get_admin_stats(admin: dict = Depends(require_admin)):
     """Get global platform stats for the admin dashboard."""
     return await admin_service.get_admin_stats()
 
+def _mask_key(k: str) -> str:
+    """Mask an API key for safe display — show first 8 and last 6 chars only."""
+    return k[:8] + "••••••••" + k[-6:] if len(k) > 14 else "••••••••"
+
 @router.get("/admin/keys")
 async def get_admin_keys(admin: dict = Depends(require_admin)):
-    """Get the current NVIDIA NIM API keys."""
+    """Get the current NVIDIA NIM API keys (masked for security)."""
     keys = await settings.get_nim_api_key_list()
-    return {"keys": keys}
+    return {"keys": [_mask_key(k) for k in keys]}
 
 from pydantic import BaseModel
 

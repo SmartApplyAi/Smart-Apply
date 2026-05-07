@@ -202,23 +202,22 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
 def _sanitize_html(content: str) -> str:
     """Sanitize HTML to prevent XSS/phishing injection in broadcast emails.
     
-    Strips dangerous tags (script, iframe, form, object, embed, link, meta, base, style),
-    event handlers (onload, onclick, etc.), and javascript: hrefs.
+    Uses bleach library for robust sanitization instead of fragile regex patterns.
+    Handles svg onload, img onerror, and all event handler injection vectors.
     """
-    import re as _re
-    # Remove dangerous tags (both paired and self-closing)
-    dangerous = r'<(script|iframe|form|object|embed|link|meta|base|style)[^>]*>.*?</\1>'
-    content = _re.sub(dangerous, '', content, flags=_re.IGNORECASE | _re.DOTALL)
-    # Remove self-closing dangerous tags
-    content = _re.sub(r'<(script|iframe|form|object|embed|link|meta|base|style)[^>]*/>', '', content, flags=_re.IGNORECASE)
-    # Remove unclosed dangerous tags
-    content = _re.sub(r'<(script|iframe|form|object|embed|link|meta|base|style)[^>]*>', '', content, flags=_re.IGNORECASE)
-    # Remove event handlers (e.g., onload="...", onclick='...')
-    content = _re.sub(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', '', content, flags=_re.IGNORECASE)
-    content = _re.sub(r'\s+on\w+\s*=\s*\S+', '', content, flags=_re.IGNORECASE)
-    # Remove javascript: hrefs
-    content = _re.sub(r'href\s*=\s*["\']javascript:[^"\']*["\']', 'href="#"', content, flags=_re.IGNORECASE)
-    return content
+    import bleach
+
+    ALLOWED_TAGS = [
+        'p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a',
+        'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'span', 'div', 'blockquote',
+    ]
+    ALLOWED_ATTRS = {
+        'a': ['href'],
+        'span': ['style'],
+        'div': ['style'],
+    }
+
+    return bleach.clean(content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, strip=True)
 
 async def get_platform_trends() -> dict:
     """Get platform-wide application trends for Chart.js."""

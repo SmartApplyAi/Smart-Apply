@@ -79,6 +79,17 @@ async def update_profile(user_id: str, data: dict) -> dict:
         "_linkedin_raw_languages", "dynamic_answers",
     }
 
+    # H4: Maximum character limits for text fields to prevent OOM / DB bloat
+    TEXT_LIMITS = {
+        "cover_letter": 5000, "linkedin_summary": 2600, "skills_summary": 2000,
+        "education_text": 5000, "experience_text": 5000, "linkedin_headline": 220,
+        "first_name": 50, "last_name": 50, "middle_name": 50,
+        "phone_number": 20, "current_city": 100, "street": 200,
+        "state": 100, "country": 100, "zipcode": 20,
+        "recent_employer": 200, "website": 500, "github": 500,
+        "linkedin_profile": 500,
+    }
+
     # Validate and sanitize dynamic_answers to prevent payload abuse
     if "dynamic_answers" in data:
         answers = data["dynamic_answers"]
@@ -101,6 +112,8 @@ async def update_profile(user_id: str, data: dict) -> dict:
                     else:
                         cleaned_v.append(item)
                 update_data[k] = cleaned_v
+            elif k in TEXT_LIMITS and isinstance(v, str):
+                update_data[k] = v[:TEXT_LIMITS[k]]
             else:
                 update_data[k] = v
     update_data["user_id"] = user_id

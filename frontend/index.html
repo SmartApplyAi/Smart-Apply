@@ -1269,23 +1269,12 @@
     /* ── Live stats (platform + personal) ── */
     async function loadStats() {
       try {
-        /* BUG FIX: was silently failing when not authenticated — now graceful fallback */
-        const token = localStorage.getItem('sa_token');
+        /* C2: No longer reading sa_token — public-stats is unauthenticated */
         let total = 0;
-
-        if (token) {
-          const res = await fetch('/api/jobs/public-stats');
-          if (res.ok) {
-            const d = await res.json();
-            total = d.total || 0;
-          }
-        } else {
-          /* Use public endpoint — no auth needed */
-          const res = await fetch('/api/jobs/public-stats').catch(() => null);
-          if (res?.ok) {
-            const d = await res.json();
-            total = d.total || 0;
-          }
+        const res = await fetch('/api/jobs/public-stats').catch(() => null);
+        if (res?.ok) {
+          const d = await res.json();
+          total = d.total || 0;
         }
 
         /* BUG FIX: animateCount was defined inline but not accessible here — inline it */
@@ -1319,11 +1308,11 @@
     setTimeout(loadStats, 1600);
 
     /* ── Update nav if already logged in ── */
-    /* BUG FIX: nav was not showing "Dashboard" button when user is already logged in */
+    /* C2: Use sa_auth flag instead of sa_token for auth detection */
     (function updateNavForAuthUser() {
-      const token = localStorage.getItem('sa_token');
+      const isAuth = localStorage.getItem('sa_auth') === '1';
       const user = (() => { try { return JSON.parse(localStorage.getItem('sa_user')); } catch { return null; } })();
-      if (!token || !user) return;
+      if (!isAuth || !user) return;
 
       const nav = document.getElementById('nav-actions');
       if (!nav) return;

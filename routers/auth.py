@@ -12,8 +12,40 @@ from dependencies import get_current_user
 from fastapi import Depends
 from limiter import limiter
 from loguru import logger
+from config import settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+# ── Cookie Helper ───────────────────────────────────────────────────────────
+
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str = None):
+    """C2/M2: Set httpOnly cookies with Secure + SameSite flags."""
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="strict",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    if refresh_token:
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=settings.is_production,
+            samesite="strict",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+            path="/api/auth",
+        )
+
+
+def _clear_auth_cookies(response: Response):
+    """Clear auth cookies on logout."""
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/api/auth")
 
 
 # ── Request Models ──────────────────────────────────────────────────────────
@@ -58,6 +90,11 @@ class ExchangeCodeRequest(BaseModel):
     redirect_uri: Optional[str] = None
 
 
+class OAuthHandoffBody(BaseModel):
+    """B3: Strongly typed body for OAuth handoff exchange."""
+    code: str
+
+
 # ── Routes ──────────────────────────────────────────────────────────────────
 
 @router.post("/signup")
@@ -86,6 +123,8 @@ async def login(body: LoginRequest, request: Request, response: Response):
         await log_action(
             result["user"]["id"], "login", "auth", ip_address=_get_ip(request)
         )
+        # C2: Set httpOnly cookies
+        _set_auth_cookies(response, result["access_token"], result.get("refresh_token"))
         return result
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -112,13 +151,16 @@ async def resend_pin(body: ResendPinRequest, request: Request):
 
 
 @router.post("/logout")
-async def logout(request: Request, user: dict = Depends(get_current_user)):
+async def logout(request: Request, response: Response, user: dict = Depends(get_current_user)):
     """Logout and revoke tokens."""
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     if not token:
         token = request.cookies.get("access_token")
     
-    return await auth_service.logout_user(user["id"], token)
+    result = await auth_service.logout_user(user["id"], token)
+    # C2: Clear httpOnly cookies on logout
+    _clear_auth_cookies(response)
+    return result
 
 
 @router.get("/me")
@@ -156,7 +198,7 @@ async def reset_password(body: ResetPasswordRequest):
 
 
 @router.post("/refresh")
-async def refresh_token(request: Request):
+async def refresh_token(request: Request, response: Response):
     """Refresh the access token using a refresh token."""
     # Look for refresh token in body or cookie
     try:
@@ -169,7 +211,10 @@ async def refresh_token(request: Request):
         raise HTTPException(status_code=400, detail="Refresh token required")
 
     try:
-        return await auth_service.refresh_access_token(token)
+        result = await auth_service.refresh_access_token(token)
+        # C2: Set new httpOnly cookies after refresh
+        _set_auth_cookies(response, result["access_token"], result.get("refresh_token"))
+        return result
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
 
@@ -189,11 +234,9 @@ async def change_password(
 
 
 
-
 @router.get("/google/callback", name="google_callback", include_in_schema=False)
 async def google_callback(request: Request, code: str):
     """Handle Google's redirect by exchanging the code for a token server-side."""
-    from config import settings
     from fastapi.responses import RedirectResponse
     import httpx
     import uuid
@@ -249,6 +292,7 @@ async def google_callback(request: Request, code: str):
             await db.oauth_handoffs.insert_one({
                 "id": handoff_id,
                 "access_token": auth_result["access_token"],
+                "refresh_token": auth_result.get("refresh_token", ""),
                 "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
             })
             
@@ -260,11 +304,8 @@ async def google_callback(request: Request, code: str):
 
 
 @router.post("/exchange-code")
-async def exchange_code(body: ExchangeCodeRequest, request: Request):
-    """Exchange a Google OAuth code for an access token.
-    (Placeholder — requires Google OAuth credentials to be configured.)
-    """
-    from config import settings
+async def exchange_code(body: ExchangeCodeRequest, request: Request, response: Response):
+    """Exchange a Google OAuth code for an access token."""
     import httpx
 
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
@@ -308,27 +349,26 @@ async def exchange_code(body: ExchangeCodeRequest, request: Request):
             raise HTTPException(status_code=400, detail="Google account has no email")
 
         # Use auth_service to handle the login/registration
-        return await auth_service.google_login_user(
+        result = await auth_service.google_login_user(
             email=email,
             name=user_info.get("name", ""),
             ip=_get_ip(request)
         )
+        # C2: Set httpOnly cookies
+        _set_auth_cookies(response, result["access_token"], result.get("refresh_token"))
+        return result
 
 
 @router.post("/oauth-handoff")
 @limiter.limit("10/minute")
-async def oauth_handoff(request: Request, body: dict):
+async def oauth_handoff(request: Request, response: Response, body: OAuthHandoffBody):
     """Exchange a temporary handoff code for the actual access token."""
     from database import get_db
     from datetime import datetime, timezone
     db = get_db()
     
-    handoff_id = body.get("code")
-    if not handoff_id:
-        raise HTTPException(status_code=400, detail="Code required")
-        
     handoff = await db.oauth_handoffs.find_one_and_delete({
-        "id": handoff_id,
+        "id": body.code,
         "expires_at": {"$gt": datetime.now(timezone.utc)}
     })
     
@@ -338,6 +378,13 @@ async def oauth_handoff(request: Request, body: dict):
     # Get user info from token (we need it for the frontend)
     from utils import decode_token
     payload = decode_token(handoff["access_token"])
+    
+    # C2: Set httpOnly cookies
+    _set_auth_cookies(
+        response,
+        handoff["access_token"],
+        handoff.get("refresh_token")
+    )
     
     return {
         "access_token": handoff["access_token"],

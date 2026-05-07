@@ -237,13 +237,13 @@
       document.getElementById("loading-msg").textContent = "AI Analysis in Progress...";
 
       try {
-        // First, save to profile (soft merge)
+        // First, save to profile (soft merge) — C2: use cookie auth
         await fetch("/api/profile/import-linkedin", {
           method: "POST",
           headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": `Bearer ${localStorage.getItem("sa_token")}` 
+            "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({ raw_linkedin_data: _lastScrapedData, overwrite: false })
         });
 
