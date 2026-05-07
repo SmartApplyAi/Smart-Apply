@@ -1,13 +1,9 @@
-"""
-SmartApply Backend — FastAPI Application Entry Point
-Wires all routers, middleware, CORS, rate limiting, and lifecycle events.
-"""
-
 import sys
 import os
 import uuid
 import time
 import asyncio
+import re
 
 # Create logs directory if it doesn't exist
 os.makedirs("logs", exist_ok=True)
@@ -16,7 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -117,7 +113,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         # Don't log static file requests or health checks
         path = request.url.path
-        if not path.startswith("/frontend") and path != "/api/health":
+        if not path.startswith("/assets") and path != "/api/health" and not re.search(r"\.[a-z0-9]{2,5}$", path.lower()):
             logger.debug(
                 f"[{request_id}] {request.method} {path} → {response.status_code} ({duration_ms}ms)"
             )
@@ -204,23 +200,12 @@ async def get_extension_config(user: dict = Depends(get_current_user)):
 
 
 
-# ── Serve Frontend Static Files ──────────────────────────────────────────────
-# In production (Render), serve the frontend from the frontend/ directory
-frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+# ── Serve React Frontend Static Files ────────────────────────────────────────
+# In production, serve the React build from frontend-react/dist
+frontend_dir = os.path.join(os.path.dirname(__file__), "frontend-react", "dist")
 
 if os.path.isdir(frontend_dir):
-    from starlette.responses import FileResponse, Response
-    from fastapi.staticfiles import StaticFiles
-
-    # Mount static assets (css, js, images) first so they take precedence
-    css_dir = os.path.join(frontend_dir, "css")
-    js_dir = os.path.join(frontend_dir, "js")
-    if os.path.isdir(css_dir):
-        app.mount("/css", StaticFiles(directory=css_dir), name="css")
-    if os.path.isdir(js_dir):
-        app.mount("/js", StaticFiles(directory=js_dir), name="js")
-    
-    # Generic mount for other frontend assets (if any)
+    # Mount the Vite assets directory
     assets_dir = os.path.join(frontend_dir, "assets")
     if os.path.isdir(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
@@ -229,32 +214,26 @@ if os.path.isdir(frontend_dir):
     async def serve_index():
         return FileResponse(os.path.join(frontend_dir, "index.html"))
 
-    @app.get("/{page}.html")
-    async def serve_page(page: str):
-        file_path = os.path.join(frontend_dir, f"{page}.html")
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-        # Fallback to 404
-        return FileResponse(os.path.join(frontend_dir, "404.html"), status_code=404)
-
     @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"], include_in_schema=False)
     async def catch_all(request: Request, full_path: str):
         """SPA fallback for all non-API paths."""
         if full_path.lower().startswith("api/"):
             return JSONResponse(status_code=404, content={"detail": f"API endpoint /{full_path} not found"})
         
-        # Avoid recursion on missing assets
-        # Check if the path ends with a file extension (e.g., .js, .css, .png)
-        # This allows dots in path names like /some.page/deep while still catching missing files
-        import re
-        if re.search(r"\.[a-z0-9]{2,5}$", full_path.lower()) and not full_path.endswith(".html"):
+        # If it looks like a file (has an extension) and wasn't found in mounted assets, 404
+        if re.search(r"\.[a-z0-9]{2,5}$", full_path.lower()):
+             # Check if it exists in dist root (e.g. favicon.ico)
+             root_file = os.path.join(frontend_dir, full_path)
+             if os.path.isfile(root_file):
+                 return FileResponse(root_file)
              return Response(status_code=404)
              
+        # Otherwise, serve index.html for SPA routing
         return FileResponse(os.path.join(frontend_dir, "index.html"))
 
-    logger.info(f"Serving frontend from: {frontend_dir}")
+    logger.info(f"Serving React frontend from: {frontend_dir}")
 else:
-    logger.warning(f"Frontend directory not found at {frontend_dir} — API-only mode")
+    logger.warning(f"React build directory not found at {frontend_dir} — API-only mode. Run 'npm run build' in frontend-react.")
 
 
 # ── Run ──────────────────────────────────────────────────────────────────────
