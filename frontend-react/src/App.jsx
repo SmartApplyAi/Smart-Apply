@@ -26,6 +26,19 @@ import AdminPage from './pages/AdminPage';
 
 import './App.css';
 
+function CursorFollower() {
+  return (
+    <div id="cursor-follower" style={{
+      position: 'fixed', width: '40px', height: '40px',
+      borderRadius: '50%', border: '1px solid var(--primary)',
+      pointerEvents: 'none', zIndex: 10002,
+      transition: 'transform 0.15s ease-out, opacity 0.3s ease',
+      transform: 'translate(-50%, -50%)', opacity: 0,
+      display: 'none'
+    }}></div>
+  );
+}
+
 function SiteLoader() {
   return (
     <div className="site-loader" style={{
@@ -80,6 +93,19 @@ function App() {
 
     // ── Mouse Interactivity ──
     const handleMouseMove = (e) => {
+      // Cursor Follower
+      const follower = document.getElementById('cursor-follower');
+      if (follower) {
+        follower.style.display = 'block';
+        follower.style.opacity = '0.5';
+        follower.style.left = `${e.clientX}px`;
+        follower.style.top = `${e.clientY}px`;
+        
+        const isHovering = e.target.closest('button, a, .card, .stat-card');
+        follower.style.transform = `translate(-50%, -50%) scale(${isHovering ? 1.5 : 1})`;
+        follower.style.background = isHovering ? 'rgba(0, 113, 227, 0.1)' : 'transparent';
+      }
+
       // Card Glow
       const card = e.target.closest('.card');
       if (card) {
@@ -119,13 +145,23 @@ function App() {
       });
     });
 
+    const handleScroll = () => {
+      const nav = document.querySelector('.navbar');
+      if (nav) {
+        if (window.scrollY > 20) nav.classList.add('scrolled');
+        else nav.classList.remove('scrolled');
+      }
+    };
+
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('scroll', handleScroll);
 
     return () => {
       observer.disconnect();
       revealObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
@@ -135,6 +171,7 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <SiteLoader />
+            <CursorFollower />
             <div className="ambient-glow"></div>
             <div className="blob blob-1"></div>
             <div className="blob blob-2"></div>
