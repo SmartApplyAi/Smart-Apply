@@ -82,7 +82,7 @@ export default function ResumePage() {
   ].filter(([, v]) => v) : [];
 
   return (
-    <div className="container" style={{ paddingTop: '40px', paddingBottom: '60px' }}>
+    <>
       <div style={{ marginBottom: '32px' }}>
         <h2><i className="fa-solid fa-file-lines"></i> Resume Manager</h2>
         <p className="text-muted" style={{ marginTop: '6px' }}>Upload multiple resumes. We will extract your details automatically.</p>
@@ -173,6 +173,6 @@ export default function ResumePage() {
           <p className="text-muted text-sm" style={{ marginTop: '12px' }}>PDF will open in a new tab</p>
         </div>
       </Modal>
-    </div>
+    </>
   );
 }

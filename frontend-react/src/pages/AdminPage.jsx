@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
 import { formatDate, timeAgo } from '../services/utils';
-import Sidebar from '../components/layout/Sidebar';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -222,9 +221,7 @@ export default function AdminPage() {
   } : null;
 
   return (
-    <div className="dashboard-layout">
-      <Sidebar activeTab="admin" userName="Admin" userEmail={user?.email} />
-      <main className="main-content">
+    <>
         <div className="page-header">
           <div><h3>Admin Dashboard</h3><p className="text-muted text-sm">Platform management and insights</p></div>
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
@@ -469,7 +466,6 @@ export default function AdminPage() {
             )}
           </div>
         )}
-      </main>
-    </div>
+    </>
   );
 }

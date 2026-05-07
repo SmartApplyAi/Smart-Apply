@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -26,6 +27,36 @@ import AdminPage from './pages/AdminPage';
 import './App.css';
 
 function App() {
+  useEffect(() => {
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('active');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { 
+      threshold: 0.05,
+      rootMargin: '0px 0px -50px 0px' 
+    });
+
+    const observer = new MutationObserver(() => {
+      const elements = document.querySelectorAll('.reveal, .fade-in, .stagger > *, .card, .stat-card');
+      elements.forEach(el => {
+        if (!el.classList.contains('active')) {
+          revealObserver.observe(el);
+        }
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      revealObserver.disconnect();
+    };
+  }, []);
+
   return (
     <Router>
       <ThemeProvider>

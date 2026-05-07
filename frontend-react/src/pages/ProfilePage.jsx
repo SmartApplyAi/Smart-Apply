@@ -206,422 +206,445 @@ export default function ProfilePage() {
     }
   };
 
-  return (
-    <div className="dashboard-layout">
-      <aside className="sidebar" style={{ position: 'sticky', top: '88px', height: 'fit-content' }}>
-        <div className="sidebar-section-label">Profile Sections</div>
-        {[
-          { id: 'personal', icon: 'fa-user', label: 'Personal' },
-          { id: 'professional', icon: 'fa-briefcase', label: 'Professional' },
-          { id: 'preferences', icon: 'fa-bullseye', label: 'Preferences' },
-          { id: 'custom', icon: 'fa-list-check', label: 'Additional' },
-          { id: 'platforms', icon: 'fa-lock', label: 'Logins' }
-        ].map(s => (
-          <button
-            key={s.id}
-            className={`sidebar-link${activeSection === s.id ? ' active' : ''}${completedSections.includes(s.id) ? ' done' : ''}`}
-            onClick={() => switchSection(s.id)}
-          >
-            <span className="icon"><i className={`fa-solid ${s.icon}`}></i></span>
-            {s.label}
-            {completedSections.includes(s.id) && <i className="fa-solid fa-circle-check" style={{ marginLeft: 'auto', color: 'var(--primary)', fontSize: '12px' }}></i>}
-          </button>
-        ))}
-        
-        <div style={{ marginTop: '24px', padding: '0 12px' }}>
-          <button onClick={() => handleSave(false)} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
-            {loading ? <span className="spinner"></span> : <><i className="fa-solid fa-save"></i> Save Progress</>}
-          </button>
-        </div>
-      </aside>
-
-      <main className="main-content">
-        <div className="page-header">
-          <div>
-            <h3><i className="fa-solid fa-user-pen"></i> Profile Setup</h3>
-            <p className="text-muted text-sm">Complete your profile for accurate auto-applications</p>
+    return (
+      <div className="profile-layout">
+        <nav className="profile-nav">
+          {[
+            { id: 'personal', icon: 'fa-user', label: 'Personal' },
+            { id: 'professional', icon: 'fa-briefcase', label: 'Professional' },
+            { id: 'preferences', icon: 'fa-bullseye', label: 'Preferences' },
+            { id: 'custom', icon: 'fa-list-check', label: 'Additional' },
+            { id: 'platforms', icon: 'fa-lock', label: 'Logins' }
+          ].map(s => (
+            <button
+              key={s.id}
+              className={`profile-nav-item${activeSection === s.id ? ' active' : ''}${completedSections.includes(s.id) ? ' done' : ''}`}
+              onClick={() => switchSection(s.id)}
+            >
+              <span><i className={`fa-solid ${s.icon}`}></i></span>
+              {s.label}
+              {completedSections.includes(s.id) && <i className="fa-solid fa-circle-check check" style={{ marginLeft: 'auto' }}></i>}
+            </button>
+          ))}
+          
+          <div style={{ marginTop: '24px' }}>
+            <button onClick={() => handleSave(false)} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
+              {loading ? <span className="spinner"></span> : <><i className="fa-solid fa-save"></i> Save Progress</>}
+            </button>
           </div>
-          <Link to="/resume" className="btn btn-ghost btn-sm"><i className="fa-solid fa-arrow-left"></i> Resume Upload</Link>
-        </div>
+        </nav>
 
-        {/* PERSONAL SECTION */}
-        {activeSection === 'personal' && (
-          <div className="card stagger">
-            <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-id-card"></i> Personal Details</h4>
-            
-            <div className="sec-divider">Full Name</div>
-            <div className="grid-3" style={{ marginBottom: '16px' }}>
-              <div className="form-group"><label>First Name *</label><input type="text" id="first_name" className="input" value={profile.first_name} onChange={handleChange} placeholder="First Name" /></div>
-              <div className="form-group"><label>Middle Name</label><input type="text" id="middle_name" className="input" value={profile.middle_name} onChange={handleChange} placeholder="Middle Name" /></div>
-              <div className="form-group"><label>Last Name *</label><input type="text" id="last_name" className="input" value={profile.last_name} onChange={handleChange} placeholder="Last Name" /></div>
+        <div className="profile-content">
+          <div className="page-header" style={{ marginBottom: '32px' }}>
+            <div>
+              <h3><i className="fa-solid fa-user-pen"></i> Profile Setup</h3>
+              <p className="text-muted text-sm">Complete your profile for accurate auto-applications</p>
             </div>
-
-            <div className="sec-divider">Contact & Location</div>
-            <div className="grid-3" style={{ marginBottom: '16px' }}>
-              <div className="form-group">
-                <label>Country Code *</label>
-                <select id="phone_country_code" className="input" value={profile.phone_country_code} onChange={handleChange}>
-                  <option value="India (+91)">India (+91)</option>
-                  <option value="United States (+1)">United States (+1)</option>
-                  <option value="United Kingdom (+44)">United Kingdom (+44)</option>
-                </select>
-              </div>
-              <div className="form-group"><label>Phone Number *</label><input type="tel" id="phone_number" className="input" value={profile.phone_number} onChange={handleChange} placeholder="10-digit number" /></div>
-              <div className="form-group"><label>Current City</label><input type="text" id="current_city" className="input" value={profile.current_city} onChange={handleChange} placeholder="e.g. Hyderabad" /></div>
-            </div>
-            
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label>Street Address</label>
-              <input type="text" id="street" className="input" value={profile.street} onChange={handleChange} placeholder="123 Main St, Area name" />
-            </div>
-
-            <div className="grid-3" style={{ marginBottom: '16px' }}>
-              <div className="form-group"><label>State</label><input type="text" id="state" className="input" value={profile.state} onChange={handleChange} placeholder="e.g. Telangana" /></div>
-              <div className="form-group"><label>Country</label><input type="text" id="country" className="input" value={profile.country} onChange={handleChange} /></div>
-              <div className="form-group"><label>Pincode / ZIP</label><input type="text" id="zipcode" className="input" value={profile.zipcode} onChange={handleChange} placeholder="Pincode" /></div>
-            </div>
-
-            <div className="sec-divider">Equal Opportunity Data</div>
-            <div className="eeo-note" style={{ marginBottom: '16px', background: 'rgba(var(--primary-rgb), 0.05)', padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
-              <i className="fa-solid fa-circle-info" style={{ color: 'var(--primary)', marginRight: '8px' }}></i>
-              Stored securely for auto-filling EEO forms. Never shared externally.
-            </div>
-            
-            <div className="grid-2">
-              <div className="form-group">
-                <label>Gender</label>
-                <select id="gender" className="input" value={profile.gender} onChange={handleChange}>
-                  <option value="">Prefer not to say</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Non-binary">Non-binary</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Ethnicity</label>
-                <select id="ethnicity" className="input" value={profile.ethnicity} onChange={handleChange}>
-                  <option value="Decline">Decline to identify</option>
-                  <option value="Asian">Asian</option>
-                  <option value="White">White</option>
-                  <option value="Black">Black</option>
-                  <option value="Hispanic">Hispanic</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '24px', textAlign: 'right' }}>
-              <button className="btn btn-primary" onClick={() => markDoneAndNext('personal', 'professional')}>
-                Next: Professional <i className="fa-solid fa-arrow-right"></i>
-              </button>
-            </div>
+            <Link to="/resume" className="btn btn-ghost btn-sm"><i className="fa-solid fa-arrow-left"></i> Resume Upload</Link>
           </div>
-        )}
 
-        {/* PROFESSIONAL SECTION */}
-        {activeSection === 'professional' && (
-          <div className="card stagger">
-            <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-briefcase"></i> Professional Details</h4>
-            
-            <div className="sec-divider">Online Presence</div>
-            <div className="grid-2" style={{ marginBottom: '16px' }}>
-              <div className="form-group"><label><i className="fa-brands fa-linkedin" style={{ color: '#0a66c2' }}></i> LinkedIn URL</label><input type="url" id="linkedin_profile" className="input" value={profile.linkedin_profile} onChange={handleChange} placeholder="https://linkedin.com/in/..." /></div>
-              <div className="form-group"><label><i className="fa-brands fa-github"></i> GitHub URL</label><input type="url" id="github" className="input" value={profile.github} onChange={handleChange} placeholder="https://github.com/..." /></div>
-            </div>
-
-            <div className="form-group" style={{ marginBottom: '20px' }}>
-              <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label>LinkedIn Headline</label>
-                <button 
-                  onClick={() => runAi('headline', 'Write a compelling LinkedIn headline for this candidate. Max 220 chars. Format: Role | Skill · Skill | CTA.', 'linkedin_headline')}
-                  className="ai-btn"
-                  disabled={aiLoading.headline}
-                >
-                  {aiLoading.headline ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Generate</>}
-                </button>
-              </div>
-              <input type="text" id="linkedin_headline" className="input" value={profile.linkedin_headline} onChange={handleChange} placeholder="e.g. Software Engineer | React · Node.js | Building Scalable Apps" />
-            </div>
-
-            <div className="grid-3" style={{ marginBottom: '20px' }}>
-              <div className="form-group">
-                <label>Years of Experience</label>
-                <select id="years_of_experience" className="input" value={profile.years_of_experience} onChange={handleChange}>
-                  <option value="0">0 — Fresher</option>
-                  <option value="1">1 year</option>
-                  <option value="2">2 years</option>
-                  <option value="3">3 years</option>
-                  <option value="5">5+ years</option>
-                </select>
-              </div>
-              <div className="form-group"><label>Current CTC (₹ p.a.)</label><input type="number" id="current_ctc" className="input" value={profile.current_ctc} onChange={handleChange} placeholder="e.g. 800000" /></div>
-              <div className="form-group"><label>Desired Salary (₹ p.a.)</label><input type="number" id="desired_salary" className="input" value={profile.desired_salary} onChange={handleChange} placeholder="e.g. 1200000" /></div>
-            </div>
-
-            <div className="sec-divider">Resume Content</div>
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label>Skills Summary</label>
-                <button 
-                  onClick={() => runAi('skills', 'Extract and list tech and soft skills as comma-separated string. Max 25 items.', 'skills_summary')}
-                  className="ai-btn"
-                  disabled={aiLoading.skills}
-                >
-                  {aiLoading.skills ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Generate</>}
-                </button>
-              </div>
-              <textarea id="skills_summary" className="input" rows="3" value={profile.skills_summary} onChange={handleChange} placeholder="Python, SQL, React, AWS..."></textarea>
-            </div>
-
-            <div className="grid-2" style={{ marginBottom: '16px' }}>
-              <div className="form-group"><label>Education</label><textarea id="education_text" className="input" rows="5" value={profile.education_text} onChange={handleChange} placeholder="Degree, University, Year, CGPA..."></textarea></div>
-              <div className="form-group"><label>Work Experience</label><textarea id="experience_text" className="input" rows="5" value={profile.experience_text} onChange={handleChange} placeholder="Role, Company, Dates, Achievements..."></textarea></div>
-            </div>
-
-            <div className="form-group">
-              <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label>Cover Letter Template</label>
-                <button 
-                  onClick={generateCoverLetter}
-                  className="ai-btn"
-                  disabled={aiLoading.cover}
-                >
-                  {aiLoading.cover ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Generate</>}
-                </button>
-              </div>
-              <textarea id="cover_letter" className="input" rows="7" value={profile.cover_letter} onChange={handleChange} placeholder="Fallback template for applications..."></textarea>
-            </div>
-
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between' }}>
-              <button className="btn btn-ghost" onClick={() => switchSection('personal')}><i className="fa-solid fa-arrow-left"></i> Back</button>
-              <button className="btn btn-primary" onClick={() => markDoneAndNext('professional', 'preferences')}>Next: Preferences <i className="fa-solid fa-arrow-right"></i></button>
-            </div>
-          </div>
-        )}
-
-        {/* PREFERENCES SECTION */}
-        {activeSection === 'preferences' && (
-          <div className="card stagger">
-            <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-sliders"></i> Job Preferences</h4>
-            
-            <div className="form-group" style={{ marginBottom: '20px' }}>
-              <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label>Job Search Terms</label>
-                <button 
-                  onClick={() => runAi('searchTerms', 'Suggest 7-8 specific LinkedIn job search terms as a JSON array.', 'search_terms')}
-                  className="ai-btn"
-                  disabled={aiLoading.searchTerms}
-                >
-                  {aiLoading.searchTerms ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Suggest</>}
-                </button>
-              </div>
-              <TagInput 
-                tags={profile.search_terms} 
-                onChange={(tags) => setProfile(prev => ({ ...prev, search_terms: tags }))} 
-                placeholder="Press Enter to add (e.g. Data Analyst)"
-              />
-            </div>
-
-            <div className="grid-2" style={{ marginBottom: '20px' }}>
-              <div className="form-group"><label>Preferred Location</label><input type="text" id="search_location" className="input" value={profile.search_location} onChange={handleChange} /></div>
-              <div className="form-group">
-                <label>Date Posted Filter</label>
-                <select id="date_posted" className="input" value={profile.date_posted} onChange={handleChange}>
-                  <option value="Past 24 hours">Past 24 hours</option>
-                  <option value="Past week">Past week</option>
-                  <option value="Past month">Past month</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid-2" style={{ marginBottom: '20px' }}>
-              <div className="form-group">
-                <label>Experience Level</label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-                  {['Internship', 'Entry level', 'Associate', 'Mid-Senior level'].map(l => (
-                    <label key={l} className={`badge ${profile.exp_level.includes(l) ? 'badge-primary' : 'badge-neutral'}`} style={{ cursor: 'pointer' }}>
-                      <input type="checkbox" name="exp_level" value={l} checked={profile.exp_level.includes(l)} onChange={handleChange} style={{ display: 'none' }} />
-                      {l}
-                    </label>
-                  ))}
+          {/* PERSONAL SECTION */}
+          {activeSection === 'personal' && (
+            <div className="section-panel active">
+              <div className="card stagger">
+                <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-id-card"></i> Personal Details</h4>
+                
+                <div className="sec-divider">Full Name</div>
+                <div className="grid-3" style={{ marginBottom: '16px' }}>
+                  <div className="form-group"><label>First Name *</label><input type="text" id="first_name" className="input" value={profile.first_name} onChange={handleChange} placeholder="First Name" /></div>
+                  <div className="form-group"><label>Middle Name</label><input type="text" id="middle_name" className="input" value={profile.middle_name} onChange={handleChange} placeholder="Middle Name" /></div>
+                  <div className="form-group"><label>Last Name *</label><input type="text" id="last_name" className="input" value={profile.last_name} onChange={handleChange} placeholder="Last Name" /></div>
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Work Mode</label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-                  {['On-site', 'Hybrid', 'Remote'].map(m => (
-                    <label key={m} className={`badge ${profile.on_site.includes(m) ? 'badge-primary' : 'badge-neutral'}`} style={{ cursor: 'pointer' }}>
-                      <input type="checkbox" name="on_site" value={m} checked={profile.on_site.includes(m)} onChange={handleChange} style={{ display: 'none' }} />
-                      {m}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
 
-            <div className="toggle-row" style={{ marginBottom: '20px' }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>Easy Apply Only</div>
-                <div className="text-muted text-sm">Only apply to LinkedIn Easy Apply jobs</div>
-              </div>
-              <label className="toggle">
-                <input type="checkbox" id="easy_apply_only" checked={profile.easy_apply_only} onChange={handleChange} />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div className="sec-divider">Filtering (Bad Words)</div>
-            <div className="form-group">
-              <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label>Skip Keywords</label>
-                <button 
-                  onClick={() => runAi('badWords', 'Suggest 8-10 job title keywords to SKIP as a JSON array.', 'bad_words')}
-                  className="ai-btn"
-                  disabled={aiLoading.badWords}
-                >
-                  {aiLoading.badWords ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Suggest</>}
-                </button>
-              </div>
-              <TagInput 
-                tags={profile.bad_words} 
-                onChange={(tags) => setProfile(prev => ({ ...prev, bad_words: tags }))} 
-                placeholder="Keywords in title to skip..."
-              />
-            </div>
-
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between' }}>
-              <button className="btn btn-ghost" onClick={() => switchSection('professional')}><i className="fa-solid fa-arrow-left"></i> Back</button>
-              <button className="btn btn-primary" onClick={() => markDoneAndNext('preferences', 'custom')}>Next: Additional <i className="fa-solid fa-arrow-right"></i></button>
-            </div>
-          </div>
-        )}
-
-        {/* CUSTOM SECTION */}
-        {activeSection === 'custom' && (
-          <div className="card stagger">
-            <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-list-check"></i> Additional Details</h4>
-            <p className="text-muted text-sm" style={{ marginBottom: '24px' }}>Answer these questions to help the extension fill complex forms.</p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {dynamicQuestions.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>No additional questions required.</div>
-              ) : dynamicQuestions.map(q => (
-                <div key={q.id} className="form-group">
-                  <label>{q.text}{q.is_required ? ' *' : ''}</label>
-                  {q.type === 'dropdown' ? (
-                    <select className="input" value={dynamicAnswers[q.id] || ''} onChange={(e) => handleDynamicChange(q.id, e.target.value)}>
-                      <option value="">Select an option</option>
-                      {q.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                <div className="sec-divider">Contact & Location</div>
+                <div className="grid-3" style={{ marginBottom: '16px' }}>
+                  <div className="form-group">
+                    <label>Country Code *</label>
+                    <select id="phone_country_code" className="input" value={profile.phone_country_code} onChange={handleChange}>
+                      <option value="India (+91)">India (+91)</option>
+                      <option value="United States (+1)">United States (+1)</option>
+                      <option value="United Kingdom (+44)">United Kingdom (+44)</option>
                     </select>
-                  ) : q.type === 'radio' ? (
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
-                      {q.options?.map(o => (
-                        <label key={o} className={`badge ${dynamicAnswers[q.id] === o ? 'badge-primary' : 'badge-neutral'}`} style={{ cursor: 'pointer' }}>
-                          <input type="radio" name={`q_${q.id}`} value={o} checked={dynamicAnswers[q.id] === o} onChange={(e) => handleDynamicChange(q.id, e.target.value)} style={{ display: 'none' }} />
-                          {o}
+                  </div>
+                  <div className="form-group"><label>Phone Number *</label><input type="tel" id="phone_number" className="input" value={profile.phone_number} onChange={handleChange} placeholder="10-digit number" /></div>
+                  <div className="form-group"><label>Current City</label><input type="text" id="current_city" className="input" value={profile.current_city} onChange={handleChange} placeholder="e.g. Hyderabad" /></div>
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label>Street Address</label>
+                  <input type="text" id="street" className="input" value={profile.street} onChange={handleChange} placeholder="123 Main St, Area name" />
+                </div>
+
+                <div className="grid-3" style={{ marginBottom: '16px' }}>
+                  <div className="form-group"><label>State</label><input type="text" id="state" className="input" value={profile.state} onChange={handleChange} placeholder="e.g. Telangana" /></div>
+                  <div className="form-group"><label>Country</label><input type="text" id="country" className="input" value={profile.country} onChange={handleChange} /></div>
+                  <div className="form-group"><label>Pincode / ZIP</label><input type="text" id="zipcode" className="input" value={profile.zipcode} onChange={handleChange} placeholder="Pincode" /></div>
+                </div>
+
+                <div className="sec-divider">Equal Opportunity Data</div>
+                <div className="eeo-note" style={{ marginBottom: '16px', background: 'rgba(var(--primary-rgb), 0.05)', padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
+                  <i className="fa-solid fa-circle-info" style={{ color: 'var(--primary)', marginRight: '8px' }}></i>
+                  Stored securely for auto-filling EEO forms. Never shared externally.
+                </div>
+                
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Gender</label>
+                    <select id="gender" className="input" value={profile.gender} onChange={handleChange}>
+                      <option value="">Prefer not to say</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Non-binary">Non-binary</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Ethnicity</label>
+                    <select id="ethnicity" className="input" value={profile.ethnicity} onChange={handleChange}>
+                      <option value="Decline">Decline to identify</option>
+                      <option value="Asian">Asian</option>
+                      <option value="White">White</option>
+                      <option value="Black">Black</option>
+                      <option value="Hispanic">Hispanic</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '24px', textAlign: 'right' }}>
+                  <button className="btn btn-primary" onClick={() => markDoneAndNext('personal', 'professional')}>
+                    Next: Professional <i className="fa-solid fa-arrow-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PROFESSIONAL SECTION */}
+          {activeSection === 'professional' && (
+            <div className="section-panel active">
+              <div className="card stagger">
+                <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-briefcase"></i> Professional Details</h4>
+                
+                <div className="sec-divider">Online Presence</div>
+                <div className="grid-2" style={{ marginBottom: '16px' }}>
+                  <div className="form-group"><label><i className="fa-brands fa-linkedin" style={{ color: '#0a66c2' }}></i> LinkedIn URL</label><input type="url" id="linkedin_profile" className="input" value={profile.linkedin_profile} onChange={handleChange} placeholder="https://linkedin.com/in/..." /></div>
+                  <div className="form-group"><label><i className="fa-brands fa-github"></i> GitHub URL</label><input type="url" id="github" className="input" value={profile.github} onChange={handleChange} placeholder="https://github.com/..." /></div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                  <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label>LinkedIn Headline</label>
+                    <button 
+                      onClick={() => runAi('headline', 'Write a compelling LinkedIn headline for this candidate. Max 220 chars. Format: Role | Skill · Skill | CTA.', 'linkedin_headline')}
+                      className="ai-btn"
+                      disabled={aiLoading.headline}
+                    >
+                      {aiLoading.headline ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Generate</>}
+                    </button>
+                  </div>
+                  <input type="text" id="linkedin_headline" className="input" value={profile.linkedin_headline} onChange={handleChange} placeholder="e.g. Software Engineer | React · Node.js | Building Scalable Apps" />
+                </div>
+
+                <div className="grid-3" style={{ marginBottom: '20px' }}>
+                  <div className="form-group">
+                    <label>Years of Experience</label>
+                    <select id="years_of_experience" className="input" value={profile.years_of_experience} onChange={handleChange}>
+                      <option value="0">0 — Fresher</option>
+                      <option value="1">1 year</option>
+                      <option value="2">2 years</option>
+                      <option value="3">3 years</option>
+                      <option value="5">5+ years</option>
+                    </select>
+                  </div>
+                  <div className="form-group"><label>Current CTC (₹ p.a.)</label><input type="number" id="current_ctc" className="input" value={profile.current_ctc} onChange={handleChange} placeholder="e.g. 800000" /></div>
+                  <div className="form-group"><label>Desired Salary (₹ p.a.)</label><input type="number" id="desired_salary" className="input" value={profile.desired_salary} onChange={handleChange} placeholder="e.g. 1200000" /></div>
+                </div>
+
+                <div className="sec-divider">Resume Content</div>
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label>Skills Summary</label>
+                    <button 
+                      onClick={() => runAi('skills', 'Extract and list tech and soft skills as comma-separated string. Max 25 items.', 'skills_summary')}
+                      className="ai-btn"
+                      disabled={aiLoading.skills}
+                    >
+                      {aiLoading.skills ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Generate</>}
+                    </button>
+                  </div>
+                  <textarea id="skills_summary" className="input" rows="3" value={profile.skills_summary} onChange={handleChange} placeholder="Python, SQL, React, AWS..."></textarea>
+                </div>
+
+                <div className="grid-2" style={{ marginBottom: '16px' }}>
+                  <div className="form-group"><label>Education</label><textarea id="education_text" className="input" rows="5" value={profile.education_text} onChange={handleChange} placeholder="Degree, University, Year, CGPA..."></textarea></div>
+                  <div className="form-group"><label>Work Experience</label><textarea id="experience_text" className="input" rows="5" value={profile.experience_text} onChange={handleChange} placeholder="Role, Company, Dates, Achievements..."></textarea></div>
+                </div>
+
+                <div className="form-group">
+                  <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label>Cover Letter Template</label>
+                    <button 
+                      onClick={generateCoverLetter}
+                      className="ai-btn"
+                      disabled={aiLoading.cover}
+                    >
+                      {aiLoading.cover ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Generate</>}
+                    </button>
+                  </div>
+                  <textarea id="cover_letter" className="input" rows="7" value={profile.cover_letter} onChange={handleChange} placeholder="Fallback template for applications..."></textarea>
+                </div>
+
+                <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="btn btn-ghost" onClick={() => switchSection('personal')}><i className="fa-solid fa-arrow-left"></i> Back</button>
+                  <button className="btn btn-primary" onClick={() => markDoneAndNext('professional', 'preferences')}>Next: Preferences <i className="fa-solid fa-arrow-right"></i></button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PREFERENCES SECTION */}
+          {activeSection === 'preferences' && (
+            <div className="section-panel active">
+              <div className="card stagger">
+                <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-sliders"></i> Job Preferences</h4>
+                
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                  <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label>Job Search Terms</label>
+                    <button 
+                      onClick={() => runAi('searchTerms', 'Suggest 7-8 specific LinkedIn job search terms as a JSON array.', 'search_terms')}
+                      className="ai-btn"
+                      disabled={aiLoading.searchTerms}
+                    >
+                      {aiLoading.searchTerms ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Suggest</>}
+                    </button>
+                  </div>
+                  <TagInput 
+                    tags={profile.search_terms} 
+                    onChange={(tags) => setProfile(prev => ({ ...prev, search_terms: tags }))} 
+                    placeholder="Press Enter to add (e.g. Data Analyst)"
+                  />
+                </div>
+
+                <div className="grid-2" style={{ marginBottom: '20px' }}>
+                  <div className="form-group"><label>Preferred Location</label><input type="text" id="search_location" className="input" value={profile.search_location} onChange={handleChange} /></div>
+                  <div className="form-group">
+                    <label>Date Posted Filter</label>
+                    <select id="date_posted" className="input" value={profile.date_posted} onChange={handleChange}>
+                      <option value="Past 24 hours">Past 24 hours</option>
+                      <option value="Past week">Past week</option>
+                      <option value="Past month">Past month</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid-2" style={{ marginBottom: '20px' }}>
+                  <div className="form-group">
+                    <label>Experience Level</label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {['Internship', 'Entry level', 'Associate', 'Mid-Senior level'].map(l => (
+                        <label key={l} className={`badge ${profile.exp_level.includes(l) ? 'badge-primary' : 'badge-neutral'}`} style={{ cursor: 'pointer' }}>
+                          <input type="checkbox" name="exp_level" value={l} checked={profile.exp_level.includes(l)} onChange={handleChange} style={{ display: 'none' }} />
+                          {l}
                         </label>
                       ))}
                     </div>
-                  ) : q.type === 'textarea' ? (
-                    <textarea className="input" rows="3" value={dynamicAnswers[q.id] || ''} onChange={(e) => handleDynamicChange(q.id, e.target.value)}></textarea>
-                  ) : (
-                    <input type={q.type === 'numerical' ? 'number' : 'text'} className="input" value={dynamicAnswers[q.id] || ''} onChange={(e) => handleDynamicChange(q.id, e.target.value)} />
-                  )}
+                  </div>
+                  <div className="form-group">
+                    <label>Work Mode</label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {['On-site', 'Hybrid', 'Remote'].map(m => (
+                        <label key={m} className={`badge ${profile.on_site.includes(m) ? 'badge-primary' : 'badge-neutral'}`} style={{ cursor: 'pointer' }}>
+                          <input type="checkbox" name="on_site" value={m} checked={profile.on_site.includes(m)} onChange={handleChange} style={{ display: 'none' }} />
+                          {m}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between' }}>
-              <button className="btn btn-ghost" onClick={() => switchSection('preferences')}><i className="fa-solid fa-arrow-left"></i> Back</button>
-              <button className="btn btn-primary" onClick={() => markDoneAndNext('custom', 'platforms')}>Next: Logins <i className="fa-solid fa-arrow-right"></i></button>
-            </div>
-          </div>
-        )}
+                <div className="toggle-row" style={{ marginBottom: '20px' }}>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>Easy Apply Only</div>
+                    <div className="text-muted text-sm">Only apply to LinkedIn Easy Apply jobs</div>
+                  </div>
+                  <label className="toggle">
+                    <input type="checkbox" id="easy_apply_only" checked={profile.easy_apply_only} onChange={handleChange} />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
 
-        {/* PLATFORMS SECTION */}
-        {activeSection === 'platforms' && (
-          <div className="card stagger">
-            <div className="alert alert-info" style={{ marginBottom: '24px', background: 'rgba(var(--primary-rgb), 0.05)', padding: '16px', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <i className="fa-solid fa-lock" style={{ color: 'var(--primary)', fontSize: '20px' }}></i>
-              <div className="text-sm">Credentials are encrypted using AES-256 and used <strong>only</strong> by the extension for automation.</div>
-            </div>
-            
-            <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-key"></i> Platform Credentials</h4>
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <i className="fa-brands fa-linkedin" style={{ color: '#0a66c2' }}></i> LinkedIn
+                <div className="sec-divider">Filtering (Bad Words)</div>
+                <div className="form-group">
+                  <div className="field-hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label>Skip Keywords</label>
+                    <button 
+                      onClick={() => runAi('badWords', 'Suggest 8-10 job title keywords to SKIP as a JSON array.', 'bad_words')}
+                      className="ai-btn"
+                      disabled={aiLoading.badWords}
+                    >
+                      {aiLoading.badWords ? <span className="ai-spin"></span> : <><i className="fa-solid fa-wand-magic-sparkles"></i> AI Suggest</>}
+                    </button>
+                  </div>
+                  <TagInput 
+                    tags={profile.bad_words} 
+                    onChange={(tags) => setProfile(prev => ({ ...prev, bad_words: tags }))} 
+                    placeholder="Keywords in title to skip..."
+                  />
+                </div>
+
+                <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="btn btn-ghost" onClick={() => switchSection('professional')}><i className="fa-solid fa-arrow-left"></i> Back</button>
+                  <button className="btn btn-primary" onClick={() => markDoneAndNext('preferences', 'custom')}>Next: Additional <i className="fa-solid fa-arrow-right"></i></button>
+                </div>
               </div>
-              <div className="grid-2">
-                <div className="form-group"><label>Email</label><input type="email" id="linkedin_email" className="input" value={profile.linkedin_email} onChange={handleChange} placeholder="your@email.com" /></div>
-                <div className="form-group"><label>Password</label><input type="password" id="linkedin_password" className="input" value={profile.linkedin_password} onChange={handleChange} placeholder="Leave empty to keep current" /></div>
+            </div>
+          )}
+
+          {/* CUSTOM SECTION */}
+          {activeSection === 'custom' && (
+            <div className="section-panel active">
+              <div className="card stagger">
+                <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-list-check"></i> Additional Details</h4>
+                <p className="text-muted text-sm" style={{ marginBottom: '24px' }}>Answer these questions to help the extension fill complex forms.</p>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {dynamicQuestions.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px' }}>No additional questions required.</div>
+                  ) : dynamicQuestions.map(q => (
+                    <div key={q.id} className="form-group">
+                      <label>{q.text}{q.is_required ? ' *' : ''}</label>
+                      {q.type === 'dropdown' ? (
+                        <select className="input" value={dynamicAnswers[q.id] || ''} onChange={(e) => handleDynamicChange(q.id, e.target.value)}>
+                          <option value="">Select an option</option>
+                          {q.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      ) : q.type === 'radio' ? (
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {q.options?.map(o => (
+                            <label key={o} className={`badge ${dynamicAnswers[q.id] === o ? 'badge-primary' : 'badge-neutral'}`} style={{ cursor: 'pointer' }}>
+                              <input type="radio" name={`q_${q.id}`} value={o} checked={dynamicAnswers[q.id] === o} onChange={(e) => handleDynamicChange(q.id, e.target.value)} style={{ display: 'none' }} />
+                              {o}
+                            </label>
+                          ))}
+                        </div>
+                      ) : q.type === 'textarea' ? (
+                        <textarea className="input" rows="3" value={dynamicAnswers[q.id] || ''} onChange={(e) => handleDynamicChange(q.id, e.target.value)}></textarea>
+                      ) : (
+                        <input type={q.type === 'numerical' ? 'number' : 'text'} className="input" value={dynamicAnswers[q.id] || ''} onChange={(e) => handleDynamicChange(q.id, e.target.value)} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="btn btn-ghost" onClick={() => switchSection('preferences')}><i className="fa-solid fa-arrow-left"></i> Back</button>
+                  <button className="btn btn-primary" onClick={() => markDoneAndNext('custom', 'platforms')}>Next: Logins <i className="fa-solid fa-arrow-right"></i></button>
+                </div>
               </div>
             </div>
+          )}
 
-            <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button className="btn btn-ghost" onClick={() => switchSection('custom')}><i className="fa-solid fa-arrow-left"></i> Back</button>
-              <LoadingButton 
-                onClick={() => handleSave(true)} 
-                loading={loading}
-                className="btn-accent btn-lg"
-              >
-                <i className="fa-solid fa-check"></i> Finish & Go to Dashboard
-              </LoadingButton>
+          {/* PLATFORMS SECTION */}
+          {activeSection === 'platforms' && (
+            <div className="section-panel active">
+              <div className="card stagger">
+                <div className="alert alert-info" style={{ marginBottom: '24px', background: 'rgba(var(--primary-rgb), 0.05)', padding: '16px', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <i className="fa-solid fa-lock" style={{ color: 'var(--primary)', fontSize: '20px' }}></i>
+                  <div className="text-sm">Credentials are encrypted using AES-256 and used <strong>only</strong> by the extension for automation.</div>
+                </div>
+                
+                <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-key"></i> Platform Credentials</h4>
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <i className="fa-brands fa-linkedin" style={{ color: '#0a66c2' }}></i> LinkedIn
+                  </div>
+                  <div className="grid-2">
+                    <div className="form-group"><label>Email</label><input type="email" id="linkedin_email" className="input" value={profile.linkedin_email} onChange={handleChange} placeholder="your@email.com" /></div>
+                    <div className="form-group"><label>Password</label><input type="password" id="linkedin_password" className="input" value={profile.linkedin_password} onChange={handleChange} placeholder="Leave empty to keep current" /></div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button className="btn btn-ghost" onClick={() => switchSection('custom')}><i className="fa-solid fa-arrow-left"></i> Back</button>
+                  <LoadingButton 
+                    onClick={() => handleSave(true)} 
+                    loading={loading}
+                    className="btn-accent btn-lg"
+                  >
+                    <i className="fa-solid fa-check"></i> Finish & Go to Dashboard
+                  </LoadingButton>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-      </main>
-      
-      <style>{`
-        .sidebar-link.done { color: var(--text); }
-        .ai-btn {
-          background: rgba(99, 102, 241, 0.1);
-          border: 1px solid rgba(99, 102, 241, 0.2);
-          color: #6366f1;
-          padding: 4px 10px;
-          border-radius: 6px;
-          font-size: 11px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .ai-btn:hover { background: rgba(99, 102, 241, 0.2); }
-        .ai-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .ai-spin {
-          display: inline-block;
-          width: 10px;
-          height: 10px;
-          border: 2px solid rgba(99,102,241,0.3);
-          border-top-color: #6366f1;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .sec-divider {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--text-3);
-          margin: 24px 0 16px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .sec-divider::after {
-          content: "";
-          flex: 1;
-          height: 1px;
-          background: var(--border);
-        }
-        .badge {
-          padding: 6px 12px;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-        .badge-neutral { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); }
-        .badge-primary { background: var(--primary); color: white; border: 1px solid var(--primary); }
-      `}</style>
-    </div>
-  );
+          )}
+        </div>
+        
+        <style>{`
+          .profile-layout { display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: start; }
+          .profile-nav { position: sticky; top: 88px; }
+          .profile-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; color: var(--text-2); cursor: pointer; transition: var(--transition); margin-bottom: 2px; background: none; border: none; width: 100%; text-align: left; font-family: inherit; }
+          .profile-nav-item:hover { background: var(--surface); color: var(--text); }
+          .profile-nav-item.active { background: rgba(79,124,255,0.1); color: var(--primary); font-weight: 500; }
+          .profile-nav-item .check { display: none; }
+          .profile-nav-item.done .check { display: block; }
+          .section-panel { display: none; }
+          .section-panel.active { display: block; animation: fadeIn 0.3s ease; }
+          
+          .ai-btn {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            color: #6366f1;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .ai-btn:hover { background: rgba(99, 102, 241, 0.2); }
+          .ai-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+          .ai-spin {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 2px solid rgba(99,102,241,0.3);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          .sec-divider {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-3);
+            margin: 24px 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .sec-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+          }
+          .badge {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+          }
+          .badge-neutral { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); }
+          .badge-primary { background: var(--primary); color: white; border: 1px solid var(--primary); }
+          
+          @media (max-width: 900px) {
+            .profile-layout { grid-template-columns: 1fr; }
+            .profile-nav { display: none; }
+          }
+        `}</style>
+      </div>
+    );
 }

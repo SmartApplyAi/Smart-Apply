@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
+import Sidebar from '../components/layout/Sidebar';
 
 export default function ProtectedLayout() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -26,6 +29,12 @@ export default function ProtectedLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  // Define which paths should use the dashboard (sidebar) layout
+  const isDashboardPath = ['/dashboard', '/admin', '/history', '/extension'].some(p => location.pathname.startsWith(p));
+  
+  // Get active tab from path
+  const activeTab = location.pathname.split('/').filter(Boolean).pop() || 'overview';
+
   return (
     <>
       <div className="blob blob-1"></div>
@@ -33,9 +42,26 @@ export default function ProtectedLayout() {
       <div className="blob blob-3"></div>
       <div className="ambient-glow"></div>
       <div className="bg-grid"></div>
-      <Navbar variant="protected" />
+      <Navbar variant="protected" onMenuClick={() => setIsSidebarOpen(true)} />
       <div className="page-wrapper">
-        <Outlet />
+        {isDashboardPath ? (
+          <div className="dashboard-layout">
+            <Sidebar 
+              activeTab={activeTab} 
+              isOpen={isSidebarOpen} 
+              onClose={() => setIsSidebarOpen(false)}
+              userName={user?.email?.split('@')[0]}
+              userEmail={user?.email}
+            />
+            <main className="main-content">
+              <Outlet />
+            </main>
+          </div>
+        ) : (
+          <div className="container" style={{ paddingTop: '40px', paddingBottom: '60px' }}>
+            <Outlet />
+          </div>
+        )}
       </div>
     </>
   );

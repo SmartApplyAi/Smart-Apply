@@ -69,29 +69,29 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="container" style={{ paddingTop: '40px', paddingBottom: '60px', maxWidth: '900px' }}>
+    <>
       <div style={{ marginBottom: '32px' }}>
         <h2><i className="fa-solid fa-gear"></i> Settings</h2>
         <p className="text-muted" style={{ marginTop: '6px' }}>Manage your preferences and account</p>
       </div>
-      <div className="settings-layout">
-        <div className="settings-nav">
+      <div className="settings-grid">
+        <nav className="settings-nav">
           {panels.map((p) => (
             <button key={p.id} className={`settings-nav-item${activePanel === p.id ? ' active' : ''}`} onClick={() => setActivePanel(p.id)}>
               <i className={p.icon}></i> {p.label}
             </button>
           ))}
-        </div>
+        </nav>
         <div className="settings-content">
           {activePanel === 'general' && (
-            <div className="card fade-in">
+            <div className="card stagger">
               <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-palette"></i> Appearance</h4>
-              <div className="theme-selector">
+              <div className="theme-selector" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                 {['light', 'dark', 'auto'].map((t) => (
-                  <div key={t} className={`theme-option${theme === t ? ' active' : ''}`} onClick={() => setTheme(t)} data-theme={t}>
+                  <button key={t} className={`btn btn-ghost w-full ${theme === t ? 'active' : ''}`} onClick={() => setTheme(t)} style={{ border: '1px solid var(--border)', flexDirection: 'column', gap: '8px', padding: '16px 8px', background: theme === t ? 'rgba(79,124,255,0.1)' : 'transparent', color: theme === t ? 'var(--primary)' : 'var(--text-2)' }}>
                     <i className={`fa-solid ${t === 'light' ? 'fa-sun' : t === 'dark' ? 'fa-moon' : 'fa-circle-half-stroke'}`}></i>
-                    <span style={{ textTransform: 'capitalize' }}>{t}</span>
-                  </div>
+                    <span>{t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                  </button>
                 ))}
               </div>
               <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
@@ -104,14 +104,14 @@ export default function SettingsPage() {
             </div>
           )}
           {activePanel === 'notifications' && (
-            <div className="card fade-in">
-              <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-bell"></i> Notification Preferences</h4>
+            <div className="card stagger">
+              <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-bell"></i> Notification Settings</h4>
               {[
                 { label: 'Application Status Updates', desc: 'Receive alerts when applications are submitted successfully or fail.' },
                 { label: 'Weekly Summary', desc: 'Get a weekly email with your job search progress.' },
                 { label: 'Product Updates', desc: 'Stay informed about new features and improvements.' },
               ].map((n, i) => (
-                <div className="toggle-row" key={i}>
+                <div className="toggle-row" key={i} style={{ padding: '12px 0', borderBottom: i < 2 ? '1px solid var(--border)' : 'none' }}>
                   <div><div style={{ fontWeight: 500, fontSize: '14px' }}>{n.label}</div><div className="text-muted text-sm">{n.desc}</div></div>
                   <label className="toggle"><input type="checkbox" defaultChecked /><span className="toggle-slider"></span></label>
                 </div>
@@ -119,8 +119,8 @@ export default function SettingsPage() {
             </div>
           )}
           {activePanel === 'security' && (
-            <div>
-              <div className="card fade-in" style={{ marginBottom: '20px' }}>
+            <div className="stagger">
+              <div className="card" style={{ marginBottom: '20px' }}>
                 <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-key"></i> Change Password</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '400px' }}>
                   <div className="form-group"><label>Current Password</label><PasswordInput value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} placeholder="Enter current password" /></div>
@@ -129,7 +129,7 @@ export default function SettingsPage() {
                   <LoadingButton onClick={changePassword} loading={pwLoading}><i className="fa-solid fa-check"></i> Update Password</LoadingButton>
                 </div>
               </div>
-              <div className="card fade-in" style={{ border: '1px solid rgba(255,107,107,0.3)' }}>
+              <div className="card" style={{ border: '1px solid rgba(255,107,107,0.3)', background: 'rgba(255,107,107,0.02)' }}>
                 <h4 style={{ color: 'var(--danger)', marginBottom: '12px' }}><i className="fa-solid fa-triangle-exclamation"></i> Danger Zone</h4>
                 <p className="text-muted text-sm" style={{ marginBottom: '16px' }}>Permanently delete your account and all associated data. This action is irreversible.</p>
                 <LoadingButton onClick={deleteAccount} loading={deleteLoading} className="btn btn-danger">
@@ -140,6 +140,19 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
-    </div>
+      <style>{`
+        .settings-grid { display: grid; grid-template-columns: 240px 1fr; gap: 32px; align-items: start; }
+        .settings-nav { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 4px; }
+        .settings-nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 14px; color: var(--text-2); cursor: pointer; transition: var(--transition); background: none; border: none; width: 100%; text-align: left; font-weight: 500; }
+        .settings-nav-item:hover { background: var(--surface); color: var(--text); }
+        .settings-nav-item.active { background: rgba(79, 124, 255, 0.1); color: var(--primary); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(79,124,255,0.2); }
+        
+        @media(max-width: 768px) { 
+          .settings-grid { grid-template-columns: 1fr; } 
+          .settings-nav { flex-direction: row; overflow-x: auto; position: static; margin-bottom: 24px; padding-bottom: 8px; }
+          .settings-nav-item { white-space: nowrap; width: auto; }
+        }
+      `}</style>
+    </>
   );
 }

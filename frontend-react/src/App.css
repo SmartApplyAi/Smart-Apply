@@ -365,6 +365,72 @@ tbody tr:hover { background: rgba(0, 113, 227, 0.03) }
   gap: 8px;
 }
 
+/* ── Overview panels ── */
+.overview-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(10px, 2vw, 20px);
+}
+
+/* ── Filter bar ── */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.filter-btn {
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filter-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* ── Result pills ── */
+.result-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.result-Applied { background: rgba(52, 199, 89, 0.1); color: var(--accent-4); }
+.result-Failed { background: rgba(255, 59, 48, 0.1); color: var(--danger); }
+.result-Skipped { background: var(--surface-2); color: var(--text-2); }
+
+@media (max-width: 700px) {
+  .overview-panels { grid-template-columns: 1fr; }
+  .stats-overview { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .stats-overview { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 900px) {
   .dashboard-layout { grid-template-columns: 1fr }
   .sidebar {

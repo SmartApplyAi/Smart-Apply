@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
 import ThemeToggle from '../common/ThemeToggle';
 
-export default function Navbar({ variant = 'default' }) {
+export default function Navbar({ variant = 'default', onMenuClick }) {
   const { isAuthenticated, logout } = useAuth();
   const location = useLocation();
 
@@ -37,6 +37,9 @@ export default function Navbar({ variant = 'default' }) {
     <nav className="navbar">
       <div className="container">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button className="mobile-sidebar-btn" onClick={onMenuClick} aria-label="Open menu">
+            <i className="fa-solid fa-bars"></i>
+          </button>
           <Logo />
         </div>
         <div className="nav-links" id="nav-actions">
