@@ -1,144 +1,201 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
 
-const PLATFORMS = [
-  { name: 'LinkedIn', icon: 'fa-linkedin' },
-  { name: 'Indeed', icon: 'fa-briefcase' },
-  { name: 'Glassdoor', icon: 'fa-window-restore' },
-  { name: 'Internshala', icon: 'fa-graduation-cap' },
-  { name: 'Naukri', icon: 'fa-paper-plane' },
-];
-
-const FEATURES = [
-  { icon: 'fa-robot', title: 'Auto-Apply Engine', desc: 'Our smart bot navigates complex forms and submits applications in seconds while you drink coffee.' },
-  { icon: 'fa-wand-magic-sparkles', title: 'AI-Tailored Content', desc: 'Generate unique resumes and cover letters for every job description, boosting your interview rate by 3x.' },
-  { icon: 'fa-chart-pie', title: 'Real-time Analytics', desc: 'Track every application, interview, and response in one beautiful, centralized dashboard.' },
-];
-
 export default function LandingPage() {
   const { isAuthenticated } = useAuth();
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const toggleFaq = (i) => setOpenFaq(openFaq === i ? null : i);
 
   return (
     <div className="landing-root">
-      <div className="ambient-glow"></div>
-      <div className="blob" style={{ width: '600px', height: '600px', background: 'var(--primary)', top: '-10%', left: '-10%' }}></div>
-      <div className="blob" style={{ width: '500px', height: '500px', background: 'var(--accent-5)', bottom: '-10%', right: '-10%', animationDelay: '-5s' }}></div>
-      
       <Navbar variant="landing" />
 
-      {/* ── Hero Section ── */}
+      {/* ── Hero ── */}
       <section className="hero">
         <div className="container">
-          <div className="hero-content reveal">
-            <div className="hero-badge" style={{ display: 'inline-flex', padding: '8px 20px', background: 'rgba(0,113,227,0.1)', borderRadius: '99px', marginBottom: '24px', fontSize: '14px', fontWeight: 600, color: 'var(--primary)' }}>
-              <i className="fa-solid fa-sparkles" style={{ marginRight: '8px' }}></i> AI-Driven Career Growth
+          <div className="hero-content">
+            <div className="hero-badge" style={{ display: 'inline-block', padding: '6px 16px', border: '1px solid var(--border)', borderRadius: '99px', fontSize: '12px', color: 'var(--text-3)', marginBottom: '32px' }}>
+              ● POWERED BY AI — v1.0
             </div>
-            <h1>The Future of <span className="text-gradient-animate">Job Searching</span> is Here.</h1>
-            <p style={{ fontSize: '20px', color: 'var(--text-2)', maxWidth: '700px', margin: '24px auto 40px', lineHeight: 1.6 }}>
-              SmartApply automates the tedious parts of your job search. Apply to hundreds of jobs with one click, perfectly tailored every time.
-            </p>
-            <div className="hero-actions" style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-              {isAuthenticated ? (
-                <Link to="/dashboard" className="btn btn-primary btn-lg">Go to Dashboard</Link>
-              ) : (
-                <>
-                  <Link to="/signup" className="btn btn-primary btn-lg">Start Applying Free</Link>
-                  <a href="#features" className="btn" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>See Features</a>
-                </>
-              )}
+            <h1>Automate your<br /><span>job search</span>.<br />Maximize your<br />opportunities.</h1>
+            <p>SmartApply's AI engine handles your LinkedIn Easy Apply, cover letters, and ATS matching — so you get interviews, not fatigue.</p>
+            <div className="hero-actions">
+              <Link to="/signup" className="btn btn-primary"><i className="fa-solid fa-bolt"></i> Start for free</Link>
+              <Link to="/login" className="btn btn-outline">Get started free <i className="fa-solid fa-arrow-right"></i></Link>
             </div>
           </div>
 
-          <div className="hero-visual-wrap reveal" style={{ animationDelay: '0.4s' }}>
-            <div className="hero-visual">
-              <img 
-                src="hero_dashboard_mockup_1778172017030.png" 
-                alt="SmartApply Dashboard Mockup" 
-                style={{ width: '100%', display: 'block' }}
-              />
+          <div className="mockup-window">
+            <div className="mockup-header">
+              <div className="dot red"></div>
+              <div className="dot yellow"></div>
+              <div className="dot green"></div>
+            </div>
+            <div className="mockup-body">
+              <div className="mockup-card">
+                <div className="label">Total Applications</div>
+                <div className="value">0</div>
+                <div style={{ fontSize: '12px', color: '#27c93f', marginTop: '8px' }}>● 100% success tracking</div>
+              </div>
+              <div className="mockup-card">
+                <div className="label">Interviews Landed</div>
+                <div className="value">0</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '8px' }}>● Waiting for first apply</div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Marquee Section ── */}
-      <section className="platforms-marquee">
+      {/* ── Stats ── */}
+      <section className="stats-section">
         <div className="container">
-          <p style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--text-3)', marginBottom: '32px' }}>Supported Platforms</p>
-          <div className="marquee-wrapper">
-            <div className="marquee-content">
-              {[...PLATFORMS, ...PLATFORMS].map((p, i) => (
-                <div key={i} className="platform-item">
-                  <i className={`fa-brands ${p.icon} fa-lg`}></i>
-                  <span>{p.name}</span>
-                </div>
-              ))}
+          <div className="stats-grid">
+            <div className="stat-item">
+              <div className="number">+</div>
+              <div className="label">Leading platform</div>
+            </div>
+            <div className="stat-item">
+              <div className="number">2,400+</div>
+              <div className="label">Users daily</div>
+            </div>
+            <div className="stat-item">
+              <div className="number">68%</div>
+              <div className="label">Avg interview rate</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Features Section ── */}
+      {/* ── Features ── */}
       <section className="section" id="features">
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '80px' }} className="reveal">
-            <h2 style={{ marginBottom: '16px' }}>Built for the Modern Job Seeker</h2>
-            <p style={{ color: 'var(--text-2)', fontSize: '18px' }}>Powerful features that give you an unfair advantage.</p>
+          <div className="section-header">
+            <div style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px' }}>Features</div>
+            <h2>Everything you need to land your next job</h2>
+            <p>SmartApply handles the repetitive work while you focus on interview prep.</p>
           </div>
-          <div className="grid-3 stagger">
-            {FEATURES.map((f, i) => (
-              <div key={i} className="card reveal">
-                <div style={{ width: '56px', height: '56px', background: 'rgba(0,113,227,0.1)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', color: 'var(--primary)', marginBottom: '24px' }}>
-                  <i className={`fa-solid ${f.icon}`}></i>
-                </div>
-                <h3 style={{ marginBottom: '12px' }}>{f.title}</h3>
-                <p style={{ color: 'var(--text-2)', lineHeight: 1.6 }}>{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Stats Section ── */}
-      <section className="section" style={{ background: 'var(--bg-3)' }}>
-        <div className="container">
-          <div className="grid-3 stagger">
+          <div className="features-grid">
             {[
-              { val: '50,000+', label: 'Applications Sent' },
-              { val: '12,000+', label: 'Interviews Landed' },
-              { val: '98%', label: 'User Satisfaction' },
-            ].map((s, i) => (
-              <div key={i} style={{ textAlign: 'center' }} className="reveal">
-                <div className="stat-count" style={{ fontSize: '48px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'Outfit' }}>{s.val}</div>
-                <div style={{ fontWeight: 600, color: 'var(--text-3)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '13px' }}>{s.label}</div>
+              { icon: 'fa-file-lines', title: 'Smart Resume Parsing', desc: 'Upload your PDF resume and our AI automatically extracts skills, experience, and education for all platforms.' },
+              { icon: 'fa-chrome', title: 'Chrome Extension Bot', desc: 'The powerful browser extension goes to LinkedIn, finds the Apply button, and fills the entire form for you.' },
+              { icon: 'fa-filter', title: 'Smart Filtering', desc: 'Only apply to jobs that match your criteria. Filter by salary, role, location, and remote status.' },
+              { icon: 'fa-chart-line', title: 'Application Tracking', desc: 'Never lose track of where you applied. Every submission is logged with status updates and links.' },
+              { icon: 'fa-brain', title: 'AI-Powered Answers', desc: 'Standard forms are easy. Our AI handles the unique questions like "Why do you want to work here?"' },
+              { icon: 'fa-magnifying-glass', title: 'ATS Resume Analyzer', desc: 'Scan your resume against job descriptions to see how well you score before applying.' },
+            ].map((f, i) => (
+              <div key={i} className="feature-card">
+                <div className="feature-icon"><i className={`fa-solid ${f.icon}`}></i></div>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── CTA Section ── */}
+      {/* ── Marquee ── */}
+      <section className="marquee">
+        <div className="marquee-content">
+          {[
+            { n: 'LinkedIn', i: 'fa-linkedin' },
+            { n: 'Indeed', i: 'fa-briefcase' },
+            { n: 'Glassdoor', i: 'fa-window-restore' },
+            { n: 'Internshala', i: 'fa-graduation-cap' },
+            { n: 'Naukri', i: 'fa-paper-plane' },
+            { n: 'Google Jobs', i: 'fa-google' },
+          ].concat([
+            { n: 'LinkedIn', i: 'fa-linkedin' },
+            { n: 'Indeed', i: 'fa-briefcase' },
+            { n: 'Glassdoor', i: 'fa-window-restore' },
+            { n: 'Internshala', i: 'fa-graduation-cap' },
+            { n: 'Naukri', i: 'fa-paper-plane' },
+            { n: 'Google Jobs', i: 'fa-google' },
+          ]).map((p, i) => (
+            <div key={i} className="platform-item">
+              <i className={`fa-brands ${p.i}`}></i> {p.n}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
       <section className="section">
         <div className="container">
-          <div className="card reveal" style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent-5) 100%)', border: 'none', textAlign: 'center', padding: '80px 40px' }}>
-            <h2 style={{ color: '#fff', marginBottom: '24px' }}>Stop Wasting Time on Applications.</h2>
-            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '20px', maxWidth: '600px', margin: '0 auto 40px' }}>
-              Join 10,000+ users who have automated their job search and landed their dream roles faster than ever.
-            </p>
-            <Link to="/signup" className="btn" style={{ background: '#fff', color: 'var(--primary)', padding: '20px 48px', fontSize: '18px' }}>
-              Get Started for Free <i className="fa-solid fa-arrow-right" style={{ marginLeft: '12px' }}></i>
-            </Link>
+          <div className="section-header">
+            <div style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px' }}>FAQ</div>
+            <h2>Frequently Asked Questions</h2>
+          </div>
+          <div className="faq-list">
+            {[
+              'How does the auto-apply work?',
+              'Is my data safe and private?',
+              'Do I need to leave my browser open?',
+              'Which platforms are supported?',
+            ].map((q, i) => (
+              <div key={i} className={`faq-item ${openFaq === i ? 'open' : ''}`}>
+                <button className="faq-question" onClick={() => toggleFaq(i)}>
+                  {q} <i className={`fa-solid fa-plus ${openFaq === i ? 'fa-rotate-45' : ''}`}></i>
+                </button>
+                <div className="faq-answer">
+                  SmartApply uses advanced browser automation and AI to simulate human behavior while filling forms. Your data is encrypted and never shared. Yes, the extension runs while the tab is open.
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer style={{ padding: '60px 0', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+      {/* ── Contact ── */}
+      <section className="section">
         <div className="container">
-          <div className="nav-logo" style={{ marginBottom: '24px', fontSize: '24px' }}>Smart<span>Apply</span></div>
-          <p style={{ color: 'var(--text-3)', fontSize: '14px' }}>© {new Date().getFullYear()} SmartApply Inc. All rights reserved.</p>
+          <div className="section-header">
+            <div style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px' }}>Get in touch</div>
+            <h2>We're here to help</h2>
+            <p>Questions or feedback? Send us a message.</p>
+          </div>
+          <div className="contact-card">
+            <form>
+              <div className="form-group">
+                <label>Name</label>
+                <input type="text" placeholder="Your name" />
+              </div>
+              <div className="form-group">
+                <label>Email</label>
+                <input type="email" placeholder="Your email address" />
+              </div>
+              <div className="form-group">
+                <label>Message</label>
+                <textarea rows="4" placeholder="How can we help?"></textarea>
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                <i className="fa-solid fa-paper-plane"></i> Send Message
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ── */}
+      <section className="container">
+        <div className="final-cta">
+          <h2>Ready to automate your job search?</h2>
+          <p>Join thousands of candidates successfully landing jobs with AI.</p>
+          <Link to="/signup" className="btn btn-outline" style={{ background: 'rgba(255,255,255,0.2)', padding: '16px 40px', fontSize: '18px' }}>
+            Create Your Free Account
+          </Link>
+        </div>
+      </section>
+
+      <footer>
+        <div className="container">
+          <p>© {new Date().getFullYear()} SmartApply. All rights reserved.</p>
+          <div style={{ marginTop: '12px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
+            <a href="#">Terms</a> <a href="#">Privacy</a>
+          </div>
         </div>
       </footer>
     </div>
