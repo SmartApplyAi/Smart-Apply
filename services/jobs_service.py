@@ -104,6 +104,7 @@ async def get_history(
     if result:
         query["result"] = result
     
+    import re as re_module
     if q:
         try:
             query["$text"] = {"$search": q}
@@ -112,9 +113,10 @@ async def get_history(
             logger.warning(f"Text search failed (index might be missing): {e}")
             # Fallback: regex search if text index fails
             del query["$text"]
+            safe_q = re_module.escape(q)
             query["$or"] = [
-                {"job_title": {"$regex": q, "$options": "i"}},
-                {"company": {"$regex": q, "$options": "i"}}
+                {"job_title": {"$regex": safe_q, "$options": "i"}},
+                {"company": {"$regex": safe_q, "$options": "i"}}
             ]
             total = await db.job_applications.count_documents(query)
     else:
@@ -161,26 +163,17 @@ async def create_application(user_id: str, data: dict) -> dict:
     job_link = data.get("job_link") or data.get("job_url")
     
     # 1. Deduplication check (avoid literal "unknown" matching)
+    existing = None
     query = {"user_id": user_id}
     if job_title and job_title != "unknown" and company and company != "unknown":
         query["job_title"] = job_title
         query["company"] = company
     elif job_link and job_link != "unknown":
-        # For links, we also check if it was applied today to allow re-applying on different days if needed
-        # (Though usually links are globally unique for a user, sometimes they want to track again)
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    else:
-        # Not enough info to dedup, skip search
-        existing = None
+        query["job_link"] = job_link
     
-    if not query.get("_id") and query.get("user_id"):
-        # Only run query if we actually have dedup criteria beyond just user_id
-        if len(query) > 1:
-            existing = await db.job_applications.find_one(query)
-        else:
-            existing = None
-    else:
-        existing = None
+    # Only run query if we actually have dedup criteria beyond just user_id
+    if len(query) > 1:
+        existing = await db.job_applications.find_one(query)
     
     if existing:
         logger.info(f"Duplicate application skipped for {job_title} at {company}")

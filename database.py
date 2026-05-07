@@ -114,6 +114,12 @@ async def _ensure_indexes():
     await db.blacklisted_tokens.create_index("token", unique=True)
     await db.blacklisted_tokens.create_index("expires_at", expireAfterSeconds=0)
 
+    # OAuth handoffs (TTL — auto-cleanup expired codes)
+    await db.oauth_handoffs.create_index("expires_at", expireAfterSeconds=0)
+
+    # Audit logs — compound index for admin filtering by endpoint
+    await db.audit_logs.create_index([("path", 1), ("timestamp", -1)], background=True)
+
     logger.info("MongoDB indexes ensured.")
 
 

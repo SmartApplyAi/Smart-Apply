@@ -316,7 +316,8 @@ async def exchange_code(body: ExchangeCodeRequest, request: Request):
 
 
 @router.post("/oauth-handoff")
-async def oauth_handoff(body: dict):
+@limiter.limit("10/minute")
+async def oauth_handoff(request: Request, body: dict):
     """Exchange a temporary handoff code for the actual access token."""
     from database import get_db
     from datetime import datetime, timezone

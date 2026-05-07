@@ -18,9 +18,12 @@ class StartSessionRequest(BaseModel):
     preferences: dict = {}
 
 
+from limiter import limiter
+
 @router.post("/start")
+@limiter.limit("5/minute")
 async def start_session(
-    body: StartSessionRequest, user: dict = Depends(get_current_user)
+    request: Request, body: StartSessionRequest, user: dict = Depends(get_current_user)
 ):
     """Start a new automation session."""
     try:
@@ -101,9 +104,15 @@ async def stream_automation_updates(user: dict = Depends(get_current_user)):
         queue = await automation_service.subscribe_to_updates(user["id"])
         try:
             while True:
-                update = await queue.get()
-                yield f"data: {update}\n\n"
+                try:
+                    update = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {update}\n\n"
+                except asyncio.TimeoutError:
+                    # Send heartbeat to detect dead connections
+                    yield f": heartbeat\n\n"
         except asyncio.CancelledError:
+            pass
+        finally:
             await automation_service.unsubscribe_from_updates(user["id"], queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

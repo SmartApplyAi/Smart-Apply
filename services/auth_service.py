@@ -165,6 +165,8 @@ async def login_user(email: str, password: str, ip: str = "") -> dict:
 
     user = await db.users.find_one({"email": email.lower().strip()})
     if not user:
+        # Constant-time: always run bcrypt to prevent timing-based email enumeration
+        verify_password("dummy_password", "$2b$12$LJ3m4ys3Lf5B3lGm8f3jKOB4yMOLRFnXs2s1v9HDeaFrusHNKFIy2")
         raise ValueError("Invalid email or password")
         
     if not user.get("password_hash"):

@@ -50,16 +50,16 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise HTTPException(status_code=401, detail="Invalid token type")
 
-        # Check if token is blacklisted
-        db = get_db()
-        blacklisted = await db.blacklisted_tokens.find_one({"token": token})
-        if blacklisted:
-            raise HTTPException(status_code=401, detail="Token has been revoked")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    # Fetch user from DB
+    # Check if token is blacklisted BEFORE fetching user (fail fast, save DB round-trip)
     db = get_db()
+    blacklisted = await db.blacklisted_tokens.find_one({"token": token})
+    if blacklisted:
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+
+    # Fetch user from DB
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")

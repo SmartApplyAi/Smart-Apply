@@ -78,8 +78,23 @@ def generate_extension_token() -> str:
 from cryptography.fernet import Fernet
 import base64
 
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+
 def _get_fernet():
-    # Derive a 32-byte key from the SECRET_KEY for Fernet
+    # Derive a 32-byte key using HKDF (stronger than bare SHA-256)
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=b"smartapply-fernet-v1",
+        info=b"platform-credential-encryption",
+    )
+    key = hkdf.derive(settings.SECRET_KEY.encode())
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def _get_legacy_fernet():
+    # Derive a 32-byte key from the SECRET_KEY for Fernet (Legacy)
     key = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
     return Fernet(base64.urlsafe_b64encode(key))
 
@@ -98,8 +113,13 @@ def decrypt_value(enc: str) -> str:
     try:
         return _get_fernet().decrypt(enc.encode()).decode()
     except Exception:
-        # Fallback for old XOR-encrypted values or invalid data
-        return ""
+        # Try legacy SHA-256 key for backward compatibility
+        try:
+            return _get_legacy_fernet().decrypt(enc.encode()).decode()
+        except Exception:
+            from loguru import logger
+            logger.warning(f"Failed to decrypt value (length={len(enc)}). Possible data corruption or key mismatch.")
+            return ""
 
 
 # ── Pagination ──────────────────────────────────────────────────────────────

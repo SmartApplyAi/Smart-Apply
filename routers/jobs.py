@@ -88,8 +88,9 @@ async def get_recent(
 # ── CRUD ────────────────────────────────────────────────────────────────────
 
 @router.post("/applications")
+@limiter.limit("30/minute")
 async def create_application(
-    body: CreateApplicationRequest, user: dict = Depends(get_current_user)
+    request: Request, body: CreateApplicationRequest, user: dict = Depends(get_current_user)
 ):
     """Create a new job application record."""
     try:
@@ -131,8 +132,9 @@ async def delete_application(app_id: str, user: dict = Depends(get_current_user)
 
 
 @router.post("/applications/batch")
+@limiter.limit("10/minute")
 async def batch_create(
-    body: BatchApplicationRequest, user: dict = Depends(get_current_user)
+    request: Request, body: BatchApplicationRequest, user: dict = Depends(get_current_user)
 ):
     """Batch create applications (from extension)."""
     if len(body.applications) > 100:

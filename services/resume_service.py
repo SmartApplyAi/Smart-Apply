@@ -42,6 +42,15 @@ async def upload_resume(
     if not file_bytes[:5].startswith(b"%PDF"):
         raise ValueError("Only PDF files are accepted")
 
+    # Validate the PDF is parseable (prevents malicious payloads with %PDF prefix)
+    if _HAS_PDFPLUMBER:
+        try:
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+                _ = len(pdf.pages)  # Force parse
+        except Exception:
+            raise ValueError("The uploaded file is not a valid PDF document")
+
     # Generate unique object key
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "pdf"
     object_key = f"resumes/{user_id}/{uuid.uuid4().hex}.{ext}"

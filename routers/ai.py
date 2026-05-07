@@ -161,19 +161,28 @@ async def ats_analyze(
         import os
         from urllib.parse import unquote
         
-        # Security: Reject raw traversal sequences
-        raw_key = body.object_key.lower()
-        if ".." in raw_key or "%2e%2e" in raw_key or "%2f" in raw_key or "%5c" in raw_key or "%252e" in raw_key or "%c0%af" in raw_key:
-             logger.warning(f"Security: Encoded traversal attempt blocked for user {user['id']}: {body.object_key}")
-             raise HTTPException(status_code=400, detail="Invalid object key format")
-
-        clean_key = unquote(body.object_key)
-        # Re-verify after unquoting
-        if ".." in clean_key or clean_key.startswith("/") or clean_key.startswith("\\"):
-             logger.warning(f"Security: Decoded traversal attempt blocked for user {user['id']}: {clean_key}")
-             raise HTTPException(status_code=400, detail="Invalid object key format")
+        raw_key = body.object_key
+        
+        # Phase 1: Check raw input BEFORE any decoding
+        raw_lower = raw_key.lower()
+        if ".." in raw_lower or "%2e" in raw_lower or "%2f" in raw_lower or "%5c" in raw_lower or "%00" in raw_lower or "%c0" in raw_lower:
+            logger.warning(f"Security: Raw traversal attempt blocked for user {user['id']}: {raw_key}")
+            raise HTTPException(status_code=403, detail="Invalid object key format")
+        
+        # Phase 2: Fully decode (handle double-encoding)
+        clean_key = unquote(unquote(raw_key))
+        
+        # Phase 3: Check decoded output
+        if ".." in clean_key or clean_key.startswith("/") or clean_key.startswith("\\") or "\x00" in clean_key:
+            logger.warning(f"Security: Decoded traversal attempt blocked for user {user['id']}: {clean_key}")
+            raise HTTPException(status_code=403, detail="Invalid object key format")
 
         normalized_path = os.path.normpath(clean_key).replace("\\", "/")
+        
+        # Phase 4: Re-check after normpath (catches edge cases)
+        if ".." in normalized_path:
+            logger.warning(f"Security: Normalized traversal attempt blocked for user {user['id']}: {normalized_path}")
+            raise HTTPException(status_code=403, detail="Invalid object key format")
         
         prefix = f"resumes/{user['id']}/"
         if not normalized_path.startswith(prefix):

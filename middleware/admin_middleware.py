@@ -33,6 +33,11 @@ class AdminAuditMiddleware(BaseHTTPMiddleware):
                 payload = decode_token(token)
                 if payload:
                     user_id = payload.get("sub", "anonymous")
+                    # Check if token is blacklisted (revoked)
+                    db = get_db()
+                    blacklisted = await db.blacklisted_tokens.find_one({"token": token})
+                    if blacklisted:
+                        user_id = "revoked_" + user_id
             except Exception:
                 pass
         
