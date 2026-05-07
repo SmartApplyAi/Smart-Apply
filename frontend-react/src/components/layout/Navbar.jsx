@@ -11,21 +11,25 @@ export default function Navbar({ variant = 'default', onMenuClick }) {
 
   if (variant === 'landing') {
     return (
-      <nav className="navbar">
-        <div className="container">
-          <Logo />
-          <div className="nav-links" id="nav-actions">
-            <ThemeToggle />
-            <a href="#features" className="btn btn-ghost btn-sm hide-mobile">Features</a>
-            <a href="#how-it-works" className="btn btn-ghost btn-sm hide-mobile">How it Works</a>
-            {isAuthenticated ? (
-              <Link to="/dashboard" className="btn btn-primary btn-sm">Dashboard</Link>
-            ) : (
-              <>
-                <Link to="/login" className="btn btn-ghost btn-sm">Login</Link>
-                <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
-              </>
-            )}
+      <nav className="navbar navbar-landing">
+        <div className="nav-container">
+          <div className="nav-wrapper">
+            <Logo />
+            <div className="nav-menu">
+              <a href="#features" className="nav-link">Features</a>
+              <a href="#how-it-works" className="nav-link">How it Works</a>
+            </div>
+            <div className="nav-actions">
+              <ThemeToggle />
+              {isAuthenticated ? (
+                <Link to="/dashboard" className="btn btn-primary btn-sm">Dashboard</Link>
+              ) : (
+                <>
+                  <Link to="/login" className="btn btn-ghost btn-sm">Login</Link>
+                  <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </nav>
