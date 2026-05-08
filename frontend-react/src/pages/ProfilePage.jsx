@@ -137,7 +137,7 @@ export default function ProfilePage() {
       // Don't send empty password if not changed
       if (!payload.linkedin_password) delete payload.linkedin_password;
       
-      await api.post('/profile/update', payload);
+      await api.put('/profile/update', payload);
       showToast(isFinish ? 'Profile completed successfully!' : 'Progress saved', 'success');
       
       if (isFinish) {
