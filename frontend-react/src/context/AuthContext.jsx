@@ -28,15 +28,25 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  // Sync if storage changes in another tab
+  // Sync if storage changes in another tab or via extension auth bridge
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'sa_token') {
-        setToken(e.newValue || '');
-        if (!e.newValue) setUser(null);
-      }
-      if (e.key === 'sa_user') {
-        try { setUser(JSON.parse(e.newValue || 'null')); } catch { setUser(null); }
+      if (['sa_token', 'sa_user', 'sa_auth'].includes(e.key)) {
+        const authFlag = localStorage.getItem('sa_auth');
+        const currentToken = localStorage.getItem('sa_token');
+
+        if (authFlag === '1' && currentToken) {
+          setToken(currentToken);
+          try {
+            const parsedUser = JSON.parse(localStorage.getItem('sa_user') || 'null');
+            setUser(parsedUser);
+          } catch {
+            setUser(null);
+          }
+        } else {
+          setToken('');
+          setUser(null);
+        }
       }
     };
     window.addEventListener('storage', handler);
