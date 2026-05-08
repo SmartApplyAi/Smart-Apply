@@ -171,7 +171,7 @@ async def send_application_alert(email: str, job_title: str, company: str, statu
       <div style="font-size: 18px; font-weight: 700; color: #f1f5f9;">{{job_title}}</div>
       <div style="font-size: 16px; font-weight: 600; color: {{color}}; margin-top: 8px;">Status: {{status}}</div>
     </div>
-    <p><a href="{settings.FRONTEND_URL}/dashboard.html" class="btn">View Dashboard</a></p>
+    <p><a href="{settings.FRONTEND_URL}/dashboard" class="btn">View Dashboard</a></p>
     """
     body_template = await get_template("application_alert", default_body)
     display_name = name if name else 'User'
@@ -198,7 +198,7 @@ async def send_automation_summary(
         <div><div style="font-size: 28px; font-weight: 800; color: #94a3b8;">{{skipped}}</div><div class="muted">Skipped</div></div>
       </div>
     </div>
-    <p><a href="{settings.FRONTEND_URL}/dashboard.html" class="btn">View Details</a></p>
+    <p><a href="{settings.FRONTEND_URL}/dashboard" class="btn">View Details</a></p>
     """
     body_template = await get_template("automation_summary", default_body)
     display_name = name if name else 'User'
@@ -219,7 +219,7 @@ async def send_security_alert(email: str, event: str, ip: str = "", name: str = 
       <div class='muted' style='margin-top: 8px;'>IP: {{ip}}</div>
     </div>
     <p class="muted">If this wasn't you, please reset your password immediately.</p>
-    <p><a href="{settings.FRONTEND_URL}/forgot-password.html" class="btn" style="background: #f59e0b;">Secure My Account</a></p>
+    <p><a href="{settings.FRONTEND_URL}/forgot-password" class="btn" style="background: #f59e0b;">Secure My Account</a></p>
     """
     body_template = await get_template("security_alert", default_body)
     display_name = name if name else 'User'
@@ -241,7 +241,7 @@ async def send_weekly_digest(
       <div style="font-size: 14px; color: #94a3b8;">Applications this week</div>
       <div style="font-size: 36px; font-weight: 800; color: #4f7cff;">{{total}}</div>
     </div>
-    <p><a href="{settings.FRONTEND_URL}/dashboard.html" class="btn">View Full Dashboard</a></p>
+    <p><a href="{settings.FRONTEND_URL}/dashboard" class="btn">View Full Dashboard</a></p>
     """
     body_template = await get_template("weekly_digest", default_body)
     display_name = name if name else 'User'

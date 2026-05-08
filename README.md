@@ -1,6 +1,10 @@
-# SmartApply — AI-Assisted Job Application Automation
+# SmartApply — AI-Assisted Job Application Automation `v1.1.0`
 
-Full-stack application with a **Python FastAPI** backend and **HTML/CSS/JS** frontend, deployable as a single Render web service.
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Status](https://img.shields.io/badge/status-active-success.svg)
+
+
+Full-stack application with a **Python FastAPI** backend and **React (Vite)** frontend, deployable as a single Render web service.
 
 ## Architecture
 
@@ -35,16 +39,17 @@ Webapp/
 │   ├── email_service.py    #   Brevo transactional emails
 │   ├── notification_service.py In-app notifications
 │   └── audit_service.py    #   Security audit logging
-└── frontend/               # Static HTML/CSS/JS frontend
-    ├── index.html
-    ├── login.html
-    ├── signup.html
-    ├── dashboard.html
-    ├── profile.html
-    ├── resume.html
-    ├── ats.html
-    ├── css/main.css
-    └── js/app.js
+└── frontend-react/         # Vite + React Frontend
+    ├── src/
+    │   ├── components/     #   Reusable UI components
+    │   ├── pages/          #   Page-level components
+    │   ├── layouts/        #   Shared page layouts
+    │   ├── context/        #   Auth & Global state
+    │   ├── services/       #   API client services
+    │   ├── styles/         #   Global & component-specific CSS
+    │   └── App.jsx         #   Main application & routing
+    ├── public/             #   Static assets
+    └── package.json        #   Frontend dependencies
 ```
 
 ## Tech Stack
@@ -57,7 +62,7 @@ Webapp/
 | **Email** | Brevo (Sendinblue) transactional API |
 | **AI** | NVIDIA NIM (Llama 3.1 70B) |
 | **Auth** | JWT (access + refresh tokens), bcrypt |
-| **Frontend** | Vanilla HTML/CSS/JS |
+| **Frontend** | React 19, Vite, Chart.js, React Router |
 
 ## Setup
 
@@ -70,6 +75,11 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 # source venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
+
+# 2. Install Frontend dependencies
+cd frontend-react
+npm install
+cd ..
 ```
 
 ### 2. Configure environment
@@ -110,6 +120,16 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The API is at `http://localhost:8000/api/` and docs at `http://localhost:8000/api/docs`.
+
+### 4. Build Frontend (for production)
+
+```bash
+cd frontend-react
+npm run build
+cd ..
+```
+
+The backend is configured to serve the compiled frontend from `frontend-react/dist`.
 
 ## API Endpoints
 
@@ -208,7 +228,7 @@ The API is at `http://localhost:8000/api/` and docs at `http://localhost:8000/ap
 
 1. Push to GitHub
 2. Create a new **Web Service** on Render
-3. Set **Build Command**: `pip install -r requirements.txt`
+3. Set **Build Command**: `cd frontend-react && npm install && npm run build && cd .. && pip install -r requirements.txt`
 4. Set **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 5. Add all environment variables from `.env`
 6. Deploy — both frontend and backend will be served from the same service
