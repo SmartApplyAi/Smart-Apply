@@ -88,13 +88,23 @@ export default function ResumePage() {
 
   const deleteResume = async (key) => {
     if (!window.confirm('Delete this resume?')) return;
-    try { await api.delete('/resume/' + encodeKey(key)); showToast('Resume deleted', 'info'); loadResumes(); }
+    try { 
+      await api.delete('/resume/' + encodeKey(key)); 
+      showToast('Resume deleted', 'info'); 
+      loadResumes(); 
+      await syncProfile();
+    }
     catch (err) { showToast(err.detail || 'Could not delete', 'error'); }
   };
 
   const deleteLegacy = async (index) => {
     if (!window.confirm('Remove this legacy entry?')) return;
-    try { await api.delete(`/resume/legacy?index=${index}`); showToast('Removed', 'info'); loadResumes(); }
+    try { 
+      await api.delete(`/resume/legacy?index=${index}`); 
+      showToast('Removed', 'info'); 
+      loadResumes(); 
+      await syncProfile();
+    }
     catch (err) { showToast(err.detail || 'Could not remove', 'error'); }
   };
 
