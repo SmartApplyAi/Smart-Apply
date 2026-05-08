@@ -315,7 +315,7 @@ async def get_email_templates() -> dict:
       <div style="font-size: 18px; font-weight: 700; color: #f1f5f9;">{job_title}</div>
       <div style="font-size: 16px; font-weight: 600; color: {color}; margin-top: 8px;">Status: {status}</div>
     </div>
-    <p><a href="''' + settings.FRONTEND_URL + '''/dashboard.html" class="btn">View Dashboard</a></p>
+    <p><a href="''' + settings.FRONTEND_URL + '''/dashboard" class="btn">View Dashboard</a></p>
     '''},
         "automation_summary": {"name": "Automation Summary", "content": '''
     <h2>Automation Run Complete</h2>
@@ -329,7 +329,7 @@ async def get_email_templates() -> dict:
         <div><div style="font-size: 28px; font-weight: 800; color: #94a3b8;">{skipped}</div><div class="muted">Skipped</div></div>
       </div>
     </div>
-    <p><a href="''' + settings.FRONTEND_URL + '''/dashboard.html" class="btn">View Details</a></p>
+    <p><a href="''' + settings.FRONTEND_URL + '''/dashboard" class="btn">View Details</a></p>
     '''},
         "security_alert": {"name": "Security Alert", "content": '''
     <h2>Security Alert</h2>
@@ -340,7 +340,7 @@ async def get_email_templates() -> dict:
       <div class='muted' style='margin-top: 8px;'>IP: {ip}</div>
     </div>
     <p class="muted">If this wasn't you, please reset your password immediately.</p>
-    <p><a href="''' + settings.FRONTEND_URL + '''/forgot-password.html" class="btn" style="background: #f59e0b;">Secure My Account</a></p>
+    <p><a href="''' + settings.FRONTEND_URL + '''/forgot-password" class="btn" style="background: #f59e0b;">Secure My Account</a></p>
     '''},
         "weekly_digest": {"name": "Weekly Digest", "content": '''
     <h2>Your Weekly Summary</h2>
@@ -350,7 +350,7 @@ async def get_email_templates() -> dict:
       <div style="font-size: 14px; color: #94a3b8;">Applications this week</div>
       <div style="font-size: 36px; font-weight: 800; color: #4f7cff;">{total}</div>
     </div>
-    <p><a href="''' + settings.FRONTEND_URL + '''/dashboard.html" class="btn">View Full Dashboard</a></p>
+    <p><a href="''' + settings.FRONTEND_URL + '''/dashboard" class="btn">View Full Dashboard</a></p>
     '''}
     }
     

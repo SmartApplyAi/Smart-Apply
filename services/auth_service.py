@@ -451,7 +451,7 @@ async def forgot_password(email: str) -> dict:
     )
 
     # Build reset URL
-    reset_url = f"{settings.FRONTEND_URL}/forgot-password.html?token={token}"
+    reset_url = f"{settings.FRONTEND_URL}/forgot-password?token={token}"
 
     # Get user name for email
     profile = await db.user_profiles.find_one({"user_id": str(user["_id"])})

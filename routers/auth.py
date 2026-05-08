@@ -83,6 +83,19 @@ async def login(body: LoginRequest, request: Request, response: Response):
         result = await auth_service.login_user(
             body.email, body.password, ip=_get_ip(request)
         )
+        
+        # Set access token cookie for direct GET requests (e.g., viewing PDFs)
+        from config import settings
+        response.set_cookie(
+            key="access_token",
+            value=result["access_token"],
+            httponly=True,
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            samesite="lax",
+            secure=settings.is_production,
+        )
+        
         await log_action(
             result["user"]["id"], "login", "auth", ip_address=_get_ip(request)
         )
@@ -112,11 +125,19 @@ async def resend_pin(body: ResendPinRequest, request: Request):
 
 
 @router.post("/logout")
-async def logout(request: Request, user: dict = Depends(get_current_user)):
+async def logout(request: Request, response: Response, user: dict = Depends(get_current_user)):
     """Logout and revoke tokens."""
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     if not token:
         token = request.cookies.get("access_token")
+    
+    # Clear the access token cookie
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        samesite="lax",
+        secure=__import__("config").settings.is_production,
+    )
     
     return await auth_service.logout_user(user["id"], token)
 
@@ -156,7 +177,7 @@ async def reset_password(body: ResetPasswordRequest):
 
 
 @router.post("/refresh")
-async def refresh_token(request: Request):
+async def refresh_token(request: Request, response: Response):
     """Refresh the access token using a refresh token."""
     # Look for refresh token in body or cookie
     try:
@@ -169,7 +190,21 @@ async def refresh_token(request: Request):
         raise HTTPException(status_code=400, detail="Refresh token required")
 
     try:
-        return await auth_service.refresh_access_token(token)
+        result = await auth_service.refresh_access_token(token)
+        
+        # Update access token cookie
+        from config import settings
+        response.set_cookie(
+            key="access_token",
+            value=result["access_token"],
+            httponly=True,
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            samesite="lax",
+            secure=settings.is_production,
+        )
+        
+        return result
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
 
@@ -202,7 +237,7 @@ async def google_callback(request: Request, code: str):
     db = get_db()
     
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login.html?error=oauth_not_configured")
+        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=oauth_not_configured")
 
     try:
         async with httpx.AsyncClient() as client:
@@ -218,7 +253,7 @@ async def google_callback(request: Request, code: str):
                 }
             )
             if token_response.status_code != 200:
-                return RedirectResponse(f"{settings.FRONTEND_URL}/login.html?error=exchange_failed")
+                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=exchange_failed")
 
             token_data = token_response.json()
             google_access_token = token_data.get("access_token")
@@ -229,13 +264,13 @@ async def google_callback(request: Request, code: str):
                 headers={"Authorization": f"Bearer {google_access_token}"}
             )
             if user_response.status_code != 200:
-                return RedirectResponse(f"{settings.FRONTEND_URL}/login.html?error=profile_failed")
+                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=profile_failed")
 
             user_info = user_response.json()
             email = user_info.get("email")
             
             if not email:
-                return RedirectResponse(f"{settings.FRONTEND_URL}/login.html?error=no_email")
+                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=no_email")
 
             # 3. Handle login/registration
             auth_result = await auth_service.google_login_user(
@@ -252,11 +287,11 @@ async def google_callback(request: Request, code: str):
                 "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
             })
             
-            return RedirectResponse(f"{settings.FRONTEND_URL}/login.html?oauth_code={handoff_id}")
+            return RedirectResponse(f"{settings.FRONTEND_URL}/login?oauth_code={handoff_id}")
 
     except Exception as e:
         logger.error(f"Google OAuth callback error: {e}")
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login.html?error=server_error")
+        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=server_error")
 
 
 @router.post("/exchange-code")
@@ -316,7 +351,7 @@ async def exchange_code(body: ExchangeCodeRequest, request: Request):
 
 
 @router.post("/oauth-handoff")
-async def oauth_handoff(body: dict):
+async def oauth_handoff(body: dict, response: Response):
     """Exchange a temporary handoff code for the actual access token."""
     from database import get_db
     from datetime import datetime, timezone
@@ -337,6 +372,18 @@ async def oauth_handoff(body: dict):
     # Get user info from token (we need it for the frontend)
     from utils import decode_token
     payload = decode_token(handoff["access_token"])
+    
+    # Set access token cookie
+    from config import settings
+    response.set_cookie(
+        key="access_token",
+        value=handoff["access_token"],
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",
+        secure=settings.is_production,
+    )
     
     return {
         "access_token": handoff["access_token"],

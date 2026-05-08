@@ -26,7 +26,7 @@ class AdminAuditMiddleware(BaseHTTPMiddleware):
         user_id = "anonymous"
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         if not token:
-            token = request.cookies.get("sa_token") # Try cookie too
+            token = request.cookies.get("access_token") # Try cookie too
             
         if token:
             try:
