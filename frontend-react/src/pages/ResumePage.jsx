@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import authService from '../services/auth';
 import { escHtml, formatDate } from '../services/utils';
 import DropZone from '../components/common/DropZone';
 import LoadingButton from '../components/common/LoadingButton';
@@ -42,8 +43,30 @@ export default function ResumePage() {
       if (data.warning) showToast(data.warning, 'info', 8000);
       else showToast('Resume uploaded and parsed!', 'success');
       loadResumes();
+      await syncProfile();
     } catch (err) { showToast(err.detail || 'Upload failed', 'error'); }
     finally { setUploading(false); setTimeout(() => setUploadPct(0), 1000); }
+  };
+
+  const syncProfile = async () => {
+    try {
+      const data = await api.get('/profile/me');
+      if (data && data.profile) {
+        const currentUser = authService.getUser() || {};
+        const updatedUser = { ...currentUser, profile: { ...currentUser.profile, ...data.profile } };
+        
+        localStorage.setItem('sa_user', JSON.stringify(updatedUser));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'sa_user', newValue: JSON.stringify(updatedUser) }));
+        
+        // Notify extension
+        if (window.chrome && chrome.runtime) {
+           // We might need the extension ID, or use postMessage to content script if available
+           window.postMessage({ type: 'SET_WEBAPP_AUTH_FLAG', user: updatedUser }, '*');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to sync profile after resume change', e);
+    }
   };
 
   const useForProfile = () => {
@@ -54,7 +77,12 @@ export default function ResumePage() {
   };
 
   const activateResume = async (key) => {
-    try { await api.post('/resume/activate/' + encodeKey(key)); showToast('Resume set as active', 'success'); loadResumes(); }
+    try { 
+      await api.post('/resume/activate/' + encodeKey(key)); 
+      showToast('Resume set as active', 'success'); 
+      loadResumes(); 
+      await syncProfile();
+    }
     catch (err) { showToast(err.detail || 'Could not set active', 'error'); }
   };
 
