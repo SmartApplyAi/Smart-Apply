@@ -57,7 +57,7 @@ async def get_full_profile(user_id: str) -> dict:
     profile_data = _clean_doc(profile) if profile else {}
     if active_resume:
         profile_data["resumePath"] = active_resume.get("object_key", "")
-        profile_data["resumeUrl"] = f"https://api.smartapply.ai/resume/download/{active_resume.get('object_key', '')}"
+        profile_data["resumeUrl"] = f"https://www.smartapplies.app/api/resume/download/{active_resume.get('object_key', '')}"
         profile_data["resumeFileName"] = active_resume.get("filename", "")
         profile_data["resumeMimeType"] = active_resume.get("content_type", "application/pdf")
         profile_data["resumeUploadedAt"] = active_resume.get("uploaded_at").isoformat() if active_resume.get("uploaded_at") else ""
