@@ -18,15 +18,17 @@ async def get_full_profile(user_id: str) -> dict:
     profile_task = db.user_profiles.find_one({"user_id": user_id})
     job_prefs_task = db.job_preferences.find_one({"user_id": user_id})
     platforms_task = db.platform_accounts.find_one({"user_id": user_id})
+    resume_task = db.resumes.find_one({"user_id": user_id, "is_active": True})
 
     results = await asyncio.gather(
-        profile_task, job_prefs_task, platforms_task,
+        profile_task, job_prefs_task, platforms_task, resume_task,
         return_exceptions=True
     )
     
     profile = results[0] if not isinstance(results[0], Exception) else None
     job_prefs = results[1] if not isinstance(results[1], Exception) else None
     platforms = results[2] if not isinstance(results[2], Exception) else None
+    active_resume = results[3] if len(results) > 3 and not isinstance(results[3], Exception) else None
     
     if any(isinstance(r, Exception) for r in results):
         logger.error(f"Partial failure in get_full_profile for user {user_id}: {[r for r in results if isinstance(r, Exception)]}")
@@ -52,8 +54,16 @@ async def get_full_profile(user_id: str) -> dict:
             else:
                 platform_data[key] = value
 
+    profile_data = _clean_doc(profile) if profile else {}
+    if active_resume:
+        profile_data["resumePath"] = active_resume.get("object_key", "")
+        profile_data["resumeUrl"] = f"https://api.smartapply.ai/resume/download/{active_resume.get('object_key', '')}"
+        profile_data["resumeFileName"] = active_resume.get("filename", "")
+        profile_data["resumeMimeType"] = active_resume.get("content_type", "application/pdf")
+        profile_data["resumeUploadedAt"] = active_resume.get("uploaded_at").isoformat() if active_resume.get("uploaded_at") else ""
+
     return {
-        "profile": _clean_doc(profile) if profile else {},
+        "profile": profile_data,
         "job_preferences": _clean_doc(job_prefs) if job_prefs else {},
         "platform_accounts": platform_data,
     }
