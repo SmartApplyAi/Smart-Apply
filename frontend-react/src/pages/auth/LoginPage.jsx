@@ -34,6 +34,11 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
+    const code = searchParams.get('oauth_code');
+    if (code) {
+      handleOAuthHandoff(code);
+    }
+
     const err = searchParams.get('error');
     if (err) {
       setOauthError(OAUTH_ERRORS[err] || 'Sign-in failed.');
@@ -43,6 +48,30 @@ export default function LoginPage() {
     if (msg === 'verified') setSuccessMsg('Email verified! You can now log in.');
     if (msg === 'reset') setSuccessMsg('Password reset successfully. Please sign in.');
   }, [searchParams]);
+
+  const handleOAuthHandoff = async (code) => {
+    setLoading(true);
+    setOauthError('');
+    try {
+      // Exchange code for actual tokens
+      const data = await api.post('/auth/oauth-handoff', { code });
+      save(data.access_token, data.user);
+      showToast('Welcome back!', 'success');
+      
+      // Cleanup URL
+      window.history.replaceState({}, '', window.location.pathname);
+      
+      // Redirect
+      setTimeout(() => {
+        navigate(data.user.has_profile ? '/dashboard' : '/profile');
+      }, 800);
+    } catch (err) {
+      console.error('OAuth handoff failed:', err);
+      setOauthError('Failed to complete Google sign-in. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
