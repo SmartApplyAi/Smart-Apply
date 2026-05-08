@@ -236,62 +236,62 @@ async def google_callback(request: Request, code: str):
     from database import get_db
     db = get_db()
     
-            if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
-                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=oauth_not_configured")
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=oauth_not_configured")
 
-            try:
-                async with httpx.AsyncClient() as client:
-                    # 1. Exchange code for token
-                    token_response = await client.post(
-                        "https://oauth2.googleapis.com/token",
-                        data={
-                            "client_id": settings.GOOGLE_CLIENT_ID,
-                            "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                            "code": code,
-                            "grant_type": "authorization_code",
-                            "redirect_uri": _get_redirect_uri(request),
-                        }
-                    )
-                    if token_response.status_code != 200:
-                        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=exchange_failed")
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Exchange code for token
+            token_response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": _get_redirect_uri(request),
+                }
+            )
+            if token_response.status_code != 200:
+                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=exchange_failed")
 
-                    token_data = token_response.json()
-                    google_access_token = token_data.get("access_token")
+            token_data = token_response.json()
+            google_access_token = token_data.get("access_token")
 
-                    # 2. Get user profile info
-                    user_response = await client.get(
-                        "https://www.googleapis.com/oauth2/v3/userinfo",
-                        headers={"Authorization": f"Bearer {google_access_token}"}
-                    )
-                    if user_response.status_code != 200:
-                        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=profile_failed")
+            # 2. Get user profile info
+            user_response = await client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {google_access_token}"}
+            )
+            if user_response.status_code != 200:
+                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=profile_failed")
 
-                    user_info = user_response.json()
-                    email = user_info.get("email")
-                    
-                    if not email:
-                        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=no_email")
+            user_info = user_response.json()
+            email = user_info.get("email")
+            
+            if not email:
+                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=no_email")
 
-                    # 3. Handle login/registration
-                    auth_result = await auth_service.google_login_user(
-                        email=email,
-                        name=user_info.get("name", ""),
-                        ip=_get_ip(request)
-                    )
-                    
-                    # 4. Create short-lived handoff code (safer than token in fragment)
-                    handoff_id = str(uuid.uuid4())
-                    await db.oauth_handoffs.insert_one({
-                        "id": handoff_id,
-                        "access_token": auth_result["access_token"],
-                        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
-                    })
-                    
-                    return RedirectResponse(f"{settings.FRONTEND_URL}/login?oauth_code={handoff_id}")
+            # 3. Handle login/registration
+            auth_result = await auth_service.google_login_user(
+                email=email,
+                name=user_info.get("name", ""),
+                ip=_get_ip(request)
+            )
+            
+            # 4. Create short-lived handoff code (safer than token in fragment)
+            handoff_id = str(uuid.uuid4())
+            await db.oauth_handoffs.insert_one({
+                "id": handoff_id,
+                "access_token": auth_result["access_token"],
+                "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
+            })
+            
+            return RedirectResponse(f"{settings.FRONTEND_URL}/login?oauth_code={handoff_id}")
 
-            except Exception as e:
-                logger.error(f"Google OAuth callback error: {e}")
-                return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=server_error")
+    except Exception as e:
+        logger.error(f"Google OAuth callback error: {e}")
+        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=server_error")
 
 
 @router.post("/exchange-code")
