@@ -2,11 +2,13 @@
 
 const TOKEN_KEY = 'sa_token';
 const USER_KEY = 'sa_user';
+const AUTH_FLAG = 'sa_auth';
 
 const auth = {
   save(token, user) {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(AUTH_FLAG, '1');
   },
 
   getToken() {
@@ -28,6 +30,7 @@ const auth = {
   clear() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(AUTH_FLAG);
   },
 
   logout() {

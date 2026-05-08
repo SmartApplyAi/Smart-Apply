@@ -66,9 +66,19 @@ export default function ProfilePage() {
         }));
         
         // Map dynamic answers
-        if (p.additional_details) {
-          setDynamicAnswers(p.additional_details);
-        }
+        const loadedAnswers = {};
+        const source = p.dynamic_answers || p.additional_details || {};
+        const questions = qData.questions || [];
+        
+        questions.forEach(q => {
+          const textKey = q.text.toLowerCase().trim();
+          if (source[textKey]) {
+            loadedAnswers[q.id] = source[textKey];
+          } else if (source[q.id]) {
+            loadedAnswers[q.id] = source[q.id];
+          }
+        });
+        setDynamicAnswers(loadedAnswers);
       }
       
       setDynamicQuestions(qData.questions || []);
@@ -130,9 +140,17 @@ export default function ProfilePage() {
     
     setLoading(true);
     try {
+      // Build text-keyed map for extension fuzzy matching
+      const textKeyedAnswers = {};
+      dynamicQuestions.forEach(q => {
+        if (dynamicAnswers[q.id]) {
+          textKeyedAnswers[q.text.toLowerCase().trim()] = dynamicAnswers[q.id];
+        }
+      });
+
       const payload = {
         ...profile,
-        additional_details: dynamicAnswers
+        dynamic_answers: textKeyedAnswers
       };
       // Don't send empty password if not changed
       if (!payload.linkedin_password) delete payload.linkedin_password;
