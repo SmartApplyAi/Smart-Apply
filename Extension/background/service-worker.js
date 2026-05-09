@@ -22,7 +22,15 @@ async function loadState() {
   const result = await chrome.storage.local.get('appState');
   const sessionResult = await chrome.storage.session.get('userToken');
   if (result.appState) {
-    appState = { ...createDefaultState(), ...result.appState };
+    const defaults = createDefaultState();
+    // Deep-merge each top-level key so new schema fields are never undefined
+    appState = {
+      ...defaults,
+      ...result.appState,
+      profile: { ...defaults.profile, ...(result.appState.profile || {}) },
+      runtime: { ...defaults.runtime, ...(result.appState.runtime || {}) },
+      settings: { ...defaults.settings, ...(result.appState.settings || {}) },
+    };
     appState.runtime.isRunning = false;
     appState.runtime.isPaused = false;
     if (sessionResult.userToken) {
@@ -86,6 +94,14 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
     }
 
     const errorText = await res.text();
+
+    if (res.status === 401 || res.status === 403) {
+      console.error(`[SmartApply] Global Auth Expiry (HTTP ${res.status})`);
+      appState.runtime.isRunning = false;
+      saveState().catch(() => {});
+      chrome.runtime.sendMessage({ type: 'AUTH_EXPIRED' }).catch(() => {});
+      throw new Error('Authentication expired. Please login again.');
+    }
 
     if (res.status === 429) {
       attempt++;
@@ -228,7 +244,7 @@ function buildLinkedInSearchUrl(profile, termIndex = -1) {
       params.set('keywords', terms.join(' OR '));
     }
   } else if (profile.linkedin_headline) {
-    const role = (profile.linkedin_headline || '').split(/[|,—\-]/)[0].trim();
+    const role = profile.linkedin_headline.split(/[|,—\-]/)[0].trim();
     if (role) params.set('keywords', role);
   }
 
@@ -247,18 +263,16 @@ function buildLinkedInSearchUrl(profile, termIndex = -1) {
   }
 
   const expMap = { 'Internship': '1', 'Entry level': '2', 'Associate': '3', 'Mid-Senior level': '4', 'Director': '5', 'Executive': '6' };
-  const expLevels = Array.isArray(profile.experience_level) ? profile.experience_level : (profile.exp_level ? [profile.exp_level] : []);
+  const expLevels = Array.isArray(profile.experience_level) ? profile.experience_level : [];
   const expCodes = expLevels.map(e => expMap[e]).filter(Boolean);
   if (expCodes.length) params.set('f_E', expCodes.join(','));
 
   const modeMap = { 'On-site': '1', 'Remote': '2', 'Hybrid': '3' };
-  const modes = Array.isArray(profile.on_site) ? profile.on_site : (profile.work_mode ? [profile.work_mode] : []);
+  const modes = Array.isArray(profile.on_site) ? profile.on_site : [];
   const modeCodes = modes.map(m => modeMap[m]).filter(Boolean);
   if (modeCodes.length) params.set('f_WT', modeCodes.join(','));
 
-  const finalUrl = `https://www.linkedin.com/jobs/search/?${params.toString()}`;
-  console.log('[SmartApply SW] Generated Search URL:', finalUrl);
-  return finalUrl;
+  return `https://www.linkedin.com/jobs/search/?${params.toString()}`;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -300,19 +314,6 @@ async function broadcastToLinkedIn(message) {
   }
 
   // STOP / PAUSE / RESUME can affect all tabs
-  for (const tab of tabs) {
-    chrome.tabs.sendMessage(tab.id, message).catch(() => {});
-  }
-}
-
-async function getNaukriTabs() {
-  return new Promise(resolve =>
-    chrome.tabs.query({ url: ['https://www.naukri.com/*', 'https://naukri.com/*'] }, resolve)
-  );
-}
-
-async function broadcastToNaukri(message) {
-  const tabs = await getNaukriTabs();
   for (const tab of tabs) {
     chrome.tabs.sendMessage(tab.id, message).catch(() => {});
   }
@@ -381,9 +382,6 @@ async function navigateAndStart(state, resumeCounters = null) {
   appState.runtime.isStartingAutomation = true;
   await saveState();
 
-  console.log('[SmartApply SW] navigateAndStart triggered');
-  notifyPopup('LOG', 'Initializing automation...');
-
   try {
     if (appState.runtime.activeAutomationTabId) {
       try {
@@ -402,13 +400,19 @@ async function navigateAndStart(state, resumeCounters = null) {
     const searchUrl = buildLinkedInSearchUrl(state.profile, hasMultipleTerms ? termIndex : -1);
     const currentTerm = hasMultipleTerms ? terms[termIndex] : (Array.isArray(terms) && terms[0]) || 'all terms';
     const totalTerms = terms?.length || 1;
-    console.log(`[SmartApply SW] Starting search for: "${currentTerm}"`);
-    
-    notifyPopup('LOG', `🔎 Searching: "${currentTerm}" (${termIndex + 1}/${totalTerms})`);
+    console.log(`[SmartApply SW] Target URL (term ${termIndex + 1}/${totalTerms}: "${currentTerm}"):`, searchUrl);
 
     // Save and broadcast active search term for popup display
     state.runtime.currentSearchTerm = currentTerm;
     await saveState();
+    chrome.runtime.sendMessage({
+      type: 'SEARCH_TERM_UPDATE',
+      term: currentTerm,
+      index: termIndex,
+      total: totalTerms,
+    }).catch(() => {});
+
+    notifyPopup('LOG', `🔎 Searching: "${currentTerm}" (${termIndex + 1}/${totalTerms})`);
 
     // Get or create LinkedIn tab
     const existing = await getLinkedInTabs();
@@ -472,83 +476,6 @@ function notifyPopup(type, text) {
   }
 }
 
-function notifyNaukriPopup(type, text) {
-  if (type === 'LOG') {
-    chrome.runtime.sendMessage({ type: 'NAUKRI_POPUP_LOG', text }).catch(() => {});
-  }
-}
-
-// ── Naukri URL Builder ────────────────────────────────────────────────────
-
-function buildNaukriSearchUrl(profile, termIndex = -1) {
-  const terms = profile.search_terms;
-  let keyword = '';
-  if (Array.isArray(terms) && terms.length > 0) {
-    if (termIndex >= 0 && termIndex < terms.length) {
-      keyword = terms[termIndex];
-    } else {
-      keyword = terms[0];
-    }
-  }
-  const loc = profile.search_location || profile.current_city || 'India';
-  // Naukri URL format: https://www.naukri.com/keyword-jobs-in-location
-  const kwSlug = keyword.trim().toLowerCase().replace(/\s+/g, '-');
-  const locSlug = loc.trim().toLowerCase().replace(/\s+/g, '-');
-  let url = `https://www.naukri.com/${kwSlug}-jobs-in-${locSlug}`;
-  // Add experience parameter if available
-  const exp = profile.years_of_experience || '0';
-  url += `?experience=${exp}`;
-  return url;
-}
-
-// ── Naukri Navigate & Start ───────────────────────────────────────────────
-
-async function navigateAndStartNaukri(state, resumeCounters = null) {
-  const terms = state.profile.search_terms;
-  const termIndex = state.naukriRuntime.currentSearchTermIndex || 0;
-  const hasMultipleTerms = Array.isArray(terms) && terms.length > 1;
-  const searchUrl = buildNaukriSearchUrl(state.profile, hasMultipleTerms ? termIndex : 0);
-  const currentTerm = (Array.isArray(terms) && terms[termIndex]) || 'all terms';
-  console.log(`[SmartApply SW] Naukri URL: ${searchUrl}`);
-
-  state.naukriRuntime.currentSearchTerm = currentTerm;
-  await saveState();
-
-  notifyNaukriPopup('LOG', `🔎 Searching Naukri: "${currentTerm}"`);
-
-  const existing = await getNaukriTabs();
-  let tab;
-  if (existing.length > 0) {
-    tab = existing[0];
-    await chrome.tabs.update(tab.id, { url: searchUrl, active: true });
-  } else {
-    tab = await chrome.tabs.create({ url: searchUrl, active: true });
-  }
-
-  const tabId = tab.id;
-  notifyNaukriPopup('LOG', 'Waiting for Naukri to load…');
-  await waitForTabComplete(tabId, 15000);
-  await sleep(4000);
-
-  notifyNaukriPopup('LOG', 'Connecting to page…');
-  const ready = await pingUntilReady(tabId, 25, 1000);
-
-  if (!ready) {
-    notifyNaukriPopup('LOG', '❌ Could not connect to Naukri page.');
-    appState.naukriRuntime.isRunning = false;
-    await saveState();
-    chrome.runtime.sendMessage({ type: 'NAUKRI_AUTOMATION_ERROR', error: 'Content script not responding.' }).catch(() => {});
-    return;
-  }
-
-  notifyNaukriPopup('LOG', '✓ Connected. Starting Naukri automation…');
-  chrome.tabs.sendMessage(tabId, { type: 'START_NAUKRI_AUTOMATION', state, resumeCounters }, (res) => {
-    if (chrome.runtime.lastError) {
-      console.error('[SmartApply SW] START_NAUKRI_AUTOMATION failed:', chrome.runtime.lastError.message);
-    }
-  });
-}
-
 // ── Message Handler ───────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -564,62 +491,35 @@ async function handleMessage(message, sender) {
     case 'LOGIN': {
       const { email, password } = message;
       const loginData = await login(email, password);
-      appState.runtime.token = loginData.access_token;
+      
+      // FIX: Store token in non-persistent session storage only (Security Hardening)
+      await chrome.storage.session.set({ userToken: loginData.access_token });
+      
+      appState.runtime.token = ''; // Ensure nothing sensitive persists in local storage
       appState.runtime.userEmail = email;
 
       const profileData = await loadProfile(loginData.access_token);
       const p  = profileData.profile || {};
       const jp = profileData.job_preferences || {};
-      const pa = profileData.platform_accounts || {};
 
       appState.profile = {
         ...appState.profile,
         ...p,
         ...jp,
-        // Convenience aliases for content script form filling
-        fullName:              `${p.first_name || ''} ${p.last_name || ''}`.trim(),
-        firstName:             p.first_name || '',
-        lastName:              p.last_name  || '',
-        email:                 p.linkedin_email || loginData.user?.email || email,
-        phoneCountryCode:      p.phone_country_code || '+91',
-        phoneNumber:           p.phone_number || '',
-        // Field name aliases (backend uses different keys)
-        zip_code:              p.zipcode || p.zip_code || '',
-        pincode:               p.zipcode || p.zip_code || '',
-        // Education fields (not directly stored — parsed from education_text)
-        highest_degree:        p.highest_degree || p.degree || '',
-        degree:                p.degree || p.highest_degree || '',
-        university:            p.university || p.college || '',
-        college:               p.college || p.university || '',
-        graduation_year:       p.graduation_year || '',
-        major:                 p.major || p.field_of_study || '',
-        field_of_study:        p.field_of_study || p.major || '',
-        gpa:                   p.gpa || p.cgpa || '',
-        cgpa:                  p.cgpa || p.gpa || '',
-        certifications:        p.certifications || '',
-        // Work/immigration fields
-        work_authorization:    p.work_authorization || p.us_citizenship || '',
-        willing_to_relocate:   p.willing_to_relocate || 'Yes',
-        available_date:        p.available_date || 'Immediately',
-        language_proficiency:  p.language_proficiency || 'Professional',
-        // Other missing fields
-        portfolio:             p.portfolio || p.website || '',
-        date_of_birth:         p.date_of_birth || '',
-        age:                   p.age || '',
+        fullName:         `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+        firstName:        p.first_name || '',
+        lastName:         p.last_name  || '',
+        email:            loginData.user?.email || email,
+        phoneCountryCode: p.phone_country_code || '+91',
+        phoneNumber:      p.phone_number || '',
+        resumePath:       p.resumePath || '',
+        resumeUrl:        p.resumeUrl || '',
+        resumeFileName:   p.resumeFileName || '',
+        resumeMimeType:   p.resumeMimeType || '',
+        resumeUploadedAt: p.resumeUploadedAt || '',
       };
-
-      // Fetch active resume from R2
-      try {
-        const resumeData = await apiGet('/resume/list', loginData.access_token);
-        const activeResume = resumeData.resumes?.find(r => r.is_active);
-        if (activeResume) {
-          appState.profile.resume_url = `${API_BASE}/resume/download/${activeResume.object_key}`;
-          appState.profile.resume_key = activeResume.object_key;
-          appState.profile.resume_name = activeResume.filename;
-        }
-      } catch (err) {
-        console.warn('[SmartApply SW] Failed to fetch resumes:', err.message);
-      }
+      
+      console.log('[SmartApply] Resume Sync:', appState.profile.resumePath);
 
       // ConnectExtension removed. We no longer auto-pair via web login credentials
       // The user must manually enter a pairing code from the web UI to link the extension
@@ -647,10 +547,193 @@ async function handleMessage(message, sender) {
       stopHeartbeat();
       appState = createDefaultState();
       await saveState();
+      // Also clear the session-stored JWT so stale tokens cannot be re-used
+      await chrome.storage.session.remove('userToken');
       return { ok: true };
     }
 
-    case 'GET_STATE':    return { ok: true, state: appState };
+    case 'SYNC_PROFILE': {
+      if (message.user) {
+        // Update token if provided in sync (session bridge)
+        if (message.user.token) {
+          await chrome.storage.session.set({ userToken: message.user.token });
+        }
+
+        if (message.user.profile) {
+          const p = message.user.profile;
+          appState.profile = {
+            ...appState.profile,
+            ...p,
+            resumePath: p.resumePath || '',
+            resumeUrl: p.resumeUrl || '',
+            resumeFileName: p.resumeFileName || '',
+            resumeMimeType: p.resumeMimeType || '',
+            resumeUploadedAt: p.resumeUploadedAt || '',
+          };
+          console.log('[SmartApply] Resume Sync:', appState.profile.resumePath);
+          await saveState();
+        }
+      }
+      return { ok: true };
+    }
+
+    // ── Secure Authenticated Resume Fetch ─────────────────────────────────
+    case 'FETCH_RESUME': {
+      const storedSession = await chrome.storage.session.get('userToken');
+
+      const resumeToken =
+        storedSession.userToken ||
+        appState.runtime.token ||
+        appState.runtime.extensionToken;
+
+      if (!resumeToken) {
+        console.warn('[SmartApply] Resume fetch failed: Missing auth token');
+        return { ok: false, error: 'missing_token' };
+      }
+
+      // Direct authenticated resume stream endpoint
+      const directUrl = `${API_BASE}/resume/stream-active`;
+
+      let rawBytes = null;
+      const maxAttempts = 3;
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const ctrl = new AbortController();
+
+          let timeout;
+          let resp;
+
+          try {
+            timeout = setTimeout(() => ctrl.abort(), 30000);
+
+            resp = await fetch(directUrl, {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${resumeToken}`,
+                Accept: 'application/pdf,*/*',
+              },
+              signal: ctrl.signal,
+            });
+          } finally {
+            if (timeout) clearTimeout(timeout);
+          }
+
+          if (resp.status === 401 || resp.status === 403) {
+            chrome.runtime.sendMessage({
+              type: 'AUTH_EXPIRED',
+            }).catch(() => {});
+
+            return {
+              ok: false,
+              error: 'auth_expired',
+              status: resp.status,
+            };
+          }
+
+          if (resp.status === 404) {
+            return {
+              ok: false,
+              error: 'not_found',
+            };
+          }
+
+          if (!resp.ok) {
+            lastError = `HTTP ${resp.status}`;
+
+            if (attempt < maxAttempts) {
+              await sleep(Math.pow(2, attempt) * 1000);
+              continue;
+            }
+
+            return {
+              ok: false,
+              error: 'server_error',
+              status: resp.status,
+            };
+          }
+
+          rawBytes = await resp.arrayBuffer();
+          break;
+        } catch (err) {
+          lastError = err?.message || 'Unknown network error';
+
+          console.error(
+            '[SmartApply] Resume stream failed:',
+            lastError
+          );
+
+          if (attempt < maxAttempts) {
+            await sleep(Math.pow(2, attempt) * 1000);
+            continue;
+          }
+
+          return {
+            ok: false,
+            error: 'network_error',
+            detail: lastError,
+          };
+        }
+      }
+
+      if (!rawBytes) {
+        return {
+          ok: false,
+          error: 'max_retries_exceeded',
+          detail: lastError,
+        };
+      }
+
+      try {
+        const uint8 = new Uint8Array(rawBytes);
+
+        let binary = '';
+
+        for (let i = 0; i < uint8.length; i++) {
+          binary += String.fromCharCode(uint8[i]);
+        }
+
+        const base64 = btoa(binary);
+
+        const profile = appState.profile || {};
+
+        const mimeType =
+          profile.resumeMimeType ||
+          'application/pdf';
+
+        const fileName =
+          profile.resumeFileName ||
+          'resume.pdf';
+
+        console.log(
+          `[SmartApply] Resume fetch success — ${rawBytes.byteLength} bytes, file: ${fileName}`
+        );
+
+        return {
+          ok: true,
+          base64,
+          mimeType,
+          fileName,
+          byteLength: rawBytes.byteLength,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          error: 'encode_error',
+          detail: err?.message || 'Base64 encoding failed',
+        };
+      }
+    }
+
+    case 'GET_STATE': {
+      const stored = await chrome.storage.session.get('userToken');
+      // Inject session token into runtime state so popup remains oblivious to storage mechanics
+      const enrichedState = JSON.parse(JSON.stringify(appState));
+      enrichedState.runtime.token = stored.userToken || '';
+      return { ok: true, state: enrichedState };
+    }
+
 
     case 'SET_SETTINGS': {
       appState.settings = { ...appState.settings, ...message.settings };
@@ -670,22 +753,6 @@ async function handleMessage(message, sender) {
       appState.runtime.currentSearchTermIndex = 0;
       appState.runtime.currentSearchTerm = '';
       await saveState();
-
-      // Ensure resume info is fetched if missing (e.g. if user was already logged in)
-      if (!appState.profile.resume_url && appState.runtime.token) {
-        try {
-          const resumeData = await apiGet('/resume/list', appState.runtime.token);
-          const activeResume = resumeData.resumes?.find(r => r.is_active);
-          if (activeResume) {
-            appState.profile.resume_url = `${API_BASE}/resume/download/${activeResume.object_key}`;
-            appState.profile.resume_name = activeResume.filename;
-            appState.profile.resume_key = activeResume.object_key;
-            await saveState();
-          }
-        } catch (err) {
-          console.warn('[SmartApply SW] Resume fetch fallback failed:', err.message);
-        }
-      }
 
       navigateAndStart(appState).catch(async (err) => {
         console.error('[SmartApply SW] navigateAndStart error:', err);
@@ -806,14 +873,6 @@ async function handleMessage(message, sender) {
           language_proficiency: p.language_proficiency,
           date_of_birth: p.date_of_birth,
           age: p.age,
-          // Critical context fields for AI accuracy
-          skills_summary: p.skills_summary,
-          education_text: p.education_text,
-          experience_text: p.experience_text,
-          linkedin_headline: p.linkedin_headline,
-          linkedin_summary: p.linkedin_summary,
-          recent_employer: p.recent_employer,
-          zip_code: p.zipcode || p.zip_code,
           dynamic_answers: { ...(p.answers || {}), ...(p.dynamic_answers || {}) }
         };
 
@@ -897,15 +956,7 @@ Rules:
           language_proficiency: p.language_proficiency,
           date_of_birth: p.date_of_birth,
           age: p.age,
-          dynamic_answers: { ...(p.answers || {}), ...(p.dynamic_answers || {}) },
-          // Critical context fields for AI accuracy
-          skills_summary: p.skills_summary,
-          education_text: p.education_text,
-          experience_text: p.experience_text,
-          linkedin_headline: p.linkedin_headline,
-          linkedin_summary: p.linkedin_summary,
-          recent_employer: p.recent_employer,
-          zip_code: p.zipcode || p.zip_code,
+          dynamic_answers: { ...(p.answers || {}), ...(p.dynamic_answers || {}) }
         };
 
         const userInfo = `Resume/Profile Context:\n${JSON.stringify(safeProfile, null, 2)}`;
@@ -958,18 +1009,8 @@ Rules:
         return { ok: false, reason: 'single_term' };
       }
 
-      // Increment term index
-      const nextIndex = (appState.runtime.currentSearchTermIndex || 0) + 1;
-      
-      if (nextIndex >= terms.length) {
-        console.log('[SmartApply SW] All search terms processed for LinkedIn.');
-        notifyPopup('LOG', '✅ All search terms processed. Automation finished.');
-        appState.runtime.isRunning = false;
-        await saveState();
-        chrome.runtime.sendMessage({ type: 'AUTOMATION_FINISHED' }).catch(() => {});
-        return { ok: true };
-      }
-      
+      // Increment term index (wrap around)
+      const nextIndex = ((appState.runtime.currentSearchTermIndex || 0) + 1) % terms.length;
       appState.runtime.currentSearchTermIndex = nextIndex;
 
       // Carry over cumulative counters from content script
@@ -1003,132 +1044,6 @@ Rules:
       return { ok: true };
     }
 
-    // ── Naukri Automation Messages ─────────────────────────────────────────
-
-    case 'START_NAUKRI_AUTOMATION': {
-      if (appState.naukriRuntime.isRunning) return { ok: false, reason: 'already_running' };
-      appState.naukriRuntime.isRunning  = true;
-      appState.naukriRuntime.isPaused   = false;
-      appState.naukriRuntime.sessionId  = `naukri_${Date.now()}`;
-      appState.naukriRuntime.totalApplied  = 0;
-      appState.naukriRuntime.totalFailed   = 0;
-      appState.naukriRuntime.totalSkipped  = 0;
-      appState.naukriRuntime.currentSearchTermIndex = 0;
-      appState.naukriRuntime.currentSearchTerm = '';
-      await saveState();
-
-      navigateAndStartNaukri(appState).catch(async (err) => {
-        console.error('[SmartApply SW] navigateAndStartNaukri error:', err);
-        appState.naukriRuntime.isRunning = false;
-        await saveState();
-        chrome.runtime.sendMessage({ type: 'NAUKRI_AUTOMATION_ERROR', error: err.message }).catch(() => {});
-      });
-
-      return { ok: true };
-    }
-
-    case 'STOP_NAUKRI_AUTOMATION': {
-      appState.naukriRuntime.isRunning = false;
-      appState.naukriRuntime.isPaused  = false;
-      await saveState();
-      await broadcastToNaukri({ type: 'STOP_NAUKRI_AUTOMATION' });
-      return { ok: true };
-    }
-
-    case 'PAUSE_NAUKRI_AUTOMATION': {
-      appState.naukriRuntime.isPaused = true;
-      await saveState();
-      await broadcastToNaukri({ type: 'PAUSE_NAUKRI_AUTOMATION' });
-      return { ok: true };
-    }
-
-    case 'RESUME_NAUKRI_AUTOMATION': {
-      appState.naukriRuntime.isPaused = false;
-      await saveState();
-      await broadcastToNaukri({ type: 'RESUME_NAUKRI_AUTOMATION' });
-      return { ok: true };
-    }
-
-    case 'NAUKRI_PROGRESS_UPDATE': {
-      const { totalApplied, totalFailed, totalSkipped } = message.payload;
-      appState.naukriRuntime.totalApplied  = totalApplied;
-      appState.naukriRuntime.totalFailed   = totalFailed;
-      appState.naukriRuntime.totalSkipped  = totalSkipped;
-      await saveState();
-      chrome.runtime.sendMessage({ type: 'NAUKRI_PROGRESS_UPDATE', payload: message.payload }).catch(() => {});
-      return { ok: true };
-    }
-
-    case 'NAUKRI_REPORT_RESULT': {
-      const result = message.payload;
-      await reportResult(result);
-      chrome.runtime.sendMessage({ type: 'NAUKRI_REPORT_RESULT', payload: result }).catch(() => {});
-      return { ok: true };
-    }
-
-    case 'NAUKRI_AUTOMATION_FINISHED': {
-      appState.naukriRuntime.isRunning = false;
-      await saveState();
-      chrome.runtime.sendMessage({ type: 'NAUKRI_AUTOMATION_FINISHED', payload: message.payload }).catch(() => {});
-      return { ok: true };
-    }
-
-    case 'SWITCH_NAUKRI_SEARCH_TERM': {
-      const terms = appState.profile.search_terms;
-      if (!Array.isArray(terms) || terms.length <= 1) {
-        return { ok: false, reason: 'single_term' };
-      }
-
-      // Increment term index
-      const nextIndex = (appState.naukriRuntime.currentSearchTermIndex || 0) + 1;
-
-      if (nextIndex >= terms.length) {
-        console.log('[SmartApply SW] All search terms processed for Naukri.');
-        notifyNaukriPopup('LOG', '✅ All search terms processed. Naukri automation finished.');
-        appState.naukriRuntime.isRunning = false;
-        await saveState();
-        chrome.runtime.sendMessage({ type: 'NAUKRI_AUTOMATION_FINISHED' }).catch(() => {});
-        return { ok: true };
-      }
-
-      appState.naukriRuntime.currentSearchTermIndex = nextIndex;
-
-      // Carry over cumulative counters from content script
-      const counters = message.counters || {};
-      appState.naukriRuntime.totalApplied = counters.totalApplied || appState.naukriRuntime.totalApplied;
-      appState.naukriRuntime.totalFailed  = counters.totalFailed  || appState.naukriRuntime.totalFailed;
-      appState.naukriRuntime.totalSkipped = counters.totalSkipped || appState.naukriRuntime.totalSkipped;
-      await saveState();
-
-      const nextTerm = terms[nextIndex];
-      appState.naukriRuntime.currentSearchTerm = nextTerm;
-      console.log(`[SmartApply SW] Switching Naukri to search term ${nextIndex + 1}/${terms.length}: "${nextTerm}"`);
-      notifyNaukriPopup('LOG', `🔄 Switching to: "${nextTerm}" (${nextIndex + 1}/${terms.length})`);
-
-      // Navigate and restart with resumed counters
-      navigateAndStartNaukri(appState, {
-        totalApplied: appState.naukriRuntime.totalApplied,
-        totalFailed: appState.naukriRuntime.totalFailed,
-        totalSkipped: appState.naukriRuntime.totalSkipped,
-      }).catch(async (err) => {
-        console.error('[SmartApply SW] SWITCH_NAUKRI_SEARCH_TERM navigateAndStartNaukri error:', err);
-        appState.naukriRuntime.isRunning = false;
-        await saveState();
-        chrome.runtime.sendMessage({ type: 'NAUKRI_AUTOMATION_ERROR', error: err.message }).catch(() => {});
-      });
-
-      return { ok: true };
-    }
-
-    case 'NAUKRI_POPUP_LOG': {
-      chrome.runtime.sendMessage({ type: 'NAUKRI_POPUP_LOG', text: message.text }).catch(() => {});
-      return { ok: true };
-    }
-
-    case 'NAUKRI_CONTENT_READY': {
-      return { ok: true };
-    }
-
     default:
       return { ok: false, error: `Unknown message type: ${message.type}` };
   }
@@ -1153,6 +1068,24 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
       sendResponse({ ok: true, cookies });
     });
     return true;
+  }
+  if (message.type === 'SYNC_PROFILE') {
+    if (message.user && message.user.profile) {
+      const p = message.user.profile;
+      appState.profile = {
+        ...appState.profile,
+        ...p,
+        resumePath: p.resumePath || '',
+        resumeUrl: p.resumeUrl || '',
+        resumeFileName: p.resumeFileName || '',
+        resumeMimeType: p.resumeMimeType || '',
+        resumeUploadedAt: p.resumeUploadedAt || '',
+      };
+      console.log('[SmartApply] External Resume Sync:', appState.profile.resumePath);
+      saveState().catch(() => {});
+    }
+    sendResponse({ ok: true });
+    return;
   }
 });
 

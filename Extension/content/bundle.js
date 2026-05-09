@@ -22,6 +22,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+
+
 // ════ shared/constants.js ════
 
 // ── SmartApply Extension Constants ────────────────────────────────────────
@@ -431,6 +433,130 @@ function findByText(selector, text, root = document) {
   );
 }
 
+/**
+ * Universal Resume Upload Field Detection Engine.
+ * Searches for file inputs in the current DOM, iframes, and shadow roots.
+ * Supports hidden inputs and dynamic rendering with MutationObserver.
+ */
+async function findResumeUploadField(root = document, timeout = 8000) {
+  logger.info('Searching for resume upload field...');
+
+  const selectors = [
+    "input[type='file'][id*='resume']:not([disabled])",
+    "input[type='file'][name*='resume']:not([disabled])",
+    "input[type='file'][aria-label*='resume']:not([disabled])",
+    "input[type='file'][title*='resume']:not([disabled])",
+    "input[type='file'][accept*='pdf']:not([disabled])",
+    "input[type='file']:not([disabled])",
+  ];
+
+  const searchInContext = (ctx) => {
+    // 1. Try prioritized selectors
+    for (const sel of selectors) {
+      try {
+        const el = ctx.querySelector(sel);
+        if (el) return el;
+      } catch (e) {}
+    }
+    
+    // 2. Search all inputs for 'file' type (in case type is changed dynamically)
+    try {
+      const allInputs = ctx.querySelectorAll('input');
+      for (const input of allInputs) {
+        if (input.type === 'file') return input;
+      }
+    } catch (e) {}
+
+    // 3. Recursive Shadow DOM search
+    try {
+      const allElements = ctx.querySelectorAll('*');
+      for (const el of allElements) {
+        if (el.shadowRoot) {
+          const found = searchInContext(el.shadowRoot);
+          if (found) return found;
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  };
+
+  const findWithIframes = () => {
+    // Check main context
+    let found = searchInContext(root);
+    if (found) return found;
+
+    // Check iframes (only same-origin or granted host permissions)
+    try {
+      const iframes = root.querySelectorAll('iframe');
+      for (const frame of iframes) {
+        try {
+          const frameDoc = frame.contentDocument || frame.contentWindow.document;
+          if (frameDoc) {
+            found = searchInContext(frameDoc);
+            if (found) return found;
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
+    
+    return null;
+  };
+
+  // 1. Immediate search
+  let field = findWithIframes();
+  if (field) {
+    logger.success('[SmartApply] Resume upload field detected');
+    return field;
+  }
+
+  // 2. Wait for dynamic injection (MutationObserver)
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const f = findWithIframes();
+      if (f) {
+        observer.disconnect();
+        logger.success('[SmartApply] Resume upload field detected via observer');
+        resolve(f);
+      }
+    });
+
+    observer.observe(root.body || root, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      observer.disconnect();
+      logger.warn('[SmartApply] Search timeout for resume field');
+      resolve(null);
+    }, timeout);
+  });
+}
+
+/**
+ * Ensure a hidden or collapsed file input is interactable.
+ */
+function activateHiddenInput(input) {
+  if (!input) return;
+  const style = window.getComputedStyle(input);
+  const isHidden = style.display === 'none' || 
+                   style.visibility === 'hidden' || 
+                   parseFloat(style.opacity) === 0 ||
+                   parseInt(style.height) === 0 ||
+                   parseInt(style.width) === 0;
+
+  if (isHidden) {
+    logger.info('[SmartApply] Hidden uploader activated');
+    input.style.setProperty('display', 'block', 'important');
+    input.style.setProperty('visibility', 'visible', 'important');
+    input.style.setProperty('opacity', '1', 'important');
+    input.style.setProperty('width', '1px', 'important');
+    input.style.setProperty('height', '1px', 'important');
+    input.style.setProperty('position', 'absolute', 'important');
+    input.style.setProperty('left', '0', 'important');
+    input.style.setProperty('top', '0', 'important');
+  }
+}
+
+
 
 // ════ content/selector-registry.js ════
 
@@ -484,17 +610,21 @@ const REGISTRY = {
   contact: {
     email: [
       "input[id*='emailAddress']",
-      "select[id*='email']",
+      "input[name*='email']",
       "input[type='email']",
     ],
     phoneCountry: [
       "select[id*='phoneNumber-country']",
       "select[id*='phone-country']",
       "select[id*='phoneCountryCode']",
+      "select[name*='countryCode']",
     ],
     phoneNumber: [
       "input[id*='phoneNumber-nationalNumber']",
       "input[id*='phone-nationalNumber']",
+      "input[id*='mobile']",
+      "input[name*='phoneNumber']",
+      "input[name*='phone']",
       "input[type='tel']",
     ],
   },
@@ -502,15 +632,21 @@ const REGISTRY = {
   resume: {
     fileInput: [
       "input[type='file'][accept*='pdf']",
+      "input[type='file'][id*='resume']",
+      "input[type='file'][name*='resume']",
+      "input[type='file'][aria-label*='resume']",
+      "input[type='file'][title*='resume']",
       "input[type='file']",
     ],
     selectedBtn: [
       '.jobs-resume-picker__resume-btn--selected',
       '.jobs-document-upload__resume-selected',
+      '.artdeco-inline-feedback--success',
     ],
     resumeItems: [
       '.jobs-resume-picker__resume-btn',
-      '.jobs-document-upload__upload-button',
+      '.jobs-resume-picker__resume-item',
+      '.jobs-resume-picker__resume-list-item',
     ],
   },
 
@@ -1368,10 +1504,6 @@ async function getAnswer(questionLabel, profile, aiAnswers = {}, fieldType = '',
     const cleanKey = key.trim().toLowerCase();
     if (!cleanKey) continue;
     
-    // Skip ObjectId-style keys (24-char hex) — those are DB IDs, not question text
-    // They get matched below via the question text stored separately
-    if (/^[0-9a-f]{24}$/i.test(cleanKey)) continue;
-    
     if (label.includes(cleanKey) || cleanKey.includes(label)) {
       logger.info(`Dynamic answer match for "${label}": "${value}"`);
       aiAnswers[label] = String(value);
@@ -1384,7 +1516,7 @@ async function getAnswer(questionLabel, profile, aiAnswers = {}, fieldType = '',
     return profile.years_of_experience || '0';
   }
   if (label.includes('salary') || label.includes('ctc') || label.includes('compensation') || label.includes('pay') || label.includes('remuneration')) {
-    return profile.desired_salary || profile.current_ctc || '';
+    return profile.desired_salary || profile.current_ctc || '500000';
   }
   if (label.includes('notice') || label.includes('joining')) {
     return profile.notice_period || '0';
@@ -1691,6 +1823,18 @@ async function fillAllQuestions(modal, profile, aiAnswers = {}, skipElements = n
     // --- Detect: Number input
     const numInput = group.querySelector("input[type='number']");
     if (numInput) {
+      // Check: required experience field + user has zero experience → skip job
+      const lbl = labelText.toLowerCase();
+      const isExperienceField = (lbl.includes('experience') && (lbl.includes('year') || lbl.includes('how many'))) ||
+                                (lbl.includes('years') && lbl.includes('experience'));
+      const isRequired = numInput.hasAttribute('required') || numInput.getAttribute('aria-required') === 'true';
+      const userExp = parseInt(profile.years_of_experience || '0', 10);
+
+      if (isExperienceField && isRequired && userExp === 0) {
+        logger.warn(`Skip job: required experience field "${labelText}" but user has 0 experience`);
+        return { filled, skipJob: true };
+      }
+
       if (!numInput.value || numInput.value.trim() === '') {
         const fieldType = 'number_input';
         const answer = await getAnswer(labelText, profile, aiAnswers, fieldType, []);
@@ -1716,6 +1860,18 @@ async function fillAllQuestions(modal, profile, aiAnswers = {}, skipElements = n
     if (textInput) {
       if (skipElements.has(textInput)) continue; // Already handled by contact info
 
+      // Check: required experience text field + user has zero experience → skip job
+      const txtLbl = labelText.toLowerCase();
+      const isTxtExperience = (txtLbl.includes('experience') && (txtLbl.includes('year') || txtLbl.includes('how many'))) ||
+                              (txtLbl.includes('years') && txtLbl.includes('experience'));
+      const isTxtRequired = textInput.hasAttribute('required') || textInput.getAttribute('aria-required') === 'true';
+      const txtUserExp = parseInt(profile.years_of_experience || '0', 10);
+
+      if (isTxtExperience && isTxtRequired && txtUserExp === 0) {
+        logger.warn(`Skip job: required experience field "${labelText}" but user has 0 experience`);
+        return { filled, skipJob: true };
+      }
+
       // Detect typeahead/autocomplete fields
       const isTypeahead = textInput.getAttribute('aria-autocomplete') === 'list' ||
                           textInput.getAttribute('aria-autocomplete') === 'both' ||
@@ -1724,7 +1880,6 @@ async function fillAllQuestions(modal, profile, aiAnswers = {}, skipElements = n
                           textInput.id.toLowerCase().includes('location') ||
                           labelText.toLowerCase().includes('location') ||
                           labelText.toLowerCase().includes('city');
-      const isTxtRequired = textInput.hasAttribute('required') || textInput.getAttribute('aria-required') === 'true';
 
       if (!textInput.value || textInput.value.trim() === '') {
         const fieldType = 'text_input';
@@ -1872,13 +2027,7 @@ class FormRunner {
 
     } catch (err) {
       logger.error('FormRunner error:', err);
-      if (isModalVisible()) await this.dismissCurrentModal();
       return { result: 'Failed', reason: err.message };
-    } finally {
-      // Safety: always ensure modal is closed if we're returning from a run
-      if (isModalVisible()) {
-        await this.dismissCurrentModal();
-      }
     }
   }
 
@@ -1940,7 +2089,12 @@ class FormRunner {
       this.transition(STATES.CONTACT_INFO);
       logger.info('Detected contact step (title:', hasContactTitle, ', fields:', hasContactFields, ')');
       await this.fillContactInfo();
-    } else if (title.toLowerCase().includes('resume') || title.toLowerCase().includes('document')) {
+    } else if (
+      title.toLowerCase().includes('resume') ||
+      title.toLowerCase().includes('document') ||
+      // Fallback: detect by presence of a file input (LinkedIn upload widget)
+      !!modal.querySelector("input[type='file']")
+    ) {
       this.transition(STATES.RESUME);
       await this.handleResumeStep();
     } else {
@@ -1976,8 +2130,8 @@ class FormRunner {
     if (phoneInput) {
       handledElements.add(phoneInput);
       if (p.phoneNumber || p.phone_number) {
+        let cleanPhone = p.phoneNumber || p.phone_number || '';
         let currentVal = phoneInput.value || '';
-        let cleanPhone = currentVal || p.phoneNumber || p.phone_number || '';
         cleanPhone = cleanPhone.replace(/[^\d+]/g, '');
         const ccRaw = p.phoneCountryCode || p.phone_country_code || '+91';
         const ccMatch = ccRaw.match(/\+(\d+)/);
@@ -2028,61 +2182,140 @@ class FormRunner {
   }
 
   /**
-   * Handle resume upload step.
+   * Universal Enterprise-Grade Resume Upload Step.
+   * Strategy:
+   *   1. If already selected — done.
+   *   2. If picker items present — select first.
+   *   3. Adaptive search for upload field (iframes, shadows, hidden).
+   *   4. Authenticated fetch + Secure injection.
+   *   5. Validation.
    */
   async handleResumeStep() {
     this.transition(STATES.RESUME);
     const modal = this.modal;
 
-    // Check if resume already selected
+    // 1. Already selected
     const selected = queryOne(REGISTRY.resume.selectedBtn, modal);
     if (selected) {
       logger.success('Resume already selected');
       return;
     }
 
-    // Try to select first available resume
+    // 2. Picker items present
     const resumeItems = queryAll(REGISTRY.resume.resumeItems, modal);
-    if (resumeItems.length > 0) {
-      const firstResume = resumeItems[0];
+    // Ensure we only treat items as "pickable" if they aren't upload buttons
+    const pickableResumes = resumeItems.filter(item => {
+      const text = item.textContent.toLowerCase();
+      return !text.includes('upload') && !text.includes('select a file');
+    });
+
+    if (pickableResumes.length > 0) {
+      const firstResume = pickableResumes[0];
       scrollIntoView(firstResume);
       firstResume.click();
       await sleep(DELAYS.SHORT);
-      logger.success('Resume selected from picker');
+      
+      // Verify selection
+      const isSelected = queryOne(REGISTRY.resume.selectedBtn, modal);
+      if (isSelected) {
+        logger.success('Resume selected from picker');
+        return;
+      }
+      logger.warn('Failed to select resume from picker, falling back to upload');
+    }
+
+    // 3. No picker — attempt adaptive authenticated upload
+    logger.info('No resume picker found — initiating universal adaptive upload');
+
+    const resumePath = this.profile && this.profile.resumePath;
+    if (!resumePath) {
+      logger.error('[SmartApply] Upload failed: No resumePath in profile');
+      chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: '\u26a0\ufe0f No resume on file. Upload one in SmartApply.' }).catch(() => {});
+      return; // Skip step
+    }
+
+    // Fetch bytes from background
+    let fetchResult;
+    try {
+      fetchResult = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve({ ok: false, error: 'timeout' }), 40000);
+        chrome.runtime.sendMessage({ type: 'FETCH_RESUME' }, (res) => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
+          else resolve(res || { ok: false, error: 'no_response' });
+        });
+      });
+    } catch (err) {
+      logger.error('Resume fetch failed:', err.message);
       return;
     }
 
-    logger.warn('No resume picker found — checking for upload option');
-
-    // NEW: Handle resume upload from R2 if no existing resume is found
-    if (this.profile.resume_url) {
-      const fileInput = queryOne(REGISTRY.resume.fileInput, modal);
-      if (fileInput) {
-        logger.info('Attempting to fetch and upload resume from R2:', this.profile.resume_name);
-        try {
-          const token = this.state.runtime.token;
-          const res = await fetch(this.profile.resume_url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-          
-          const blob = await res.blob();
-          const fileName = this.profile.resume_name || 'resume.pdf';
-          const file = new File([blob], fileName, { type: 'application/pdf' });
-          
-          const success = await uploadFile(fileInput, file);
-          if (success) {
-            logger.success('Resume uploaded successfully from R2');
-            await sleep(DELAYS.LONG); // Wait for upload processing
-            return;
-          }
-        } catch (err) {
-          logger.error('Failed to upload resume from R2:', err);
-        }
+    if (!fetchResult.ok) {
+      const errMap = {
+        missing_token: 'Not logged in — please log in again.',
+        auth_expired: 'Session expired — please log in again.',
+        no_resume_url: 'No resume URL found in profile.',
+        not_found: 'Resume file not found on server.',
+        network_error: 'Network error while fetching resume.',
+        max_retries_exceeded: 'Resume download failed after retries.',
+      };
+      const msg = errMap[fetchResult.error] || `Resume fetch failed: ${fetchResult.error}`;
+      logger.error(msg);
+      chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `\u274c ${msg}` }).catch(() => {});
+      if (fetchResult.error === 'auth_expired' || fetchResult.error === 'missing_token') {
+        this.shouldSkipJob = true;
+        if (this.runner) this.runner.stop();
       }
+      return;
     }
 
-    logger.warn('Could not auto-select or upload resume — may need manual action');
+    // Prepare File object
+    const { base64, mimeType, fileName } = fetchResult;
+    let byteArray;
+    try {
+      const binaryStr = atob(base64);
+      byteArray = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) byteArray[i] = binaryStr.charCodeAt(i);
+    } catch (err) {
+      logger.error('Base64 decode failed:', err.message);
+      return;
+    }
+    const resumeFile = new File([byteArray], fileName, { type: mimeType });
+
+    // 4. Adaptive field detection
+    const fileInput = await findResumeUploadField(modal || document);
+    if (!fileInput) {
+      logger.warn('[SmartApply] No valid upload field detected — skipping step');
+      return;
+    }
+
+    try {
+      // Ensure interactable
+      activateHiddenInput(fileInput);
+
+      // Secure injection
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(resumeFile);
+      fileInput.files = dataTransfer.files;
+
+      // Trigger events
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      logger.info('[SmartApply] Resume injected');
+      await sleep(DELAYS.LONG);
+
+      // 5. Validation
+      if (fileInput.files && fileInput.files.length > 0) {
+        logger.success('[SmartApply] Upload validation success: ' + fileName);
+        chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `\u2705 Resume uploaded: ${fileName}` }).catch(() => {});
+        sendLog('resume', 'success', `Uploaded resume: ${fileName}`);
+      } else {
+        logger.error('[SmartApply] Upload validation failed — file not attached');
+      }
+    } catch (err) {
+      logger.error('[SmartApply] Upload injection failed:', err.message);
+    }
   }
 
   /**
@@ -2395,7 +2628,6 @@ let automation = {
   totalSkipped: 0,
   appliedThisTerm: 0,
   appliedJobIds: new Set(), // cross-session duplicate tracking
-  attemptedJobIds: new Set(), // session-level tracking to avoid re-clicks on re-renders
 };
 
 // ── Message Handler ────────────────────────────────────────────────────────
@@ -2904,17 +3136,6 @@ function findNextEasyApplyJob() {
     logger.info(`[findNextEasyApplyJob] using "${sel}" → ${cards.length} cards`);
 
     for (const card of cards) {
-      // Extract Job ID for tracking
-      const jobId = card.getAttribute('data-job-id') || 
-                    card.getAttribute('data-occludable-job-id') || 
-                    card.querySelector('a[href*="/jobs/view/"]')?.href?.match(/\/jobs\/view\/(\d+)/)?.[1];
-
-      // Skip if already attempted or applied
-      if (jobId && (automation.appliedJobIds.has(jobId) || automation.attemptedJobIds.has(jobId))) {
-        card.setAttribute('data-sa-processed', 'skipped-duplicate');
-        continue;
-      }
-
       // Skip bad-word titles
       const titleEl = card.querySelector(
         '.job-card-list__title, .job-card-container__primary-description, ' +
@@ -2924,7 +3145,6 @@ function findNextEasyApplyJob() {
         const title = titleEl.textContent.toLowerCase();
         if (automation.state.profile.bad_words.some(w => title.includes(w.toLowerCase()))) {
           card.setAttribute('data-sa-processed', 'skipped-badword');
-          if (jobId) automation.attemptedJobIds.add(jobId);
           continue;
         }
       }
@@ -2943,8 +3163,16 @@ function findNextEasyApplyJob() {
 
       if (hasAppliedBadge) {
         card.setAttribute('data-sa-processed', 'skipped-already-applied');
-        if (jobId) automation.attemptedJobIds.add(jobId);
         logger.info('[findNextEasyApplyJob] Skipped: already applied (LinkedIn badge)');
+        continue;
+      }
+
+      // Skip duplicate job IDs (cross-session tracking)
+      const jobLink = card.querySelector('a[href*="/jobs/view/"]');
+      const jobIdMatch = jobLink?.href?.match(/\/jobs\/view\/(\d+)/);
+      if (jobIdMatch && automation.appliedJobIds.has(jobIdMatch[1])) {
+        card.setAttribute('data-sa-processed', 'skipped-duplicate');
+        logger.info(`[findNextEasyApplyJob] Skipped: duplicate job ID ${jobIdMatch[1]}`);
         continue;
       }
 
@@ -2970,16 +3198,7 @@ async function clickJobCard(card) {
   } else {
     card.click();
   }
-  
   card.setAttribute('data-sa-processed', 'clicked');
-  
-  // Track this job ID as attempted in this session
-  const jobId = card.getAttribute('data-job-id') || 
-                card.getAttribute('data-occludable-job-id') || 
-                card.querySelector('a[href*="/jobs/view/"]')?.href?.match(/\/jobs\/view\/(\d+)/)?.[1];
-  if (jobId) {
-    automation.attemptedJobIds.add(jobId);
-  }
   await waitFor(
     '.jobs-unified-top-card, .job-details-jobs-unified-top-card__job-title, .jobs-apply-button',
     6000

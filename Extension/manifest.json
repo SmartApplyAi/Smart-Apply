@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SmartApply \u2014 Auto Apply Bot",
   "version": "1.1.0",
-  "description": "AI-powered job auto-apply automation for LinkedIn and Naukri.",
+  "description": "AI-powered job auto-apply automation for LinkedIn.",
   "permissions": [
     "storage",
     "tabs",
@@ -12,9 +12,9 @@
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://linkedin.com/*",
-    "https://www.naukri.com/*",
-    "https://naukri.com/*",
-    "https://www.smartapplies.app/*"
+    "https://www.smartapplies.app/*",
+    "https://*.r2.dev/*",
+    "https://*.r2.cloudflarestorage.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -28,17 +28,6 @@
       ],
       "js": [
         "content/bundle.js"
-      ],
-      "run_at": "document_idle",
-      "all_frames": false
-    },
-    {
-      "matches": [
-        "https://www.naukri.com/*",
-        "https://naukri.com/*"
-      ],
-      "js": [
-        "content/naukri-bundle.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
@@ -69,8 +58,7 @@
         "assets/*"
       ],
       "matches": [
-        "https://www.linkedin.com/*",
-        "https://www.naukri.com/*"
+        "https://www.linkedin.com/*"
       ]
     }
   ]
