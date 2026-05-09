@@ -14,18 +14,7 @@ import re
 
 # ── Field mappings ────────────────────────────────────────────────────────────
 
-def parse_linkedin_data(raw: dict) -> dict:
-    """
-    Transform raw scraped LinkedIn JSON → SmartApply profile dict.
-    Returns dict ready for profile_service.update_profile().
-    """
-    raw_experience   = raw.get("_raw", {}).get("experience", [])
-    raw_education    = raw.get("_raw", {}).get("education",  [])
-    raw_skills       = raw.get("_raw", {}).get("skills",     [])
-    raw_certs        = raw.get("_raw", {}).get("certifications", [])
-    raw_languages    = raw.get("_raw", {}).get("languages",  [])
-
-    # ── Personal ─────────────────────────────────────────────────────────────
+def _parse_personal_data(raw: dict) -> dict:
     first_name = _clean(raw.get("first_name"))
     last_name  = _clean(raw.get("last_name"))
     location   = _clean(raw.get("current_city"))
@@ -33,7 +22,15 @@ def parse_linkedin_data(raw: dict) -> dict:
     # Location may be "Hyderabad, Telangana, India" → split city / state / country
     city, state, country = _parse_location(raw.get("location") or location)
 
-    # ── Professional ──────────────────────────────────────────────────────────
+    return {
+        "first_name":   first_name,
+        "last_name":    last_name,
+        "current_city": city,
+        "state":        state,
+        "country":      country or "India",
+    }
+
+def _parse_professional_data(raw: dict, raw_experience: list, raw_education: list, raw_skills: list) -> dict:
     headline      = _clean(raw.get("linkedin_headline"))
     summary       = _clean(raw.get("linkedin_summary"))
     skills_csv    = _clean(raw.get("skills_summary")) or ", ".join(raw_skills[:30])
@@ -45,34 +42,49 @@ def parse_linkedin_data(raw: dict) -> dict:
     edu_text      = _clean(raw.get("education_text")) or _build_edu_text(raw_education)
     exp_text      = _clean(raw.get("experience_text")) or _build_exp_text(raw_experience)
 
-    # ── Job search terms from recent titles ───────────────────────────────────
-    search_terms = _extract_search_terms(raw_experience, headline or "")
+    return {
+        "linkedin_profile":   linkedin_url,
+        "linkedin_headline":  headline,
+        "linkedin_summary":   summary,
+        "skills_summary":     skills_csv,
+        "years_of_experience": str(yoe) if yoe is not None else None,
+        "recent_employer":    employer,
+        "education_text":     edu_text,
+        "experience_text":    exp_text,
+        "website":            website,
+        "github":             github,
+    }
 
-    # ── Return parsed profile ─────────────────────────────────────────────────
+def parse_linkedin_data(raw: dict) -> dict:
+    """
+    Transform raw scraped LinkedIn JSON → SmartApply profile dict.
+    Returns dict ready for profile_service.update_profile().
+    """
+    raw_experience   = raw.get("_raw", {}).get("experience", [])
+    raw_education    = raw.get("_raw", {}).get("education",  [])
+    raw_skills       = raw.get("_raw", {}).get("skills",     [])
+    raw_certs        = raw.get("_raw", {}).get("certifications", [])
+    raw_languages    = raw.get("_raw", {}).get("languages",  [])
+
+    personal_data = _parse_personal_data(raw)
+    professional_data = _parse_professional_data(raw, raw_experience, raw_education, raw_skills)
+
+    # ── Job search terms from recent titles ───────────────────────────────────
+    search_terms = _extract_search_terms(raw_experience, professional_data.get("linkedin_headline") or "")
+
+    combined_profile_data = {
+        **personal_data,
+        **professional_data,
+        "_linkedin_raw_experience":    raw_experience,
+        "_linkedin_raw_education":     raw_education,
+        "_linkedin_raw_skills":        raw_skills,
+        "_linkedin_raw_certifications": raw_certs,
+        "_linkedin_raw_languages":     raw_languages,
+    }
+
+    # Filter out empty/None values
     profile_data = {
-        k: v for k, v in {
-            "first_name":         first_name,
-            "last_name":          last_name,
-            "current_city":       city,
-            "state":              state,
-            "country":            country or "India",
-            "linkedin_profile":   linkedin_url,
-            "linkedin_headline":  headline,
-            "linkedin_summary":   summary,
-            "skills_summary":     skills_csv,
-            "years_of_experience": str(yoe) if yoe is not None else None,
-            "recent_employer":    employer,
-            "education_text":     edu_text,
-            "experience_text":    exp_text,
-            "website":            website,
-            "github":             github,
-            # Store raw data as extended fields (profile update allows extras via Pydantic ignore)
-            "_linkedin_raw_experience":    raw_experience,
-            "_linkedin_raw_education":     raw_education,
-            "_linkedin_raw_skills":        raw_skills,
-            "_linkedin_raw_certifications": raw_certs,
-            "_linkedin_raw_languages":     raw_languages,
-        }.items()
+        k: v for k, v in combined_profile_data.items()
         if v is not None and v != "" and v != []
     }
 
