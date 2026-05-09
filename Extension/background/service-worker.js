@@ -13,8 +13,11 @@ async function saveState() {
   const stateToSave = JSON.parse(JSON.stringify(appState));
   delete stateToSave.runtime.token;
   await chrome.storage.local.set({ appState: stateToSave });
+
   if (appState.runtime.token) {
     await chrome.storage.session.set({ userToken: appState.runtime.token });
+  } else {
+    await chrome.storage.session.remove('userToken');
   }
 }
 
@@ -496,9 +499,7 @@ async function handleMessage(message, sender) {
       const loginData = await login(email, password);
       
       // FIX: Store token in non-persistent session storage only (Security Hardening)
-      await chrome.storage.session.set({ userToken: loginData.access_token });
-      
-      appState.runtime.token = ''; // Ensure nothing sensitive persists in local storage
+      appState.runtime.token = loginData.access_token;
       appState.runtime.userEmail = email;
 
       const profileData = await loadProfile(loginData.access_token);
@@ -523,6 +524,9 @@ async function handleMessage(message, sender) {
       };
       
       console.log('[SmartApply] Resume Sync:', appState.profile.resumePath);
+
+      // Persist state (saveState handles the session storage of the token)
+      await saveState();
 
       // ConnectExtension removed. We no longer auto-pair via web login credentials
       // The user must manually enter a pairing code from the web UI to link the extension
@@ -550,8 +554,6 @@ async function handleMessage(message, sender) {
       stopHeartbeat();
       appState = createDefaultState();
       await saveState();
-      // Also clear the session-stored JWT so stale tokens cannot be re-used
-      await chrome.storage.session.remove('userToken');
       return { ok: true };
     }
 
@@ -559,7 +561,7 @@ async function handleMessage(message, sender) {
       if (message.user) {
         // Update token if provided in sync (session bridge)
         if (message.user.token) {
-          await chrome.storage.session.set({ userToken: message.user.token });
+          appState.runtime.token = message.user.token;
         }
 
         if (message.user.profile) {
@@ -574,8 +576,8 @@ async function handleMessage(message, sender) {
             resumeUploadedAt: p.resumeUploadedAt || '',
           };
           console.log('[SmartApply] Resume Sync:', appState.profile.resumePath);
-          await saveState();
         }
+        await saveState();
       }
       return { ok: true };
     }
