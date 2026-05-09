@@ -49,11 +49,18 @@ async def get_current_user(
         # Check if token is blacklisted in Redis
         from redis_client import get_redis
         import hashlib
+        from loguru import logger
+
         redis_client = get_redis()
-        token_hash = hashlib.sha256(token.encode()).hexdigest()
-        is_revoked = await redis_client.exists(f"revoked:token:{token_hash}")
-        if is_revoked:
-            raise HTTPException(status_code=401, detail="Token has been revoked")
+        if redis_client:
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            is_revoked = await redis_client.exists(f"revoked:token:{token_hash}")
+            if is_revoked:
+                raise HTTPException(status_code=401, detail="Token has been revoked")
+        else:
+            # Degraded mode: we skip the revocation check if Redis is unavailable.
+            logger.warning("SECURITY WARNING: Redis unavailable, skipping token revocation check.")
+
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 

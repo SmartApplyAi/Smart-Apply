@@ -21,6 +21,9 @@ class ExchangeRequest(BaseModel):
 async def generate_pairing_code(request: Request, user: dict = Depends(get_current_user)):
     """Generate a short-lived pairing code for the extension."""
     redis_client = get_redis()
+    if not redis_client:
+        logger.warning("Redis unavailable: cannot generate pairing code.")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable (Redis). Please try again later.")
 
     # Generate a high-entropy base36 code (e.g. 8 chars)
     import secrets
@@ -47,6 +50,10 @@ async def generate_pairing_code(request: Request, user: dict = Depends(get_curre
 async def exchange_pairing_code(request: Request, body: ExchangeRequest):
     """Exchange a pairing code for an extension token."""
     redis_client = get_redis()
+    if not redis_client:
+        logger.warning("Redis unavailable: cannot exchange pairing code.")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable (Redis). Please try again later.")
+
     key = f"pairing_code:{body.pairing_code}"
 
     # Use transaction to ensure code is single-use

@@ -228,14 +228,17 @@ async def login_user(email: str, password: str, ip: str = "") -> dict:
     from redis_client import get_redis
     import json
     redis_client = get_redis()
-    await redis_client.publish("security_events", json.dumps({
-        "type": "USER_NOTIFICATION",
-        "user_id": user_id,
-        "payload": {
-            "title": "New Login Detected",
-            "message": f"A new login was detected from IP: {ip}"
-        }
-    }))
+    if redis_client:
+        await redis_client.publish("security_events", json.dumps({
+            "type": "USER_NOTIFICATION",
+            "user_id": user_id,
+            "payload": {
+                "title": "New Login Detected",
+                "message": f"A new login was detected from your account. If this was not you, please change your password immediately."
+            }
+        }))
+    else:
+        logger.warning("Redis unavailable: skipping login event broadcast.")
 
     # Update last login
     await db.users.update_one(
@@ -350,14 +353,17 @@ async def google_login_user(email: str, name: str, ip: str = "") -> dict:
     from redis_client import get_redis
     import json
     redis_client = get_redis()
-    await redis_client.publish("security_events", json.dumps({
-        "type": "USER_NOTIFICATION",
-        "user_id": user_id,
-        "payload": {
-            "title": "New Google Login Detected",
-            "message": f"A new login was detected from IP: {ip}"
-        }
-    }))
+    if redis_client:
+        await redis_client.publish("security_events", json.dumps({
+            "type": "USER_NOTIFICATION",
+            "user_id": user_id,
+            "payload": {
+                "title": "New Google Login Detected",
+                "message": f"A new login via Google was detected from your account."
+            }
+        }))
+    else:
+        logger.warning("Redis unavailable: skipping Google login event broadcast.")
 
     # Update last login
     await db.users.update_one(
@@ -401,10 +407,13 @@ async def refresh_access_token(refresh_token: str) -> dict:
             from redis_client import get_redis
             import json
             redis_client = get_redis()
-            await redis_client.publish("security_events", json.dumps({
-                "type": "SESSION_REVOKED",
-                "user_id": user_id
-            }))
+            if redis_client:
+                await redis_client.publish("security_events", json.dumps({
+                    "type": "SESSION_REVOKED",
+                    "user_id": user_id
+                }))
+            else:
+                logger.warning("Redis unavailable: skipping session revoked broadcast.")
 
         raise ValueError("Invalid or revoked refresh token")
 
@@ -487,10 +496,13 @@ async def logout_user(user_id: str, access_token: Optional[str] = None) -> dict:
                 if remaining_seconds > 0:
                     from redis_client import get_redis
                     redis_client = get_redis()
-                    # Use JTI if available, otherwise hash the token
-                    import hashlib
-                    token_hash = hashlib.sha256(access_token.encode()).hexdigest()
-                    await redis_client.set(f"revoked:token:{token_hash}", "1", ex=remaining_seconds)
+                    if redis_client:
+                        # Use JTI if available, otherwise hash the token
+                        import hashlib
+                        token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+                        await redis_client.set(f"revoked:token:{token_hash}", "1", ex=remaining_seconds)
+                    else:
+                        logger.warning("Redis unavailable: skipping token blacklist on logout.")
         except Exception as e:
             logger.debug(f"Access token already expired or invalid during logout: {e}")
 
@@ -498,10 +510,13 @@ async def logout_user(user_id: str, access_token: Optional[str] = None) -> dict:
     from redis_client import get_redis
     import json
     redis_client = get_redis()
-    await redis_client.publish("security_events", json.dumps({
-        "type": "SESSION_REVOKED",
-        "user_id": user_id
-    }))
+    if redis_client:
+        await redis_client.publish("security_events", json.dumps({
+            "type": "SESSION_REVOKED",
+            "user_id": user_id
+        }))
+    else:
+        logger.warning("Redis unavailable: skipping session revoked broadcast on logout.")
 
     logger.info(f"User logged out: {user_id}")
     return {"message": "Logged out successfully"}
@@ -595,10 +610,13 @@ async def reset_password(token: str, new_password: str) -> dict:
         from redis_client import get_redis
         import json
         redis_client = get_redis()
-        await redis_client.publish("security_events", json.dumps({
-            "type": "SESSION_REVOKED",
-            "user_id": user_id_str
-        }))
+        if redis_client:
+            await redis_client.publish("security_events", json.dumps({
+                "type": "SESSION_REVOKED",
+                "user_id": user_id_str
+            }))
+        else:
+            logger.warning("Redis unavailable: skipping session revoked broadcast on password reset.")
 
     logger.info(f"Password reset completed: {email}")
     return {"message": "Password reset successfully"}
@@ -639,10 +657,13 @@ async def change_password(
     from redis_client import get_redis
     import json
     redis_client = get_redis()
-    await redis_client.publish("security_events", json.dumps({
-        "type": "SESSION_REVOKED",
-        "user_id": user_id
-    }))
+    if redis_client:
+        await redis_client.publish("security_events", json.dumps({
+            "type": "SESSION_REVOKED",
+            "user_id": user_id
+        }))
+    else:
+        logger.warning("Redis unavailable: skipping session revoked broadcast on account deletion.")
 
     # Send security alert
     profile = await db.user_profiles.find_one({"user_id": user_id})
