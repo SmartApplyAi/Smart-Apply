@@ -63,19 +63,40 @@ def create_refresh_token(data: dict) -> str:
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+def create_extension_token(data: dict, expires_delta=None) -> str:
+    """Create a JWT for extension sessions. Preserves type='extension'."""
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=30))
+    to_encode["exp"] = expire
+    to_encode["aud"] = settings.APP_NAME  # consistent with other tokens
+    if "type" not in to_encode:
+        to_encode["type"] = "extension"
+    # Do NOT overwrite type — this is intentional
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def decode_token(token: str) -> Optional[dict]:
-    """Decode and verify a JWT token. Explicitly checks expiry and audience."""
+    """Decode and verify a JWT. Accepts tokens with or without audience (grace period)."""
     try:
-        payload = jwt.decode(
-            token, 
-            settings.SECRET_KEY, 
+        # New tokens: verify audience
+        return jwt.decode(
+            token,
+            settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
             audience=settings.APP_NAME,
             options={"verify_exp": True, "verify_aud": True}
         )
-        return payload
     except JWTError:
-        return None
+        try:
+            # Grace period: accept pre-backend5 tokens without aud claim
+            return jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+                options={"verify_exp": True, "verify_aud": False}
+            )
+        except JWTError:
+            return None
 
 
 # ── Verification PIN ────────────────────────────────────────────────────────

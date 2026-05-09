@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from dependencies import get_current_user
 from redis_client import get_redis
-from utils import create_access_token
+from utils import create_access_token, create_extension_token
 from loguru import logger
 from limiter import limiter
 import uuid
@@ -85,7 +85,7 @@ async def exchange_pairing_code(request: Request, body: ExchangeRequest):
         "type": "extension",
         "device_id": device_id
     }
-    extension_token = create_access_token(token_data, expires_delta=timedelta(days=30))
+    extension_token = create_extension_token(token_data, expires_delta=timedelta(days=30))
 
     # Store extension token metadata in MongoDB for revocation
     db = get_db()

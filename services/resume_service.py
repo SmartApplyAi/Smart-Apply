@@ -247,11 +247,11 @@ async def activate_resume_by_key(user_id: str, object_key: str) -> dict:
     if not resume:
         raise ValueError("Resume not found")
 
-    from pymongo import UpdateMany, UpdateOne
-    await db.resumes.bulk_write([
-        UpdateMany({"user_id": user_id}, {"$set": {"is_active": False}}),
-        UpdateOne({"user_id": user_id, "object_key": object_key}, {"$set": {"is_active": True}})
-    ])
+    # Single atomic pipeline update (MongoDB 4.2+)
+    await db.resumes.update_many(
+        {"user_id": user_id},
+        [{"$set": {"is_active": {"$eq": ["$object_key", object_key]}}}]
+    )
 
     return {"message": "Resume activated"}
 

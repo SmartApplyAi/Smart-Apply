@@ -165,6 +165,19 @@ async function loadProfile(token) {
   return apiGet('/profile/me', token);
 }
 
+async function connectExtension(token) {
+  // Step 1: get pairing code using user JWT
+  const codeData = await apiPost('/extension/pairing-code', {}, token);
+  const pairingCode = codeData.pairing_code;
+
+  // Step 2: exchange pairing code for long-lived extension token (no auth header needed)
+  const exchangeData = await apiPost('/extension/exchange', {
+    pairing_code: pairingCode,
+    device_info: { device_name: 'Chrome Extension', user_agent: navigator.userAgent }
+  });
+  return exchangeData.extension_token;
+}
+
 async function pairExtension(pairingCode) {
   const navigatorInfo = {
     userAgent: navigator.userAgent,
@@ -195,7 +208,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       if (!extToken) return;
       // We don't have a heartbeat endpoint in extension_auth yet, but we will add one, or we can just send ping on the websocket
       // For now, keep the old endpoint or update it. Since we deprecated the old token system, let's change to the new one.
-      await apiPost('/extension/heartbeat', { token: extToken }, null);
+      await apiPost('/extension/heartbeat', { token: extToken });
     } catch (e) {
       console.warn('[SmartApply SW] Heartbeat failed:', e.message);
     }
@@ -525,12 +538,17 @@ async function handleMessage(message, sender) {
       
       console.log('[SmartApply] Resume Sync:', appState.profile.resumePath);
 
-      // Persist state (saveState handles the session storage of the token)
+      try {
+        const extToken = await connectExtension(loginData.access_token);
+        appState.runtime.extensionToken = extToken;
+        startHeartbeat(extToken);
+      } catch (err) {
+        console.warn('[SmartApply] Extension pairing failed (non-fatal):', err.message);
+        // Login still succeeds — heartbeat simply won't run until re-paired
+      }
       await saveState();
 
-      // ConnectExtension removed. We no longer auto-pair via web login credentials
-      // The user must manually enter a pairing code from the web UI to link the extension
-      return { ok: true, user: loginData.user, paired: false };
+      return { ok: true, user: loginData.user, paired: !!appState.runtime.extensionToken };
     }
 
     case 'PAIR_EXTENSION': {
