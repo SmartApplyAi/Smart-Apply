@@ -105,14 +105,12 @@ export default function LandingPage() {
             { n: 'Indeed', i: 'fa-briefcase' },
             { n: 'Glassdoor', i: 'fa-window-restore' },
             { n: 'Internshala', i: 'fa-graduation-cap' },
-            { n: 'Naukri', i: 'fa-paper-plane' },
             { n: 'Google Jobs', i: 'fa-google' },
           ].concat([
             { n: 'LinkedIn', i: 'fa-linkedin' },
             { n: 'Indeed', i: 'fa-briefcase' },
             { n: 'Glassdoor', i: 'fa-window-restore' },
             { n: 'Internshala', i: 'fa-graduation-cap' },
-            { n: 'Naukri', i: 'fa-paper-plane' },
             { n: 'Google Jobs', i: 'fa-google' },
           ]).map((p, i) => (
             <div key={i} className="platform-item">

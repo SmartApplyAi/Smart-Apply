@@ -14,7 +14,7 @@
       <div class="brand-dot"></div>
       <span>Smart<b>Apply</b></span>
     </div>
-    <p class="tagline">Auto Apply — LinkedIn & Naukri</p>
+    <p class="tagline">Auto Apply — LinkedIn</p>
 
     <div id="login-error" class="alert alert-error hidden"></div>
 
@@ -39,7 +39,7 @@
 
     <div style="margin-top: 16px; font-size: 10px; color: var(--text3); text-align: center; line-height: 1.4;">
       By signing in, you agree to our <a href="https://www.smartapplies.app/privacy.html" target="_blank" style="color: var(--primary); text-decoration: none;">Privacy Policy</a>.<br>
-      This extension accesses your LinkedIn & Naukri session data to automate applications and syncs activity with the SmartApply backend.
+      This extension accesses your LinkedIn session data to automate applications and syncs activity with the SmartApply backend.
     </div>
   </div>
 
@@ -61,17 +61,7 @@
       </div>
     </div>
 
-    <!-- ── Platform Tab Bar ── -->
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="linkedin" id="tab-linkedin">
-        <span class="tab-icon">💼</span> LinkedIn
-      </button>
-      <button class="tab-btn" data-tab="naukri" id="tab-naukri">
-        <span class="tab-icon">🔵</span> Naukri
-      </button>
-    </div>
-
-    <!-- ════ LinkedIn Panel ════ -->
+    <!-- LinkedIn Panel -->
     <div class="tab-panel active" id="panel-linkedin">
 
       <!-- Current Job Info -->
@@ -146,69 +136,6 @@
 
       <div class="footer-links">
         <a href="https://www.linkedin.com/jobs/search/" target="_blank" class="link-btn">LinkedIn Jobs →</a>
-        <a href="https://www.smartapplies.app/dashboard.html" target="_blank" class="link-btn">Dashboard →</a>
-      </div>
-    </div>
-
-    <!-- ════ Naukri Panel ════ -->
-    <div class="tab-panel" id="panel-naukri">
-
-      <!-- Current Job Info -->
-      <div id="naukri-job-card" class="job-card hidden">
-        <div class="job-label">Applying to</div>
-        <div class="job-title" id="naukri-job-title">—</div>
-        <div class="job-company" id="naukri-job-company">—</div>
-      </div>
-
-      <!-- Stats Row -->
-      <div class="stats-row">
-        <div class="stat">
-          <div class="stat-val naukri-accent" id="naukri-stat-applied">0</div>
-          <div class="stat-label">Applied</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val danger" id="naukri-stat-failed">0</div>
-          <div class="stat-label">Failed</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val muted" id="naukri-stat-skipped">0</div>
-          <div class="stat-label">Skipped</div>
-        </div>
-      </div>
-
-      <!-- Step Progress -->
-      <div class="step-row hidden" id="naukri-step-row">
-        <div class="step-label">Current step:</div>
-        <div class="step-value" id="naukri-step-value">—</div>
-        <div class="progress-bar">
-          <div class="progress-fill naukri-fill" id="naukri-progress-fill" style="width:0%"></div>
-        </div>
-      </div>
-
-      <!-- Controls -->
-      <div class="controls">
-        <button class="btn btn-naukri btn-lg" id="naukri-btn-start">▶ Start Naukri Bot</button>
-        <button class="btn btn-warning hidden" id="naukri-btn-pause">⏸ Pause</button>
-        <button class="btn btn-ghost hidden" id="naukri-btn-resume">▶ Resume</button>
-        <button class="btn btn-danger hidden" id="naukri-btn-stop">■ Stop</button>
-      </div>
-
-      <!-- Log Feed -->
-      <div class="log-section">
-        <div class="log-header">
-          <span>Activity Log</span>
-          <div style="display:flex; gap:8px;">
-            <button class="btn-link" id="naukri-btn-copy-log">Copy</button>
-            <button class="btn-link" id="naukri-btn-clear-log">Clear</button>
-          </div>
-        </div>
-        <div class="log-feed" id="naukri-log-feed">
-          <div class="log-entry muted">Waiting to start…</div>
-        </div>
-      </div>
-
-      <div class="footer-links">
-        <a href="https://www.naukri.com/" target="_blank" class="link-btn">Naukri Jobs →</a>
         <a href="https://www.smartapplies.app/dashboard.html" target="_blank" class="link-btn">Dashboard →</a>
       </div>
     </div>
