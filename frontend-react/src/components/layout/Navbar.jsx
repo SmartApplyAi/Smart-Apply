@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Menu, Sun, Moon, MonitorCog } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 import './Navbar.css';
 
 const NAV_LINKS = [
@@ -11,7 +12,8 @@ const NAV_LINKS = [
   { label: 'Contact', href: '#contact' },
 ];
 
-export default function Navbar() {
+/* ─── Landing Navbar ─── */
+function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -123,4 +125,56 @@ export default function Navbar() {
       </AnimatePresence>
     </motion.nav>
   );
+}
+
+/* ─── Protected Navbar (Dashboard / Authenticated) ─── */
+function ProtectedNavbar({ onMenuClick }) {
+  const { theme, toggleTheme } = useTheme();
+
+  const themeIcon =
+    theme === 'dark'  ? <Moon size={18} /> :
+    theme === 'light' ? <Sun size={18} />  :
+                        <MonitorCog size={18} />;
+
+  return (
+    <nav className="navbar" id="protected-navbar">
+      <div className="container">
+        <Link to="/dashboard" className="nav-logo">
+          <span className="logo-dot" />
+          <span className="nav-text">Smart<span>Apply</span></span>
+        </Link>
+
+        <div className="nav-links">
+          <button
+            className="btn btn-ghost btn-sm"
+            aria-label="Toggle theme"
+            title={`Theme: ${theme}`}
+            onClick={toggleTheme}
+            id="theme-toggle"
+          >
+            {themeIcon}
+          </button>
+        </div>
+
+        {/* Mobile hamburger for sidebar */}
+        <button
+          className="nav-toggle"
+          aria-label="Open sidebar"
+          onClick={onMenuClick}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/* ─── Navbar Dispatcher ─── */
+export default function Navbar({ variant, onMenuClick }) {
+  if (variant === 'protected') {
+    return <ProtectedNavbar onMenuClick={onMenuClick} />;
+  }
+  return <LandingNavbar />;
 }

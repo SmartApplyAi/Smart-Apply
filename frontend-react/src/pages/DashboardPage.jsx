@@ -117,9 +117,9 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="stats-overview stagger">
-                  <StatCard label="Total Applications" value={summary.total_applications} sub="All time" className="active" />
-                  <StatCard label="Interviews Landed" value={summary.interviews_landed} sub={`${summary.success_rate}% success rate`} className="active" />
-                  <StatCard label="Active Sessions" value={summary.active_sessions} sub={summary.last_active ? 'Last active recently' : 'No recent runs'} className="active" />
+                  <StatCard label="Total Applications" value={summary.total ?? 0} sub="All time" className="active" />
+                  <StatCard label="Successfully Applied" value={summary.applied ?? 0} sub={`${summary.success_rate ?? 0}% success rate`} className="active" />
+                  <StatCard label="Automation Status" value={summary.automation_status === 'running' ? 'Active' : (summary.pending_tasks ?? 0)} sub={summary.automation_status === 'running' ? 'Bot is running' : summary.automation_status === 'paused' ? 'Paused' : 'No active sessions'} className="active" />
                 </div>
               )}
               <div className="overview-panels" style={{ marginTop: '28px' }}>
