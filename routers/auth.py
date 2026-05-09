@@ -84,18 +84,23 @@ async def login(body: LoginRequest, request: Request, response: Response):
             body.email, body.password, ip=_get_ip(request)
         )
         
-        # Set access token cookie for direct GET requests (e.g., viewing PDFs)
         from config import settings
+
+        # Set refresh token cookie ONLY (HttpOnly, Secure, SameSite=Strict)
         response.set_cookie(
-            key="access_token",
-            value=result["access_token"],
+            key="refresh_token",
+            value=result["refresh_token"],
             httponly=True,
-            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            samesite="lax",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            expires=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            samesite="strict",
             secure=settings.is_production,
+            path="/api/auth/refresh",
         )
         
+        # Remove refresh token from JSON body response
+        del result["refresh_token"]
+
         await log_action(
             result["user"]["id"], "login", "auth", ip_address=_get_ip(request)
         )
@@ -128,14 +133,13 @@ async def resend_pin(body: ResendPinRequest, request: Request):
 async def logout(request: Request, response: Response, user: dict = Depends(get_current_user)):
     """Logout and revoke tokens."""
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    if not token:
-        token = request.cookies.get("access_token")
     
-    # Clear the access token cookie
+    # Clear the refresh token cookie
     response.delete_cookie(
-        key="access_token",
+        key="refresh_token",
         httponly=True,
-        samesite="lax",
+        samesite="strict",
+        path="/api/auth/refresh",
         secure=__import__("config").settings.is_production,
     )
     
@@ -177,6 +181,7 @@ async def reset_password(body: ResetPasswordRequest):
 
 
 @router.post("/refresh")
+@limiter.limit("20/minute")
 async def refresh_token(request: Request, response: Response):
     """Refresh the access token using a refresh token."""
     # Look for refresh token in body or cookie
@@ -192,18 +197,23 @@ async def refresh_token(request: Request, response: Response):
     try:
         result = await auth_service.refresh_access_token(token)
         
-        # Update access token cookie
         from config import settings
+
+        # Set new refresh token cookie (Rotation)
         response.set_cookie(
-            key="access_token",
-            value=result["access_token"],
+            key="refresh_token",
+            value=result["refresh_token"],
             httponly=True,
-            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            samesite="lax",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            expires=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            samesite="strict",
             secure=settings.is_production,
+            path="/api/auth/refresh",
         )
         
+        # We don't return refresh_token in the body
+        del result["refresh_token"]
+
         return result
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -284,6 +294,7 @@ async def google_callback(request: Request, code: str):
             await db.oauth_handoffs.insert_one({
                 "id": handoff_id,
                 "access_token": auth_result["access_token"],
+                "refresh_token": auth_result["refresh_token"],
                 "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
             })
             
@@ -373,16 +384,17 @@ async def oauth_handoff(body: dict, response: Response):
     from utils import decode_token
     payload = decode_token(handoff["access_token"])
     
-    # Set access token cookie
+    # Set refresh token cookie ONLY
     from config import settings
     response.set_cookie(
-        key="access_token",
-        value=handoff["access_token"],
+        key="refresh_token",
+        value=handoff.get("refresh_token", ""),
         httponly=True,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        expires=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        samesite="strict",
         secure=settings.is_production,
+        path="/api/auth/refresh",
     )
     
     return {

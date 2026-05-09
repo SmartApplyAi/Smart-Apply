@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     # ── Extension ─────────────────────────────────────
     CHROME_EXTENSION_ID: str = ""
 
+    # ── Redis ─────────────────────────────────────────
+    REDIS_URL: str = "redis://localhost:6379/0"
+
     _nim_keys_cache: Optional[List[str]] = PrivateAttr(default=None)
 
     # ── Render & Monitoring ───────────────────────────

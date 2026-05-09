@@ -62,10 +62,33 @@ export default function SettingsPage() {
     finally { setExportLoading(false); }
   };
 
+  const [pairingCode, setPairingCode] = useState(null);
+  const [pairingLoading, setPairingLoading] = useState(false);
+
+  const generatePairingCode = async () => {
+    setPairingLoading(true);
+    try {
+      const res = await api.post('/extension/pairing-code');
+      setPairingCode(res);
+      showToast('Pairing code generated', 'success');
+
+      // Auto-clear after expiry
+      setTimeout(() => {
+        setPairingCode(null);
+      }, res.expires_in * 1000);
+
+    } catch (err) {
+      showToast(err.detail || 'Could not generate pairing code', 'error');
+    } finally {
+      setPairingLoading(false);
+    }
+  };
+
   const panels = [
     { id: 'general', icon: 'fa-solid fa-sliders', label: 'General' },
     { id: 'notifications', icon: 'fa-solid fa-bell', label: 'Notifications' },
     { id: 'security', icon: 'fa-solid fa-shield-halved', label: 'Security' },
+    { id: 'extension', icon: 'fa-solid fa-puzzle-piece', label: 'Extension' },
   ];
 
   return (
@@ -135,6 +158,31 @@ export default function SettingsPage() {
                 <LoadingButton onClick={deleteAccount} loading={deleteLoading} className="btn btn-danger">
                   <i className="fa-solid fa-trash"></i> Delete Account
                 </LoadingButton>
+              </div>
+            </div>
+          )}
+          {activePanel === 'extension' && (
+            <div className="stagger">
+              <div className="card" style={{ marginBottom: '20px' }}>
+                <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-link"></i> Link Browser Extension</h4>
+                <p className="text-muted text-sm" style={{ marginBottom: '20px' }}>
+                  Generate a secure pairing code to link the SmartApply browser extension to your account.
+                </p>
+                {pairingCode ? (
+                  <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: 'var(--radius)', textAlign: 'center', border: '1px dashed var(--primary)' }}>
+                    <div style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '8px' }}>Your one-time pairing code</div>
+                    <div style={{ fontSize: '32px', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '4px', color: 'var(--primary)', marginBottom: '16px' }}>
+                      {pairingCode.pairing_code}
+                    </div>
+                    <div className="text-muted text-sm">
+                      <i className="fa-regular fa-clock"></i> Expires in {Math.floor(pairingCode.expires_in / 60)} minutes
+                    </div>
+                  </div>
+                ) : (
+                  <LoadingButton onClick={generatePairingCode} loading={pairingLoading} className="btn btn-primary">
+                    <i className="fa-solid fa-qrcode"></i> Generate Pairing Code
+                  </LoadingButton>
+                )}
               </div>
             </div>
           )}

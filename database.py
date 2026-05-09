@@ -102,6 +102,10 @@ async def _ensure_indexes():
     await db.extension_tokens.create_index("token", unique=True)
     await db.extension_tokens.create_index("user_id", background=True)
 
+    # Extension sessions
+    await db.extension_sessions.create_index("token_hash", unique=True)
+    await db.extension_sessions.create_index([("user_id", 1), ("is_active", 1)], background=True)
+
     # Notifications
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)], background=True)
     await db.notifications.create_index([("user_id", 1), ("read", 1)], background=True)

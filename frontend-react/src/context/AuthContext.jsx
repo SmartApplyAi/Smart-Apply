@@ -1,60 +1,90 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import authService from '../services/auth';
+import { authStore } from '../auth/authStore';
+import { refreshManager } from '../auth/refreshManager';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => authService.getUser());
-  const [token, setToken] = useState(() => authService.getToken());
+  const [authState, setAuthState] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
+  const [user, setUser] = useState(null);
 
-  const isAuthenticated = !!token;
-
-  const save = useCallback((newToken, newUser) => {
-    authService.save(newToken, newUser);
-    setToken(newToken);
-    setUser(newUser);
+  // Use a broadcast channel for multi-tab logout/login sync
+  useEffect(() => {
+    const channel = new BroadcastChannel('auth_sync');
+    channel.onmessage = (event) => {
+      if (event.data.type === 'LOGOUT') {
+        authStore.clear();
+        setAuthState('unauthenticated');
+        setUser(null);
+        window.location.href = '/login';
+      }
+    };
+    return () => channel.close();
   }, []);
 
-  const logout = useCallback(() => {
-    authService.clear();
-    setToken('');
+  // Global event listener for Axios 401 unrecoverable failures
+  useEffect(() => {
+    const handleForceLogout = () => {
+      authStore.clear();
+      setAuthState('unauthenticated');
+      setUser(null);
+      window.location.href = '/login';
+    };
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, []);
+
+  const bootstrapAuth = useCallback(async () => {
+    try {
+      setAuthState('loading');
+      // Attempt silent refresh
+      const data = await refreshManager.refresh();
+      setUser(data.user);
+      setAuthState('authenticated');
+    } catch (err) {
+      // Refresh failed (no cookie, or expired cookie)
+      setAuthState('unauthenticated');
+      setUser(null);
+    }
+  }, []);
+
+  // Run on mount
+  useEffect(() => {
+    bootstrapAuth();
+  }, [bootstrapAuth]);
+
+  const save = useCallback((newToken, newUser) => {
+    authStore.setToken(newToken);
+    setUser(newUser);
+    setAuthState('authenticated');
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout', {});
+    } catch (e) {
+      // ignore
+    }
+    authStore.clear();
+    setAuthState('unauthenticated');
     setUser(null);
-    window.location.href = '/';
+
+    const channel = new BroadcastChannel('auth_sync');
+    channel.postMessage({ type: 'LOGOUT' });
+    channel.close();
+
+    window.location.href = '/login';
   }, []);
 
   const clear = useCallback(() => {
-    authService.clear();
-    setToken('');
+    authStore.clear();
+    setAuthState('unauthenticated');
     setUser(null);
   }, []);
 
-  // Sync if storage changes in another tab or via extension auth bridge
-  useEffect(() => {
-    const handler = (e) => {
-      if (['sa_token', 'sa_user', 'sa_auth'].includes(e.key)) {
-        const authFlag = localStorage.getItem('sa_auth');
-        const currentToken = localStorage.getItem('sa_token');
-
-        if (authFlag === '1' && currentToken) {
-          setToken(currentToken);
-          try {
-            const parsedUser = JSON.parse(localStorage.getItem('sa_user') || 'null');
-            setUser(parsedUser);
-          } catch {
-            setUser(null);
-          }
-        } else {
-          setToken('');
-          setUser(null);
-        }
-      }
-    };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, []);
-
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, save, logout, clear }}>
+    <AuthContext.Provider value={{ user, authState, isAuthenticated: authState === 'authenticated', save, logout, clear }}>
       {children}
     </AuthContext.Provider>
   );

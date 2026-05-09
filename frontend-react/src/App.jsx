@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
+import { WebSocketProvider } from './websocket/WebSocketProvider';
 
 // Layouts
 import ProtectedLayout from './layouts/ProtectedLayout';
@@ -147,7 +148,8 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <ToastProvider>
-            <SiteLoader />
+            <WebSocketProvider>
+              <SiteLoader />
 
             <div className="ambient-glow"></div>
             <div className="blob blob-1"></div>
@@ -175,6 +177,7 @@ function App() {
               {/* 404 Route */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </WebSocketProvider>
           </ToastProvider>
         </AuthProvider>
       </ThemeProvider>

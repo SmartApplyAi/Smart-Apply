@@ -22,6 +22,7 @@ from limiter import limiter
 from loguru import logger
 from config import settings
 from database import connect_db, close_db
+from redis_client import init_redis, close_redis
 from dependencies import get_current_user
 
 # ── Logging setup ────────────────────────────────────────────────────────────
@@ -51,17 +52,23 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     logger.info(f"Starting {settings.APP_NAME} backend ({settings.APP_ENV})")
     await connect_db()
+    await init_redis()
     
     # Start keep-alive scheduler
     from services.monitor_service import MonitorService
     asyncio.create_task(MonitorService.keep_alive_task())
     
+    # Start Redis Pub/Sub listener for WebSockets
+    from websocket.pubsub import start_pubsub_listener
+    pubsub_task = asyncio.create_task(start_pubsub_listener())
+
     # Verify R2 Credentials
     if not settings.R2_ACCOUNT_ID or not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY:
         logger.warning("Cloudflare R2 credentials missing. File uploads will fail.")
     
     logger.info("All systems ready ✓")
     yield
+    await close_redis()
     await close_db()
     logger.info("Shutdown complete.")
 
@@ -87,14 +94,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.FRONTEND_URL,
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ],
+        "chrome-extension://" + settings.CHROME_EXTENSION_ID if settings.CHROME_EXTENSION_ID else "chrome-extension://*",
+    ] + (["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"] if not settings.is_production else []),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
 )
 
 
@@ -132,6 +136,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # CSP Configuration (tightened for Production)
+        # Note: We must allow connect-src to self, wss to self, and extension origins for SmartApply functionality.
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "  # Needed for React
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' ws: wss: chrome-extension:; "
+            "frame-ancestors 'none';"
+        )
+        response.headers["Content-Security-Policy"] = csp
+
         if settings.is_production:
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
@@ -164,9 +182,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # ── Register Routers ────────────────────────────────────────────────────────
-from routers import auth, profile, resume, jobs, automation, dashboard, ai, notifications, profile_linkedin
+from routers import auth, profile, resume, jobs, automation, dashboard, ai, notifications, profile_linkedin, websocket_router, extension_auth
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(extension_auth.router, prefix="/api")
+app.include_router(websocket_router.router)
 app.include_router(profile.router, prefix="/api")
 app.include_router(resume.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")

@@ -27,10 +27,6 @@ async def get_current_user(
     if credentials:
         token = credentials.credentials
 
-    # 2. Fallback: cookie
-    if not token:
-        token = request.cookies.get("access_token")
-
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -50,10 +46,13 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise HTTPException(status_code=401, detail="Invalid token type")
 
-        # Check if token is blacklisted
-        db = get_db()
-        blacklisted = await db.blacklisted_tokens.find_one({"token": token})
-        if blacklisted:
+        # Check if token is blacklisted in Redis
+        from redis_client import get_redis
+        import hashlib
+        redis_client = get_redis()
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        is_revoked = await redis_client.exists(f"revoked:token:{token_hash}")
+        if is_revoked:
             raise HTTPException(status_code=401, detail="Token has been revoked")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")

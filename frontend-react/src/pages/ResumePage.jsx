@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import authService from '../services/auth';
 import LinkedInBridge from '../services/linkedinBridge';
 import { escHtml, formatDate } from '../services/utils';
 import DropZone from '../components/common/DropZone';
@@ -53,14 +52,12 @@ export default function ResumePage() {
     try {
       const data = await api.get('/profile/me');
       if (data && data.profile) {
-        const currentUser = authService.getUser() || {};
-        const updatedUser = { ...currentUser, profile: { ...currentUser.profile, ...data.profile } };
-        
-        localStorage.setItem('sa_user', JSON.stringify(updatedUser));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'sa_user', newValue: JSON.stringify(updatedUser) }));
+        // Replace with Context user instead of localStorage
+        // You might need to add `user` and `save` to destructuring from `useAuth` if needed,
+        // but for now we just push to extension
         
         // Notify extension directly via LinkedInBridge
-        LinkedInBridge.syncProfileToExtension(updatedUser).catch(() => {});
+        LinkedInBridge.syncProfileToExtension(data.profile).catch(() => {});
       }
     } catch (e) {
       console.error('Failed to sync profile after resume change', e);

@@ -173,6 +173,13 @@ async def login_user(email: str, password: str, ip: str = "") -> dict:
     if not verify_password(password, user["password_hash"]):
         raise ValueError("Invalid email or password")
 
+    # Gracefully rehash to argon2 if needed
+    from utils import needs_rehash
+    if needs_rehash(user["password_hash"]):
+        new_hash = hash_password(password)
+        await db.users.update_one({"_id": user["_id"]}, {"$set": {"password_hash": new_hash}})
+        logger.info(f"Rehashed password to Argon2 for user: {email}")
+
     if not user.get("is_active", True):
         raise ValueError("Account is deactivated")
 
@@ -216,6 +223,19 @@ async def login_user(email: str, password: str, ip: str = "") -> dict:
             "revoked": False,
         }
     )
+
+    # Broadcast new login event to other active sessions
+    from redis_client import get_redis
+    import json
+    redis_client = get_redis()
+    await redis_client.publish("security_events", json.dumps({
+        "type": "USER_NOTIFICATION",
+        "user_id": user_id,
+        "payload": {
+            "title": "New Login Detected",
+            "message": f"A new login was detected from IP: {ip}"
+        }
+    }))
 
     # Update last login
     await db.users.update_one(
@@ -326,6 +346,19 @@ async def google_login_user(email: str, name: str, ip: str = "") -> dict:
         }
     )
 
+    # Broadcast new login event to other active sessions
+    from redis_client import get_redis
+    import json
+    redis_client = get_redis()
+    await redis_client.publish("security_events", json.dumps({
+        "type": "USER_NOTIFICATION",
+        "user_id": user_id,
+        "payload": {
+            "title": "New Google Login Detected",
+            "message": f"A new login was detected from IP: {ip}"
+        }
+    }))
+
     # Update last login
     await db.users.update_one(
         {"_id": user["_id"]},
@@ -351,7 +384,31 @@ async def refresh_access_token(refresh_token: str) -> dict:
     """Issue a new access token from a valid refresh token."""
     db = get_db()
 
-    # Find the stored refresh token
+    # Check if the token was revoked (possibly reused refresh token indicating theft)
+    revoked_check = await db.refresh_tokens.find_one({"token": refresh_token, "revoked": True})
+    if revoked_check:
+        # Threat detected: Refresh token reuse!
+        user_id = revoked_check.get("user_id")
+        logger.warning(f"SECURITY ALERT: Refresh token reuse detected for user {user_id}. Revoking ALL sessions.")
+
+        # Revoke all refresh tokens for this user
+        if user_id:
+            await db.refresh_tokens.update_many(
+                {"user_id": user_id}, {"$set": {"revoked": True}}
+            )
+
+            # Broadcast session revoked event
+            from redis_client import get_redis
+            import json
+            redis_client = get_redis()
+            await redis_client.publish("security_events", json.dumps({
+                "type": "SESSION_REVOKED",
+                "user_id": user_id
+            }))
+
+        raise ValueError("Invalid or revoked refresh token")
+
+    # Find the stored active refresh token
     stored = await db.refresh_tokens.find_one(
         {"token": refresh_token, "revoked": False}
     )
@@ -383,7 +440,28 @@ async def refresh_access_token(refresh_token: str) -> dict:
     }
     new_access_token = create_access_token(token_data)
 
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    # Generate new refresh token for rotation
+    new_refresh_token = create_refresh_token(token_data)
+
+    # Rotate token in DB
+    await db.refresh_tokens.update_one(
+        {"_id": stored["_id"]},
+        {"$set": {"revoked": True}}
+    )
+
+    await db.refresh_tokens.insert_one(
+        {
+            "token": new_refresh_token,
+            "user_id": user_id,
+            "expires_at": datetime.now(timezone.utc)
+            + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+            "created_at": datetime.now(timezone.utc),
+            "ip": stored.get("ip", ""),
+            "revoked": False,
+        }
+    )
+
+    return {"access_token": new_access_token, "refresh_token": new_refresh_token, "token_type": "bearer", "user": {"id": user_id, "email": user["email"], "role": user.get("role", "user")}}
 
 
 async def logout_user(user_id: str, access_token: Optional[str] = None) -> dict:
@@ -395,27 +473,35 @@ async def logout_user(user_id: str, access_token: Optional[str] = None) -> dict:
         {"user_id": user_id}, {"$set": {"revoked": True}}
     )
 
-    # Blacklist the current access token
+    # Blacklist the current access token in Redis
     if access_token:
         try:
-            # We store the token with an expiry so MongoDB can auto-clean it
             payload = decode_token(access_token)
             if not payload:
                 # Token already expired or invalid, no need to blacklist
                 return {"message": "Logged out successfully"}
                 
             exp = payload.get("exp")
-            expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) if exp else datetime.now(timezone.utc) + timedelta(hours=1)
-            
-            await db.blacklisted_tokens.insert_one({
-                "token": access_token,
-                "user_id": user_id,
-                "expires_at": expires_at,
-                "created_at": datetime.now(timezone.utc)
-            })
+            if exp:
+                remaining_seconds = max(0, int(exp - datetime.now(timezone.utc).timestamp()))
+                if remaining_seconds > 0:
+                    from redis_client import get_redis
+                    redis_client = get_redis()
+                    # Use JTI if available, otherwise hash the token
+                    import hashlib
+                    token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+                    await redis_client.set(f"revoked:token:{token_hash}", "1", ex=remaining_seconds)
         except Exception as e:
-            # Token might already be expired, which is fine - no need to blacklist
             logger.debug(f"Access token already expired or invalid during logout: {e}")
+
+    # Broadcast session revoked event
+    from redis_client import get_redis
+    import json
+    redis_client = get_redis()
+    await redis_client.publish("security_events", json.dumps({
+        "type": "SESSION_REVOKED",
+        "user_id": user_id
+    }))
 
     logger.info(f"User logged out: {user_id}")
     return {"message": "Logged out successfully"}
@@ -500,9 +586,19 @@ async def reset_password(token: str, new_password: str) -> dict:
     # Revoke all refresh tokens (security: force re-login)
     user = await db.users.find_one({"email": email})
     if user:
+        user_id_str = str(user["_id"])
         await db.refresh_tokens.update_many(
-            {"user_id": str(user["_id"])}, {"$set": {"revoked": True}}
+            {"user_id": user_id_str}, {"$set": {"revoked": True}}
         )
+
+        # Broadcast session revoked event
+        from redis_client import get_redis
+        import json
+        redis_client = get_redis()
+        await redis_client.publish("security_events", json.dumps({
+            "type": "SESSION_REVOKED",
+            "user_id": user_id_str
+        }))
 
     logger.info(f"Password reset completed: {email}")
     return {"message": "Password reset successfully"}
@@ -538,6 +634,15 @@ async def change_password(
     await db.refresh_tokens.update_many(
         {"user_id": user_id}, {"$set": {"revoked": True}}
     )
+
+    # Broadcast session revoked event
+    from redis_client import get_redis
+    import json
+    redis_client = get_redis()
+    await redis_client.publish("security_events", json.dumps({
+        "type": "SESSION_REVOKED",
+        "user_id": user_id
+    }))
 
     # Send security alert
     profile = await db.user_profiles.find_one({"user_id": user_id})
