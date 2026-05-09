@@ -4,8 +4,8 @@ export default function FeatureCard({ icon, title, description, index }) {
   return (
     <motion.div
       className="feature-card"
-      initial={{ opacity: 0, y: 40, filter: 'blur(6px)' }}
-      whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
       transition={{
         duration: 0.6,

@@ -17,8 +17,8 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(14px); filter: blur(4px) }
-  to { opacity: 1; transform: translateY(0); filter: blur(0) }
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideDown {
@@ -129,16 +129,16 @@
 .stagger > *:nth-child(6) { animation-delay: .29s }
 
 .reveal {
-  opacity: 0; transform: translateY(36px); filter: blur(6px);
+  opacity: 0; transform: translateY(36px);
   transition: all 0.9s var(--spring-soft);
-  will-change: opacity, transform, filter;
+  will-change: opacity, transform;
 }
-.reveal.active { opacity: 1; transform: translateY(0); filter: blur(0) }
+.reveal.active { opacity: 1; transform: translateY(0); }
 
 /* ── Decorative: Blobs ── */
 .blob {
   position: fixed; border-radius: 50%; opacity: 0.18;
-  pointer-events: none; filter: blur(80px); z-index: -1;
+  pointer-events: none; z-index: -1;
   animation: blobMove 28s infinite alternate ease-in-out;
   mix-blend-mode: multiply;
 }
@@ -156,7 +156,6 @@
   background: radial-gradient(ellipse at center, rgba(0, 113, 227, 0.07) 0%, transparent 60%);
   pointer-events: none; z-index: -2;
   animation: ambientMove 22s infinite alternate ease-in-out;
-  filter: blur(60px);
 }
 
 /* ── Decorative: Background Mesh ── */
@@ -168,7 +167,6 @@ body::before {
     radial-gradient(circle at 100% 100%, var(--bg) 0%, transparent 50%),
     radial-gradient(circle at 100% 0%, rgba(0, 113, 227, 0.03) 0%, transparent 50%),
     radial-gradient(circle at 0% 100%, rgba(88, 86, 214, 0.03) 0%, transparent 50%);
-  filter: blur(60px);
   animation: bgMeshMove 28s infinite alternate ease-in-out;
   pointer-events: none;
 }

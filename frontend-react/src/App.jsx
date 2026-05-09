@@ -106,23 +106,13 @@ function App() {
       });
     });
 
-    const handleScroll = () => {
-      const nav = document.querySelector('.navbar');
-      if (nav) {
-        if (window.scrollY > 20) nav.classList.add('scrolled');
-        else nav.classList.remove('scrolled');
-      }
-    };
-
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
 
     return () => {
       observer.disconnect();
       revealObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 

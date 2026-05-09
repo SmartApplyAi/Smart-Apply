@@ -30,7 +30,6 @@
     rgba(139, 92, 246, 0.04) 40%,
     transparent 70%
   );
-  filter: blur(60px);
   pointer-events: none;
 }
 
@@ -287,7 +286,6 @@
     rgba(59, 130, 246, 0.06) 0%,
     transparent 60%
   );
-  filter: blur(40px);
   pointer-events: none;
   z-index: -1;
 }

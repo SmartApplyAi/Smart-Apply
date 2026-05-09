@@ -20,7 +20,6 @@ export default function FloatingGlow({
         height: size,
         borderRadius: '50%',
         background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
-        filter: `blur(${blur}px)`,
         pointerEvents: 'none',
         zIndex: 0,
       }}

@@ -4,7 +4,7 @@ import './Footer.css';
 
 export default function Footer() {
   return (
-    <footer className="landing-footer" id="contact">
+    <footer className="landing-footer">
       <div className="landing-footer__inner">
         <div className="landing-footer__top">
           {/* Brand */}
@@ -32,18 +32,18 @@ export default function Footer() {
             <div className="landing-footer__col">
               <h4>Company</h4>
               <ul>
-                <li><a href="#">About</a></li>
-                <li><a href="#">Blog</a></li>
-                <li><a href="#">Careers</a></li>
-                <li><a href="#">Contact</a></li>
+                <li><Link to="/">About</Link></li>
+                <li><Link to="/">Blog</Link></li>
+                <li><Link to="/">Careers</Link></li>
+                <li><a href="#contact">Contact</a></li>
               </ul>
             </div>
             <div className="landing-footer__col">
               <h4>Legal</h4>
               <ul>
-                <li><a href="#">Privacy Policy</a></li>
-                <li><a href="#">Terms of Service</a></li>
-                <li><a href="#">Cookie Policy</a></li>
+                <li><Link to="/">Privacy Policy</Link></li>
+                <li><Link to="/">Terms of Service</Link></li>
+                <li><Link to="/">Cookie Policy</Link></li>
               </ul>
             </div>
           </div>
