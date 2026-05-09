@@ -19,13 +19,16 @@ import itertools
 import asyncio
 
 _keys_cycle = None
-_keys_lock = asyncio.Lock()
+_keys_lock = None
 
 
 async def _get_api_key() -> str:
     """Round-robin through available NIM API keys (thread-safe cycle)."""
-    global _keys_cycle
+    global _keys_cycle, _keys_lock
     
+    if _keys_lock is None:
+        _keys_lock = asyncio.Lock()
+
     async with _keys_lock:
         if _keys_cycle is None:
             keys = await settings.get_nim_api_key_list()
@@ -38,9 +41,13 @@ async def _get_api_key() -> str:
 
 async def reset_keys_cycle():
     """Reset the API key cycle (useful when keys are updated in settings)."""
-    global _keys_cycle
+    global _keys_cycle, _keys_lock
     # 1. Clear the cached list in settings first (async)
     await settings.reset_nim_cache()
+
+    if _keys_lock is None:
+        _keys_lock = asyncio.Lock()
+
     async with _keys_lock:
         # 2. Null out the cycle so it's recreated on next call
         _keys_cycle = None
