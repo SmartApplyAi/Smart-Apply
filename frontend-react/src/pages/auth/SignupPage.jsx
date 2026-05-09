@@ -133,12 +133,6 @@ export default function SignupPage() {
         <p className="subtitle">Start automating your job applications today</p>
 
         <div className="auth-body">
-          <GoogleOAuthButton label="Sign up with Google" />
-          
-          <div className="divider">
-            <span>or sign up with email</span>
-          </div>
-
           {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
 
           <form onSubmit={handleSignup} noValidate>
@@ -176,6 +170,12 @@ export default function SignupPage() {
               </LoadingButton>
             </div>
           </form>
+
+          <div className="divider">
+            <span>or sign up with email</span>
+          </div>
+
+          <GoogleOAuthButton label="Sign up with Google" />
         </div>
 
         <div className="auth-footer">
