@@ -172,46 +172,45 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
     header_html = await get_template("global_header", _HEADER_HTML)
     footer_html = await get_template("global_footer", _FOOTER_HTML)
 
-    # Use aggregation to join users with profiles in one query.
-    # user_profiles.user_id is stored as a string, so we convert _id to string for the $lookup.
-    pipeline = [
-        {"$match": {"email_verified": True, "is_active": True}},
-        {"$addFields": {"user_id_str": {"$toString": "$_id"}}},
-        {
-            "$lookup": {
-                "from": "user_profiles",
-                "localField": "user_id_str",
-                "foreignField": "user_id",
-                "as": "profile"
-            }
-        },
-        {"$unwind": {"path": "$profile", "preserveNullAndEmptyArrays": True}}
-    ]
-
-    cursor = db.users.aggregate(pipeline)
-    
     count = 0
-    async for user in cursor:
-        profile = user.get("profile")
-        first_name = profile.get("first_name", "User") if profile else "User"
-        
-        personalized_message = message_html.replace("{{user-name}}", first_name)
-        
-        html_content = await wrap_template(
-            "Announcement",
-            personalized_message,
-            base_style=base_style,
-            header_html=header_html,
-            footer_html=footer_html
-        )
-        success = await send_email(
-            user["email"],
-            "",
-            subject,
-            html_content
-        )
-        if success:
-            count += 1
+    batch_size = 100
+    skip = 0
+
+    while True:
+        # Fetch users in batches
+        users = await db.users.find({"email_verified": True, "is_active": True}).skip(skip).limit(batch_size).to_list(length=batch_size)
+        if not users:
+            break
+
+        # Batch fetch profiles for the users
+        user_ids_str = [str(u["_id"]) for u in users]
+        profiles_cursor = db.user_profiles.find({"user_id": {"$in": user_ids_str}})
+        profiles_map = {p["user_id"]: p async for p in profiles_cursor}
+
+        for user in users:
+            user_id_str = str(user["_id"])
+            profile = profiles_map.get(user_id_str, {})
+            first_name = profile.get("first_name", "User")
+
+            personalized_message = message_html.replace("{{user-name}}", first_name)
+
+            html_content = await wrap_template(
+                "Announcement",
+                personalized_message,
+                base_style=base_style,
+                header_html=header_html,
+                footer_html=footer_html
+            )
+            success = await send_email(
+                user["email"],
+                "",
+                subject,
+                html_content
+            )
+            if success:
+                count += 1
+
+        skip += batch_size
             
     return {"sent_count": count}
 

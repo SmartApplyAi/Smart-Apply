@@ -60,6 +60,7 @@ async def exchange_pairing_code(request: Request, body: ExchangeRequest):
     async with redis_client.pipeline(transaction=True) as pipe:
         try:
             await pipe.watch(key)
+            # Fetch inside the watched context to prevent race conditions
             payload_str = await pipe.get(key)
             if not payload_str:
                 raise HTTPException(status_code=400, detail="Invalid or expired pairing code")

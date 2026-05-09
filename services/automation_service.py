@@ -283,6 +283,10 @@ async def extension_report_result(user_id: str, session_id: str, result_data: di
     job_title = result_data.get("job_title", "").strip()
     company = result_data.get("company", "").strip()
     
+    # Ensure job_url is populated from job_link if missing
+    if "job_url" not in result_data and "job_link" in result_data:
+        result_data["job_url"] = result_data.get("job_link", "")
+
     if result_type == "Applied" and job_title and company:
         await create_application(user_id, result_data)
     elif result_type != "Applied":

@@ -83,6 +83,7 @@ async def _ensure_indexes():
     await db.job_applications.create_index([("user_id", 1), ("applied_at", -1)], background=True)
     await db.job_applications.create_index([("user_id", 1), ("job_link", 1), ("applied_at", -1)], background=True) # Dedup optimization
     await db.job_applications.create_index([("user_id", 1), ("result", 1)], background=True)
+    await db.job_applications.create_index([("user_id", 1), ("job_title", 1)], background=True)
     # Text index for search
     await db.job_applications.create_index(
         [("job_title", "text"), ("company", "text")],

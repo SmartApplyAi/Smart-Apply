@@ -48,7 +48,7 @@ export default function DashboardPage() {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true); setHistoryError('');
     try {
-      let url = `/history/applications?skip=${historyPage * 10}&limit=10`;
+      let url = `/jobs/history?skip=${historyPage * 10}&limit=10`;
       if (historyFilter) url += `&status=${historyFilter}`;
       if (debouncedSearchQuery) url += `&query=${encodeURIComponent(debouncedSearchQuery)}`;
       const data = await api.get(url);

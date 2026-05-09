@@ -55,15 +55,12 @@ async def get_summary(user_id: str) -> dict:
         }
     ]
     
-    # Efficient total applications count
-    total_apps = await db.job_applications.count_documents({"user_id": user_id})
-
     result = await db.job_applications.aggregate(stats_pipeline).to_list(length=1)
     stats_data = result[0] if result else {"counts": [], "platforms": [], "recent": []}
     
-    counts = stats_data["counts"][0] if stats_data["counts"] else {"applied": 0, "failed": 0, "skipped": 0, "pending": 0}
+    counts = stats_data["counts"][0] if stats_data["counts"] else {"applied": 0, "failed": 0, "skipped": 0, "pending": 0, "total": 0}
     
-    total = total_apps
+    total = counts.get("total", 0)
     applied = counts.get("applied", 0)
     failed = counts.get("failed", 0)
     skipped = counts.get("skipped", 0)

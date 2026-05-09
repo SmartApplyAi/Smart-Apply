@@ -74,21 +74,9 @@ class Settings(BaseSettings):
 
     # Lock for NIM API keys cache to prevent race conditions during refresh
     _nim_lock: Optional[asyncio.Lock] = PrivateAttr(default=None)
-    _init_lock = PrivateAttr(default_factory=lambda: __import__("threading").Lock())
 
     def _get_nim_lock(self) -> asyncio.Lock:
         if self._nim_lock is None:
-            with self._init_lock:
-                if self._nim_lock is None:
-                    try:
-                        loop = asyncio.get_running_loop()
-                        self._nim_lock = asyncio.Lock()
-                    except RuntimeError:
-                        # If no loop yet, we can't create asyncio.Lock properly
-                        # But this is only called from async functions, so loop should exist
-                        pass
-        if self._nim_lock is None:
-             # Fallback: create it anyway, but this is risky if done outside loop
              self._nim_lock = asyncio.Lock()
         return self._nim_lock
 

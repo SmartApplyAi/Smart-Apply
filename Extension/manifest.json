@@ -42,6 +42,17 @@
       ],
       "run_at": "document_idle",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://www.internshala.com/*",
+        "https://internshala.com/*"
+      ],
+      "js": [
+        "content/internshala-bundle.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "action": {
