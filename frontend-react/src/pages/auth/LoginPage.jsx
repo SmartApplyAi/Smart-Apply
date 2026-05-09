@@ -29,10 +29,17 @@ export default function LoginPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
 
-  const { save } = useAuth();
+  const { save, isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Redirect if already authenticated (e.g. after OAuth handoff completes)
+  useEffect(() => {
+    if (isAuthenticated && !searchParams.get('oauth_code')) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate, searchParams]);
 
   useEffect(() => {
     const code = searchParams.get('oauth_code');
@@ -59,16 +66,14 @@ export default function LoginPage() {
       save(data.access_token, data.user);
       showToast('Welcome back!', 'success');
       
-      // Cleanup URL
-      window.history.replaceState({}, '', window.location.pathname);
-      
-      // Redirect
-      setTimeout(() => {
-        navigate(data.user.has_profile ? '/dashboard' : '/profile');
-      }, 800);
+      // Navigate immediately to the appropriate page
+      const destination = data.user.has_profile ? '/dashboard' : '/profile';
+      navigate(destination, { replace: true });
     } catch (err) {
       console.error('OAuth handoff failed:', err);
       setOauthError('Failed to complete Google sign-in. Please try again.');
+      // Clean up the URL so user can retry
+      window.history.replaceState({}, '', window.location.pathname);
     } finally {
       setLoading(false);
     }

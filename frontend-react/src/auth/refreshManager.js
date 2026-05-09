@@ -1,4 +1,3 @@
-import api from '../services/api';
 import { authStore } from './authStore';
 
 let refreshPromise = null;
@@ -12,10 +11,13 @@ export const refreshManager = {
 
     refreshPromise = (async () => {
       try {
-        const res = await api.post('/auth/refresh', {}, { withCredentials: true });
-        if (res.data && res.data.access_token) {
-          authStore.setToken(res.data.access_token);
-          return res.data;
+        // Use raw axios to ensure withCredentials is set and we handle the response correctly
+        const { default: axios } = await import('axios');
+        const res = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const data = res.data;
+        if (data && data.access_token) {
+          authStore.setToken(data.access_token);
+          return data;
         }
         throw new Error('No access token returned in refresh');
       } catch (err) {
