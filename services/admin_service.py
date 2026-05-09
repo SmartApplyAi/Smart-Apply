@@ -419,3 +419,26 @@ async def update_email_template(template_id: str, content: str) -> dict:
     )
     return {"message": "Template updated"}
 
+
+async def update_mail_config(api_key: str = None, sender_email: str = None):
+    """Update Brevo API key or sender email in DB and refresh config."""
+    db = get_db()
+    
+    if api_key:
+        await db.config.update_one(
+            {"key": "brevo_api_key"},
+            {"$set": {"value": api_key, "updated_at": datetime.now(timezone.utc)}},
+            upsert=True
+        )
+        object.__setattr__(settings, "BREVO_API_KEY", api_key)
+        
+    if sender_email:
+        await db.config.update_one(
+            {"key": "brevo_sender_email"},
+            {"$set": {"value": sender_email, "updated_at": datetime.now(timezone.utc)}},
+            upsert=True
+        )
+        object.__setattr__(settings, "BREVO_SENDER_EMAIL", sender_email)
+    
+    logger.info("Mail configuration updated and persisted to DB.")
+

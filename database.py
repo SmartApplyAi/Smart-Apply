@@ -130,6 +130,10 @@ async def _load_dynamic_config():
         async for doc in cursor:
             if doc["key"] == "nvidia_nim_keys":
                 object.__setattr__(settings, "NIM_API_KEYS", doc["value"])
+            elif doc["key"] == "brevo_api_key":
+                object.__setattr__(settings, "BREVO_API_KEY", doc["value"])
+            elif doc["key"] == "brevo_sender_email":
+                object.__setattr__(settings, "BREVO_SENDER_EMAIL", doc["value"])
                 
         # Trigger NIM cycle reset only if keys found
         if settings.NIM_API_KEYS:
@@ -142,6 +146,9 @@ async def _load_dynamic_config():
                 logger.warning("Dynamic config: ai_service not yet available for key cycling.")
             except Exception as e:
                 logger.error(f"Error cycling keys during startup: {e}")
+        
+        if settings.BREVO_API_KEY:
+             logger.info("Dynamic config: Brevo API key loaded.")
                 
     except Exception as e:
         logger.warning(f"Could not load dynamic config from DB: {e}")
