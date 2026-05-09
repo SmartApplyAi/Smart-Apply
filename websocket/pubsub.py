@@ -7,6 +7,10 @@ import json
 async def start_pubsub_listener():
     """Starts listening to Redis Pub/Sub for cross-worker realtime events."""
     redis_client = get_redis()
+    if not redis_client:
+        logger.warning("Redis unavailable: skipping Pub/Sub listener.")
+        return
+
     pubsub = redis_client.pubsub()
 
     # Subscribe to security events channel

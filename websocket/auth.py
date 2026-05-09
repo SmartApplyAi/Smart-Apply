@@ -7,6 +7,11 @@ import json
 async def create_ws_ticket(user_id: str, device_id: str = None, extension_id: str = None) -> str:
     """Generate a single-use short-lived websocket connection ticket."""
     redis_client = get_redis()
+    if not redis_client:
+        logger.warning("Redis unavailable: cannot create WS ticket.")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable (Redis). Please try again later.")
+
     ticket = str(uuid.uuid4())
 
     payload = {
@@ -28,6 +33,10 @@ async def consume_ws_ticket(ticket: str) -> dict:
         return None
 
     redis_client = get_redis()
+    if not redis_client:
+        logger.warning("Redis unavailable: cannot consume WS ticket.")
+        return None
+
     key = f"ws_ticket:{ticket}"
 
     # We use a transaction (pipeline) to ensure it's single-use

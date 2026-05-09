@@ -58,9 +58,13 @@ async def lifespan(app: FastAPI):
     from services.monitor_service import MonitorService
     asyncio.create_task(MonitorService.keep_alive_task())
     
-    # Start Redis Pub/Sub listener for WebSockets
-    from websocket.pubsub import start_pubsub_listener
-    pubsub_task = asyncio.create_task(start_pubsub_listener())
+    # Start Redis Pub/Sub listener for WebSockets if Redis is available
+    from redis_client import get_redis
+    if get_redis() is not None:
+        from websocket.pubsub import start_pubsub_listener
+        pubsub_task = asyncio.create_task(start_pubsub_listener())
+    else:
+        logger.warning("Redis is not available, skipping Pub/Sub listener startup.")
 
     # Verify R2 Credentials
     if not settings.R2_ACCOUNT_ID or not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY:
