@@ -29,6 +29,8 @@ import './App.css';
 
 
 
+import FloatingBackground from './components/common/FloatingBackground';
+
 function SiteLoader() {
   return (
     <div className="site-loader" style={{
@@ -149,11 +151,8 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <WebSocketProvider>
-              <SiteLoader />
-
-            <div className="ambient-glow"></div>
-            <div className="blob blob-1"></div>
-            <div className="blob blob-2"></div>
+              <FloatingBackground />
+              <div className="ambient-glow"></div>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />

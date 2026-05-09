@@ -12,6 +12,7 @@ import hashlib
 import secrets
 import random
 import math
+import re
 
 # Fix for passlib + bcrypt 4.x incompatibility
 import bcrypt
@@ -173,3 +174,32 @@ def serialise_doc(doc: dict) -> dict:
         else:
             result[key] = value
     return result
+
+
+def redact_pii(text: str) -> str:
+    """Redact sensitive PII like emails and phone numbers from text before sending to AI."""
+    if not text:
+        return text
+    
+    # Redact Emails
+    text = re.sub(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b", "[EMAIL_REDACTED]", text)
+    
+    # Redact Phone Numbers
+    text = re.sub(
+        r"\b(?:\+\d{1,3}[\s\-]?)?(?:\(?\d{3}\)?[\s\-]?)?\d{3,4}[\s\-]?\d{3,4}\b", 
+        "[PHONE_REDACTED]", 
+        text
+    )
+    
+    # Redact Social/Profile Links
+    text = re.sub(r"(?:https?://)?(?:www\.)?linkedin\.com/in/[\w\-]+/?", "[LINKEDIN_REDACTED]", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?:https?://)?(?:www\.)?github\.com/[\w\-]+/?", "[GITHUB_REDACTED]", text, flags=re.IGNORECASE)
+
+    # Redact common Address patterns (basic)
+    text = re.sub(r"\d+\s+[A-Z][a-zA-Z]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Court|Ct|Way)\b", "[ADDRESS_REDACTED]", text, flags=re.IGNORECASE)
+
+    # Redact Birthdates / sensitive dates (heuristic)
+    text = re.sub(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", "[DATE_REDACTED]", text)
+    text = re.sub(r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b", "[DATE_REDACTED]", text, flags=re.IGNORECASE)
+    
+    return text

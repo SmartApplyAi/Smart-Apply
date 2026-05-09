@@ -12,6 +12,7 @@ from bson import ObjectId
 from database import get_db
 from storage import upload_file_to_r2, get_presigned_url, get_file_from_r2, delete_file_from_r2
 from config import settings
+from utils import redact_pii
 from loguru import logger
 
 # PDF parsing
@@ -298,9 +299,13 @@ def _extract_text(file_bytes: bytes) -> str:
     return text
 
 
+    return text
+
+
 def _extract_fields(text: str) -> dict:
     """Use regex patterns to extract structured fields from resume text."""
-    result = {"user_information_all": text}
+    # Redact the raw text so that AI won't receive the unredacted PII
+    result = {"user_information_all": redact_pii(text)}
 
     # 1. Look for common name patterns
     # Heuristic: First few lines, often all caps or Title Case
