@@ -141,12 +141,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # CSP Configuration (tightened for Production)
         # Note: We must allow connect-src to self, wss to self, and extension origins for SmartApply functionality.
+        # We allow cdnjs.cloudflare.com for Font Awesome and fonts.googleapis.com / fonts.gstatic.com for Google Fonts.
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "  # Needed for React
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
             "img-src 'self' data: https:; "
-            "font-src 'self' data:; "
+            "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; "
             "connect-src 'self' ws: wss: chrome-extension:; "
             "frame-ancestors 'none';"
         )
