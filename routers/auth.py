@@ -295,6 +295,7 @@ async def google_callback(request: Request, code: str):
                 "id": handoff_id,
                 "access_token": auth_result["access_token"],
                 "refresh_token": auth_result["refresh_token"],
+                "has_profile": auth_result.get("user", {}).get("has_profile", False),
                 "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
             })
             
@@ -402,7 +403,8 @@ async def oauth_handoff(body: dict, response: Response):
         "user": {
             "email": payload.get("email"),
             "id": payload.get("sub"),
-            "role": payload.get("role", "user")
+            "role": payload.get("role", "user"),
+            "has_profile": handoff.get("has_profile", False)
         }
     }
 

@@ -116,12 +116,6 @@ export default function LoginPage() {
         {successMsg && <div className="alert alert-success" style={{ marginBottom: '16px' }}>{successMsg}</div>}
 
         <div className="auth-body">
-          <GoogleOAuthButton label="Continue with Google" />
-          
-          <div className="divider">
-            <span>or</span>
-          </div>
-
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-stack">
               <div className={`form-group${fieldErrors.email ? ' has-error' : ''}`}>
@@ -155,6 +149,12 @@ export default function LoginPage() {
               </LoadingButton>
             </div>
           </form>
+
+          <div className="divider">
+            <span>or</span>
+          </div>
+
+          <GoogleOAuthButton label="Continue with Google" />
         </div>
 
         <div className="auth-footer">

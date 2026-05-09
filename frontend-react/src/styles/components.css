@@ -133,6 +133,19 @@ input.input, textarea.input {
 .btn-lg { padding: 15px 34px; font-size: 16px }
 .btn-sm { padding: 9px 18px; font-size: 13px; min-height: 38px }
 .btn-block { width: 100%; justify-content: center }
+
+.btn-google {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 22px; border-radius: 9999px;
+  font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;
+  border: 1.5px solid var(--border); color: var(--text); background: var(--surface-2);
+  transition: all 0.25s var(--spring-soft); cursor: pointer; text-decoration: none;
+  width: 100%; min-height: var(--touch-target);
+}
+.btn-google:hover {
+  background: var(--surface); border-color: var(--text-3); transform: translateY(-2px); box-shadow: var(--shadow);
+}
+
 .btn .spinner { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spinSmooth 0.7s linear infinite; display: none; flex-shrink: 0 }
 .btn.loading .spinner { display: block }
 .btn.loading .btn-text { opacity: 0; position: absolute }
