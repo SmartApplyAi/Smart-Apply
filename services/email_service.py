@@ -93,17 +93,30 @@ _FOOTER_HTML = """
 </div>
 """
 
+import time
+
+# Simple in-memory cache for email templates (TTL: 5 minutes)
+_template_cache = {}
+_TEMPLATE_CACHE_TTL = 300  # seconds
+
 
 async def get_template(template_id: str, default_content: str) -> str:
-    """Fetch an email template from the DB, or return the default if not found."""
+    """Fetch an email template from the DB (cached), or return the default if not found."""
+    now = time.time()
+    cached = _template_cache.get(template_id)
+    if cached and (now - cached["ts"]) < _TEMPLATE_CACHE_TTL:
+        return cached["content"]
+
     try:
         from database import get_db
         db = get_db()
         doc = await db.email_templates.find_one({"template_id": template_id})
         if doc and "content" in doc:
+            _template_cache[template_id] = {"content": doc["content"], "ts": now}
             return doc["content"]
     except Exception as e:
         logger.error(f"Error fetching email template {template_id}: {e}")
+    _template_cache[template_id] = {"content": default_content, "ts": now}
     return default_content
 
 async def wrap_template(

@@ -1,5 +1,4 @@
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 def get_client_ip(request):
     """Get the client IP, preferring the X-Forwarded-For header for proxy compatibility."""

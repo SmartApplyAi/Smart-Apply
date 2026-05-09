@@ -3,12 +3,13 @@ SmartApply Backend Configuration
 Loads all settings from environment variables via pydantic-settings.
 """
 
-from typing import List, Optional
-from pydantic_settings import BaseSettings
-from pydantic import Field, PrivateAttr
 import os
+import secrets
 import asyncio
+from typing import List, Optional
 from pathlib import Path
+from pydantic_settings import BaseSettings
+from pydantic import PrivateAttr
 
 # Resolve the .env file – check backend dir first, then project root
 _backend_dir = Path(__file__).resolve().parent
@@ -23,7 +24,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # ── Security ──────────────────────────────────────
-    SECRET_KEY: str = "dev_secret_key_change_me_in_production_1234567890abcdef"
+    SECRET_KEY: str = os.environ.get("SECRET_KEY", secrets.token_urlsafe(64))
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

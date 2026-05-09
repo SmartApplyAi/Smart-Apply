@@ -3,6 +3,7 @@ Dashboard service: aggregated data for the dashboard page.
 """
 
 from datetime import datetime, timedelta, timezone
+import asyncio
 from bson import ObjectId
 from database import get_db
 
@@ -76,19 +77,18 @@ async def get_summary(user_id: str) -> dict:
             app["applied_at"] = app["applied_at"].isoformat()
         recent_apps.append(app)
 
-    # Automation status
-    active_session = await db.automation_sessions.find_one(
-        {"user_id": user_id, "status": {"$in": ["running", "paused"]}},
+    # Automation status, Unread notifications, Profile info, and User doc in parallel
+    results = await asyncio.gather(
+        db.automation_sessions.find_one({"user_id": user_id, "status": {"$in": ["running", "paused"]}}),
+        db.notifications.count_documents({"user_id": user_id, "read": False}),
+        db.user_profiles.find_one({"user_id": user_id}, {"first_name": 1, "last_name": 1}),
+        db.users.find_one({"_id": ObjectId(user_id)}, {"email": 1})
     )
-
-    # Unread notifications (separate collection)
-    unread_notifs = await db.notifications.count_documents(
-        {"user_id": user_id, "read": False}
-    )
-
-    # Profile info (Targeted query instead of heavy get_full_profile)
-    p = await db.user_profiles.find_one({"user_id": user_id}, {"first_name": 1, "last_name": 1}) or {}
-    user_doc = await db.users.find_one({"_id": ObjectId(user_id)}, {"email": 1}) or {}
+    
+    active_session = results[0]
+    unread_notifs = results[1]
+    p = results[2] or {}
+    user_doc = results[3] or {}
     
     return {
         "total": total,

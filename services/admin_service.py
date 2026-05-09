@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import asyncio
 from database import get_db
 from bson import ObjectId
 from config import settings
@@ -9,12 +10,19 @@ async def get_admin_stats() -> dict:
     """Get global platform statistics."""
     db = get_db()
     
-    total_users = await db.users.count_documents({})
-    active_users = await db.users.count_documents({"is_active": True, "email_verified": True})
-    total_apps = await db.job_applications.count_documents({})
+    # Global stats in parallel
+    results = await asyncio.gather(
+        db.users.count_documents({}),
+        db.users.count_documents({"is_active": True, "email_verified": True}),
+        db.job_applications.count_documents({}),
+        db.job_applications.count_documents({"result": "Applied"})
+    )
     
-    # Success rate globally
-    applied = await db.job_applications.count_documents({"result": "Applied"})
+    total_users = results[0]
+    active_users = results[1]
+    total_apps = results[2]
+    applied = results[3]
+    
     success_rate = round((applied / total_apps * 100), 1) if total_apps > 0 else 0
     
     # Recent activity across all users
@@ -38,16 +46,27 @@ async def get_all_users(skip: int = 0, limit: int = 50) -> tuple:
     db = get_db()
     total = await db.users.count_documents({})
     cursor = db.users.find().sort("created_at", -1).skip(skip).limit(limit)
+    user_docs = await cursor.to_list(length=limit)
+
+    # Batch fetch application counts to avoid N+1 queries
+    user_ids = [str(doc["_id"]) for doc in user_docs]
+    app_counts_pipeline = [
+        {"$match": {"user_id": {"$in": user_ids}}},
+        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}}
+    ]
+    app_counts_cursor = db.job_applications.aggregate(app_counts_pipeline)
+    app_counts_map = {doc["_id"]: doc["count"] async for doc in app_counts_cursor}
+
     users = []
-    async for doc in cursor:
-        app_count = await db.job_applications.count_documents({"user_id": str(doc["_id"])})
+    for doc in user_docs:
+        uid = str(doc["_id"])
         users.append({
-            "id": str(doc["_id"]),
+            "id": uid,
             "email": doc["email"],
             "role": doc.get("role", "user"),
             "is_active": doc.get("is_active", True),
             "email_verified": doc.get("email_verified", False),
-            "app_count": app_count,
+            "app_count": app_counts_map.get(uid, 0),
             "created_at": doc["created_at"].isoformat() if doc.get("created_at") else None,
             "last_login": doc.get("last_login").isoformat() if doc.get("last_login") else None,
         })

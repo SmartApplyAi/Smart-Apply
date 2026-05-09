@@ -248,6 +248,9 @@ async def answer_screening_question(
 
 async def generate_cover_letter(user_info: str, job_title: str, company: str) -> dict:
     """Generate a tailored cover letter."""
+    if not user_info or user_info.strip() == "":
+        return {"error": "User profile information is required to generate a cover letter."}
+    
     system_prompt = (
         "You are SmartApply AI, an expert career coach and cover letter writer. "
         "Write a professional, compelling cover letter. "

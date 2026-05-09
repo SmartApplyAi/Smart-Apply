@@ -224,6 +224,12 @@ async def validate_extension_token(token: str) -> Optional[str]:
         if not doc:
             return None
 
+        # Edge case: check if user is still active
+        user = await db.users.find_one({"_id": ObjectId(user_id)}, {"is_active": 1})
+        if not user or not user.get("is_active", True):
+            logger.warning(f"Extension token validated but user {user_id} is inactive or deleted.")
+            return None
+
         return user_id
     except Exception as e:
         logger.error(f"Error validating extension token: {e}")
