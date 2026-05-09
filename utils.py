@@ -13,6 +13,13 @@ import secrets
 import random
 import math
 
+# Fix for passlib + bcrypt 4.x incompatibility
+import bcrypt
+if not hasattr(bcrypt, "__about__"):
+    class About:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = About()
+
 # ── Password hashing ────────────────────────────────────────────────────────
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
@@ -22,10 +29,16 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
 
 def needs_rehash(hashed: str) -> bool:
-    return pwd_context.needs_update(hashed)
+    try:
+        return pwd_context.needs_update(hashed)
+    except Exception:
+        return True # If it can't be identified, it definitely needs a rehash (upon next successful login)
 
 
 # ── JWT Tokens ───────────────────────────────────────────────────────────────
