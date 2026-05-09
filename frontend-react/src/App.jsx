@@ -28,10 +28,6 @@ import AdminPage from './pages/AdminPage';
 import OrbLoader from './components/loader/OrbLoader';
 import './App.css';
 
-
-
-
-
 function App() {
   const [isLoading, setIsLoading] = useState(true);
 

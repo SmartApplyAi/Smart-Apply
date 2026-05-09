@@ -10,6 +10,7 @@ import httpx
 import random
 from config import settings
 from loguru import logger
+from utils import redact_pii
 
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 NIM_MODEL = "meta/llama-3.1-70b-instruct"
@@ -426,6 +427,7 @@ Return a STRICT JSON object:
 Return ONLY valid JSON."""
 
     profile_str = json.dumps(profile_data, default=str)[:3000]
+    profile_str = redact_pii(profile_str)
     user_prompt = f"LinkedIn Profile Data:\n{profile_str}"
 
     raw = await _call_nim(system_prompt, user_prompt, max_tokens=2000, temperature=0.5)
@@ -461,6 +463,7 @@ rank them by fit and return a JSON object:
 Return ONLY valid JSON."""
 
     profile_str = json.dumps(user_profile, default=str)[:1500]
+    profile_str = redact_pii(profile_str)
     jobs_str = json.dumps(jobs[:10], default=str)[:2000]
     user_prompt = f"Candidate:\n{profile_str}\n\nJobs:\n{jobs_str}"
 

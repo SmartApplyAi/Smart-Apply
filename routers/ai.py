@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from typing import Optional
 import logging
 from limiter import limiter
+from utils import redact_pii
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,8 @@ async def answer_question(
         raise HTTPException(status_code=400, detail="Question is required")
 
     try:
-        return await ai_service.answer_question(body.question, body.user_info)
+        safe_user_info = redact_pii(body.user_info)
+        return await ai_service.answer_question(body.question, safe_user_info)
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
@@ -81,8 +83,9 @@ async def answer_screening_question(
         raise HTTPException(status_code=400, detail="Question is required")
 
     try:
+        safe_user_info = redact_pii(body.user_info)
         return await ai_service.answer_screening_question(
-            body.question, body.user_info, body.job_description,
+            body.question, safe_user_info, body.job_description,
             body.field_type, body.available_options
         )
     except ValueError as e:
@@ -107,11 +110,12 @@ async def answer_screening_batch(
     import asyncio
     try:
         tasks = []
+        safe_user_info = redact_pii(body.user_info)
         for q in body.questions[:15]:  # Cap at 15 questions per batch
             tasks.append(
                 ai_service.answer_screening_question(
                     q.get("question", ""),
-                    body.user_info,
+                    safe_user_info,
                     body.job_description,
                     q.get("field_type", ""),
                     q.get("available_options", []),
@@ -142,8 +146,9 @@ async def generate_cover_letter(
 ):
     """Generate a tailored cover letter using AI."""
     try:
+        safe_user_info = redact_pii(body.user_info)
         return await ai_service.generate_cover_letter(
-            body.user_info, body.job_title, body.company
+            safe_user_info, body.job_title, body.company
         )
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
@@ -195,7 +200,7 @@ async def ats_analyze(
                 from services.resume_service import _extract_text
                 extracted = await asyncio.to_thread(_extract_text, file_bytes)
                 if extracted and len(extracted.strip()) > 100:
-                    resume_text = extracted
+                    resume_text = redact_pii(extracted)
                 else:
                     resume_text = resume_doc.get("parsed_data", {}).get("user_information_all", "")
             except Exception:
@@ -245,7 +250,8 @@ async def resume_suggestions(
 ):
     """AI-powered resume improvement suggestions."""
     try:
-        return await ai_service.suggest_resume_improvements(body.resume_text)
+        safe_resume_text = redact_pii(body.resume_text)
+        return await ai_service.suggest_resume_improvements(safe_resume_text)
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
@@ -259,10 +265,16 @@ async def extract_text_from_pdf(
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
+    if file.content_type and "pdf" not in file.content_type.lower():
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+
     import asyncio
     file_bytes = await file.read()
+    if len(file_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds 5MB limit")
     text = await asyncio.to_thread(resume_service._extract_text, file_bytes)
     if not text or len(text.strip()) < 50:
         raise HTTPException(status_code=400, detail="Could not extract text from this PDF")
 
+    text = resume_service.redact_pii(text)
     return {"text": text}

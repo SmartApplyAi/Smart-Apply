@@ -1,0 +1,68 @@
+.floating-background {
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+}
+
+.floating-symbol {
+  position: absolute;
+  color: var(--primary);
+  opacity: 0.08;
+  filter: blur(0.5px);
+  animation: floatDrift linear infinite;
+  will-change: transform, opacity;
+}
+
+[data-theme="dark"] .floating-symbol {
+  opacity: 0.12;
+  color: var(--primary-dim);
+}
+
+.glass-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, transparent 0%, var(--bg) 90%);
+  pointer-events: none;
+}
+
+@keyframes floatDrift {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(10px, 15px) rotate(5deg);
+  }
+  50% {
+    transform: translate(-5px, 25px) rotate(-3deg);
+  }
+  75% {
+    transform: translate(-15px, 10px) rotate(2deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+/* Specific drift for each symbol to avoid uniform motion */
+.floating-symbol:nth-child(odd) {
+  animation-direction: alternate;
+}
+
+.floating-symbol:nth-child(3n) {
+  animation-name: floatDriftReverse;
+}
+
+@keyframes floatDriftReverse {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(-20px, -30px) rotate(10deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
