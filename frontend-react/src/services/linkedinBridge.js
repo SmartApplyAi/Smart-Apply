@@ -61,6 +61,11 @@ const LinkedInBridge = {
     return sendMessage({ type: 'GET_COOKIES' }, 5000);
   },
 
+  /** Sync the updated profile (including resume data) live to the extension */
+  async syncProfileToExtension(user) {
+    return sendMessage({ type: 'SYNC_PROFILE', user }, 5000);
+  },
+
   /** Full import flow: scrape + save to backend */
   async importAndSave(token, overwrite = false) {
     const scrapeResult = await LinkedInBridge.scrapeProfile();
