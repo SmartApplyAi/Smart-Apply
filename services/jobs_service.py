@@ -2,6 +2,7 @@
 Jobs service: application tracking, stats, history.
 """
 
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from bson import ObjectId
@@ -112,9 +113,10 @@ async def get_history(
             logger.warning(f"Text search failed (index might be missing): {e}")
             # Fallback: regex search if text index fails
             del query["$text"]
+            escaped_q = re.escape(q)
             query["$or"] = [
-                {"job_title": {"$regex": q, "$options": "i"}},
-                {"company": {"$regex": q, "$options": "i"}}
+                {"job_title": {"$regex": escaped_q, "$options": "i"}},
+                {"company": {"$regex": escaped_q, "$options": "i"}}
             ]
             total = await db.job_applications.count_documents(query)
     else:
