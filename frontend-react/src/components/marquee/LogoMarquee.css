@@ -1,64 +1,164 @@
 /* ══════════════════════════════════════
-   Logo Marquee — Infinite Scroll Strip
+   Logo Marquee — Colorful Infinite Scroll
    ══════════════════════════════════════ */
 
 .marquee {
   position: relative;
-  padding: 48px 0;
+  padding: 64px 0 72px;
   overflow: hidden;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-/* ── Edge Fades ── */
-.marquee::before,
-.marquee::after {
+/* ── Section Heading ── */
+.marquee__heading {
+  text-align: center;
+  margin-bottom: 48px;
+  padding: 0 var(--landing-section-px);
+}
+
+.marquee__heading-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--landing-primary);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 9999px;
+  padding: 6px 16px;
+  margin-bottom: 16px;
+}
+
+.marquee__heading-title {
+  font-family: var(--landing-font-display);
+  font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+  font-weight: 700;
+  color: var(--landing-text);
+  letter-spacing: -0.03em;
+}
+
+/* ── Track wrapper for edge fades ── */
+.marquee__track-wrapper {
+  position: relative;
+}
+
+.marquee__track-wrapper::before,
+.marquee__track-wrapper::after {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 120px;
+  width: 140px;
   z-index: 2;
   pointer-events: none;
 }
 
-.marquee::before {
+.marquee__track-wrapper::before {
   left: 0;
   background: linear-gradient(to right, var(--landing-bg), transparent);
 }
 
-.marquee::after {
+.marquee__track-wrapper::after {
   right: 0;
   background: linear-gradient(to left, var(--landing-bg), transparent);
 }
 
+/* ── Track — GPU-accelerated ── */
 .marquee__track {
   display: flex;
-  gap: 64px;
+  gap: 24px;
   width: max-content;
-  animation: landingMarquee 40s linear infinite;
+  will-change: transform;
+  animation: landingMarquee 30s linear infinite;
 }
 
+/* Slow down on hover, don't stop */
+.marquee__track-wrapper:hover .marquee__track {
+  animation-duration: 80s;
+}
+
+/* ── Brand Item ── */
 .marquee__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   white-space: nowrap;
-  font-size: 15px;
+  padding: 12px 24px 12px 14px;
+  background: var(--brand-bg);
+  border: 1px solid var(--brand-border);
+  border-radius: 14px;
+  transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+  cursor: default;
+}
+
+.marquee__item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  border-color: var(--brand-color);
+}
+
+/* ── Letter-based Icon ── */
+.marquee__item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--brand-color);
+  color: #fff;
+  font-family: var(--landing-font-display);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.marquee__item:hover .marquee__item-icon {
+  transform: scale(1.1);
+}
+
+/* ── Name ── */
+.marquee__item-name {
+  font-family: var(--landing-font);
+  font-size: 14px;
   font-weight: 600;
-  color: var(--landing-text-3);
+  color: var(--landing-text-2);
   letter-spacing: -0.01em;
-  opacity: 0.7;
+  transition: color 0.3s ease;
 }
 
-.marquee__item-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgba(59, 130, 246, 0.4);
+.marquee__item:hover .marquee__item-name {
+  color: var(--landing-text);
 }
 
-/* Pause on hover */
-.marquee:hover .marquee__track {
-  animation-play-state: paused;
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .marquee {
+    padding: 48px 0;
+  }
+
+  .marquee__heading {
+    margin-bottom: 32px;
+  }
+
+  .marquee__track {
+    gap: 16px;
+  }
+
+  .marquee__item {
+    padding: 10px 18px 10px 10px;
+    gap: 10px;
+  }
+
+  .marquee__item-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .marquee__item-name {
+    font-size: 13px;
+  }
 }

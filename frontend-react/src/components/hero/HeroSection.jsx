@@ -33,11 +33,7 @@ export default function HeroSection() {
         animate="visible"
         style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}
       >
-        {/* Badge */}
-        <motion.div variants={fadeUp} className="hero__badge">
-          <span className="hero__badge-dot" />
-          Powered by AI · v2.0
-        </motion.div>
+
 
         {/* Title */}
         <motion.h1 variants={fadeUp} className="hero__title">
@@ -55,42 +51,10 @@ export default function HeroSection() {
 
         {/* CTAs */}
         <motion.div variants={fadeUp} className="hero__ctas">
-          <Link
-            to="/signup"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '14px 32px',
-              fontSize: '15px',
-              fontWeight: 600,
-              color: '#fff',
-              background: 'linear-gradient(135deg, #3B82F6 0%, #6366F1 100%)',
-              borderRadius: '12px',
-              textDecoration: 'none',
-              boxShadow: '0 4px 20px rgba(59,130,246,0.35)',
-              transition: 'all 0.3s ease',
-            }}
-          >
+          <Link to="/signup" className="hero__cta-primary">
             Start for free <ArrowRight size={16} />
           </Link>
-          <a
-            href="#how-it-works"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '14px 28px',
-              fontSize: '15px',
-              fontWeight: 500,
-              color: '#A1A1AA',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '12px',
-              textDecoration: 'none',
-              transition: 'all 0.3s ease',
-            }}
-          >
+          <a href="#how-it-works" className="hero__cta-secondary">
             <Play size={14} /> See how it works
           </a>
         </motion.div>

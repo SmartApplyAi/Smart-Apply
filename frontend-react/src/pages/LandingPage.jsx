@@ -1,7 +1,7 @@
 import AmbientBackground from '../components/effects/AmbientBackground';
 import Navbar from '../components/layout/Navbar';
 import HeroSection from '../components/hero/HeroSection';
-import StatsSection from '../components/stats/StatsSection';
+
 import FeaturesSection from '../components/features/FeaturesSection';
 import HowItWorks from '../components/howitworks/HowItWorks';
 import LogoMarquee from '../components/marquee/LogoMarquee';
@@ -18,7 +18,7 @@ export default function LandingPage() {
       <AmbientBackground />
       <Navbar />
       <HeroSection />
-      <StatsSection />
+
       <FeaturesSection />
       <HowItWorks />
       <LogoMarquee />

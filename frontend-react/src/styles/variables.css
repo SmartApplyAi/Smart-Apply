@@ -61,6 +61,47 @@
   --landing-nav-height: 72px;
 
   /* ── Font ── */
-  --landing-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --landing-font-display: 'Syne', 'Inter', sans-serif;
+  --landing-font: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --landing-font-display: 'Outfit', 'Syne', 'Inter', sans-serif;
+}
+
+/* ══════════════════════════════════════
+   Light Theme Overrides
+   ══════════════════════════════════════ */
+
+[data-theme="light"] {
+  /* ── Background ── */
+  --landing-bg:        #F8FAFC;
+  --landing-bg-2:      #FFFFFF;
+  --landing-bg-card:   rgba(0, 0, 0, 0.02);
+
+  /* ── Primary ── */
+  --landing-primary:       #2563EB;
+  --landing-primary-rgb:   37, 99, 235;
+  --landing-primary-hover: #1D4ED8;
+  --landing-primary-dim:   #3B82F6;
+
+  /* ── Secondary ── */
+  --landing-secondary:     #7C3AED;
+  --landing-secondary-rgb: 124, 58, 237;
+
+  /* ── Text ── */
+  --landing-text:      #0F172A;
+  --landing-text-2:    #475569;
+  --landing-text-3:    #94A3B8;
+  --landing-text-dim:  #CBD5E1;
+
+  /* ── Borders & Glass ── */
+  --landing-border:       rgba(0, 0, 0, 0.06);
+  --landing-border-hover: rgba(0, 0, 0, 0.12);
+  --landing-glass-bg:     rgba(255, 255, 255, 0.7);
+  --landing-glass-border: rgba(0, 0, 0, 0.06);
+
+  /* ── Shadows & Glows ── */
+  --landing-shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.06);
+  --landing-shadow-md:  0 8px 32px rgba(0, 0, 0, 0.08);
+  --landing-shadow-lg:  0 20px 60px rgba(0, 0, 0, 0.1);
+  --landing-glow-blue:  0 0 40px rgba(37, 99, 235, 0.08);
+  --landing-glow-purple: 0 0 40px rgba(124, 58, 237, 0.06);
+  --landing-glow-strong: 0 0 80px rgba(37, 99, 235, 0.12);
 }

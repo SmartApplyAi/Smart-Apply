@@ -16,6 +16,12 @@ const NAV_LINKS = [
 function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+
+  const themeIcon =
+    theme === 'dark'  ? <Moon size={16} /> :
+    theme === 'light' ? <Sun size={16} />  :
+                        <MonitorCog size={16} />;
 
   const handleScroll = useCallback(() => {
     setScrolled(window.scrollY > 30);
@@ -61,6 +67,14 @@ function LandingNavbar() {
 
         {/* Desktop Actions */}
         <div className="landing-nav__actions">
+          <button
+            className="landing-nav__theme-btn"
+            aria-label="Toggle theme"
+            title={`Theme: ${theme}`}
+            onClick={toggleTheme}
+          >
+            {themeIcon}
+          </button>
           <Link to="/login" className="landing-nav__login">
             Login
           </Link>
