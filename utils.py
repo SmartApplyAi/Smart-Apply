@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+import passlib.exc
 from config import settings
 import hashlib
 import hmac
@@ -22,7 +23,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return pwd_context.verify(plain, hashed)
+    except (ValueError, passlib.exc.UnknownHashError):
+        return False
 
 def needs_rehash(hashed: str) -> bool:
     return pwd_context.needs_update(hashed)
