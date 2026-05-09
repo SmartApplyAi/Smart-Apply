@@ -1,0 +1,4 @@
+## 2024-05-24 - [CRITICAL] Removed Hardcoded Admin Privilege Escalation
+**Vulnerability:** A hardcoded email check in `services/auth_service.py` was explicitly elevating the user `kovvurinandivardhanreddy2007@gmail.com` to an "admin" role during registration, login, and Google login.
+**Learning:** Hardcoding privileged identities bypassing standard role-based access controls introduces a permanent critical risk. It makes user management invisible and bypasses auditing. Any authorization should rely entirely on dynamic storage mechanisms (like roles in the database) properly managed by administrative APIs.
+**Prevention:** Role assignment should default to the least privilege ("user") upon registration and be updated only via authenticated administrative endpoints. Never use hardcoded strings for authorization checks.
