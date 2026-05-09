@@ -164,19 +164,46 @@ async def test_nim_key(key: str) -> dict:
 async def broadcast_announcement(subject: str, message_html: str) -> dict:
     """Send an announcement email to all verified users."""
     db = get_db()
-    cursor = db.users.find({"email_verified": True, "is_active": True})
     
-    from services.email_service import send_email, wrap_template
+    from services.email_service import send_email, wrap_template, get_template, _BASE_STYLE, _HEADER_HTML, _FOOTER_HTML
+
+    # Pre-fetch templates once to avoid N+1 queries in wrap_template
+    base_style = await get_template("global_style", _BASE_STYLE)
+    header_html = await get_template("global_header", _HEADER_HTML)
+    footer_html = await get_template("global_footer", _FOOTER_HTML)
+
+    # Use aggregation to join users with profiles in one query.
+    # user_profiles.user_id is stored as a string, so we convert _id to string for the $lookup.
+    pipeline = [
+        {"$match": {"email_verified": True, "is_active": True}},
+        {"$addFields": {"user_id_str": {"$toString": "$_id"}}},
+        {
+            "$lookup": {
+                "from": "user_profiles",
+                "localField": "user_id_str",
+                "foreignField": "user_id",
+                "as": "profile"
+            }
+        },
+        {"$unwind": {"path": "$profile", "preserveNullAndEmptyArrays": True}}
+    ]
+
+    cursor = db.users.aggregate(pipeline)
     
     count = 0
     async for user in cursor:
-        user_id = str(user["_id"])
-        profile = await db.user_profiles.find_one({"user_id": user_id})
+        profile = user.get("profile")
         first_name = profile.get("first_name", "User") if profile else "User"
         
         personalized_message = message_html.replace("{{user-name}}", first_name)
         
-        html_content = await wrap_template("Announcement", personalized_message)
+        html_content = await wrap_template(
+            "Announcement",
+            personalized_message,
+            base_style=base_style,
+            header_html=header_html,
+            footer_html=footer_html
+        )
         success = await send_email(
             user["email"],
             "",

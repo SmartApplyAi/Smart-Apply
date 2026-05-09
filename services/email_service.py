@@ -106,10 +106,20 @@ async def get_template(template_id: str, default_content: str) -> str:
         logger.error(f"Error fetching email template {template_id}: {e}")
     return default_content
 
-async def wrap_template(title: str, body_html: str) -> str:
-    base_style = await get_template("global_style", _BASE_STYLE)
-    header_html = await get_template("global_header", _HEADER_HTML)
-    footer_html = await get_template("global_footer", _FOOTER_HTML)
+async def wrap_template(
+    title: str,
+    body_html: str,
+    base_style: Optional[str] = None,
+    header_html: Optional[str] = None,
+    footer_html: Optional[str] = None
+) -> str:
+    """Wrap content in the standard email layout. Supports pre-fetched components for performance."""
+    if base_style is None:
+        base_style = await get_template("global_style", _BASE_STYLE)
+    if header_html is None:
+        header_html = await get_template("global_header", _HEADER_HTML)
+    if footer_html is None:
+        footer_html = await get_template("global_footer", _FOOTER_HTML)
     
     return f"""<!DOCTYPE html><html><head>{base_style}</head><body>
 <div class="container">
