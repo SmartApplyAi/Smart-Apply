@@ -279,7 +279,6 @@ async def extension_report_result(user_id: str, session_id: str, result_data: di
                 )
         except Exception as e:
             logger.warning(f"Failed to update session {session_id} stats: {e}")
-            pass
 
     # Create job application record
     # ONLY if result is "Applied"
