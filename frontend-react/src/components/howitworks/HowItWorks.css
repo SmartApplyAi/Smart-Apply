@@ -1,0 +1,104 @@
+/* ══════════════════════════════════════
+   How It Works — 3-Step Section
+   ══════════════════════════════════════ */
+
+.hiw {
+  position: relative;
+  padding: var(--landing-section-py) var(--landing-section-px);
+}
+
+.hiw__steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.hiw__step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  padding: 0 24px;
+}
+
+/* ── Step Number ── */
+.hiw__step-number {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--landing-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.1);
+}
+
+.hiw__step-icon {
+  color: var(--landing-primary);
+}
+
+/* ── Connecting Line ── */
+.hiw__connector {
+  position: absolute;
+  top: 32px;
+  left: calc(50% + 40px);
+  width: calc(100% - 80px);
+  height: 1px;
+  z-index: 1;
+}
+
+.hiw__connector-line {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(139, 92, 246, 0.3) 100%
+  );
+  transform-origin: left;
+}
+
+.hiw__step-title {
+  font-family: var(--landing-font);
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.hiw__step-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--landing-text-2);
+  max-width: 220px;
+}
+
+@media (max-width: 768px) {
+  .hiw__steps {
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+  }
+
+  .hiw__connector {
+    display: none;
+  }
+
+  .hiw__step {
+    padding: 0;
+  }
+}

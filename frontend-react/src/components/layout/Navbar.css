@@ -1,0 +1,222 @@
+/* ══════════════════════════════════════
+   Navbar — Premium Glass Navigation
+   ══════════════════════════════════════ */
+
+.landing-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: var(--landing-nav-height);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  border-bottom: 1px solid transparent;
+}
+
+.landing-nav--scrolled {
+  background: rgba(5, 8, 22, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+
+.landing-nav__inner {
+  max-width: var(--landing-container);
+  margin: 0 auto;
+  padding: 0 var(--landing-section-px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+}
+
+/* ── Logo ── */
+.landing-nav__logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--landing-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #fff;
+  text-decoration: none;
+  z-index: 1001;
+}
+
+.landing-nav__logo-accent {
+  color: var(--landing-primary);
+}
+
+.landing-nav__logo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--landing-primary);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  margin-right: 2px;
+}
+
+/* ── Desktop Links ── */
+.landing-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.landing-nav__link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--landing-text-2);
+  text-decoration: none;
+  transition: color 0.25s ease;
+  position: relative;
+}
+
+.landing-nav__link:hover {
+  color: #fff;
+}
+
+.landing-nav__link::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--landing-primary);
+  border-radius: 1px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-nav__link:hover::after {
+  width: 100%;
+}
+
+/* ── Actions ── */
+.landing-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.landing-nav__login {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--landing-text-2);
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+
+.landing-nav__login:hover {
+  color: #fff;
+}
+
+.landing-nav__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+  border: none;
+  border-radius: 10px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+}
+
+.landing-nav__cta:hover {
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ── Hamburger ── */
+.landing-nav__hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 1001;
+  padding: 4px;
+}
+
+.landing-nav__hamburger span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center;
+}
+
+.landing-nav__hamburger--open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.landing-nav__hamburger--open span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.landing-nav__hamburger--open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ── Mobile Menu ── */
+.landing-nav__mobile {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 22, 0.97);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  z-index: 999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.landing-nav__mobile--open {
+  display: flex;
+}
+
+.landing-nav__mobile-link {
+  font-family: var(--landing-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.landing-nav__mobile-link:hover {
+  opacity: 1;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .landing-nav__links,
+  .landing-nav__actions {
+    display: none;
+  }
+
+  .landing-nav__hamburger {
+    display: flex;
+  }
+}

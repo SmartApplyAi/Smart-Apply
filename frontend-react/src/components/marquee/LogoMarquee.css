@@ -1,0 +1,64 @@
+/* ══════════════════════════════════════
+   Logo Marquee — Infinite Scroll Strip
+   ══════════════════════════════════════ */
+
+.marquee {
+  position: relative;
+  padding: 48px 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* ── Edge Fades ── */
+.marquee::before,
+.marquee::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.marquee::before {
+  left: 0;
+  background: linear-gradient(to right, var(--landing-bg), transparent);
+}
+
+.marquee::after {
+  right: 0;
+  background: linear-gradient(to left, var(--landing-bg), transparent);
+}
+
+.marquee__track {
+  display: flex;
+  gap: 64px;
+  width: max-content;
+  animation: landingMarquee 40s linear infinite;
+}
+
+.marquee__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--landing-text-3);
+  letter-spacing: -0.01em;
+  opacity: 0.7;
+}
+
+.marquee__item-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.4);
+}
+
+/* Pause on hover */
+.marquee:hover .marquee__track {
+  animation-play-state: paused;
+}

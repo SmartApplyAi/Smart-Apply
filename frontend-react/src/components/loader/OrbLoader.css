@@ -1,0 +1,176 @@
+/* ══════════════════════════════════════
+   Orb Loader — Premium Fullscreen
+   Self-contained with all keyframes
+   ══════════════════════════════════════ */
+
+.orb-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #050816;
+  overflow: hidden;
+}
+
+/* ── Ambient bloom behind orb ── */
+.orb-loader__ambient {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(139, 92, 246, 0.06) 40%,
+    transparent 70%
+  );
+  filter: blur(60px);
+  pointer-events: none;
+  animation: orbAmbientPulse 3s ease-in-out infinite;
+}
+
+/* ── Orb Container ── */
+.orb-loader__orb {
+  position: relative;
+  width: 220px;
+  height: 220px;
+}
+
+/* ── Core ── */
+.orb-loader__core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    #93C5FD,
+    #3B82F6 40%,
+    #8B5CF6 80%,
+    #6D28D9 100%
+  );
+  animation: orbCorePulse 2s ease-in-out infinite;
+  z-index: 3;
+}
+
+/* ── Inner Glow ── */
+.orb-loader__inner-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(139, 92, 246, 0.1) 50%,
+    transparent 70%
+  );
+  filter: blur(20px);
+  z-index: 2;
+  animation: orbInnerGlow 2s ease-in-out infinite alternate;
+}
+
+/* ── Ring Base ── */
+.orb-loader__ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+/* ── Ring 1 — Clockwise ── */
+.orb-loader__ring--1 {
+  width: 130px;
+  height: 130px;
+  border-top-color: rgba(59, 130, 246, 0.7);
+  border-right-color: rgba(59, 130, 246, 0.25);
+  border-bottom-color: transparent;
+  border-left-color: rgba(139, 92, 246, 0.4);
+  animation: orbRotateCW 1.8s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+}
+
+/* ── Ring 2 — Counter-Clockwise ── */
+.orb-loader__ring--2 {
+  width: 180px;
+  height: 180px;
+  border-top-color: transparent;
+  border-right-color: rgba(139, 92, 246, 0.6);
+  border-bottom-color: rgba(59, 130, 246, 0.2);
+  border-left-color: transparent;
+  animation: orbRotateCCW 2.8s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.2));
+}
+
+/* ── Logo Text ── */
+.orb-loader__logo {
+  position: absolute;
+  bottom: calc(50% - 160px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.orb-loader__logo-text {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.orb-loader__logo-text span {
+  color: #3B82F6;
+}
+
+/* ══════════════════════════════════════
+   Self-contained Keyframes
+   ══════════════════════════════════════ */
+
+@keyframes orbCorePulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow:
+      0 0 30px 10px rgba(59, 130, 246, 0.3),
+      0 0 60px 30px rgba(59, 130, 246, 0.15),
+      0 0 100px 50px rgba(139, 92, 246, 0.08);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow:
+      0 0 50px 15px rgba(59, 130, 246, 0.5),
+      0 0 100px 50px rgba(59, 130, 246, 0.25),
+      0 0 150px 70px rgba(139, 92, 246, 0.15);
+  }
+}
+
+@keyframes orbRotateCW {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes orbRotateCCW {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+@keyframes orbAmbientPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes orbInnerGlow {
+  from { opacity: 0.5; transform: translate(-50%, -50%) scale(0.9); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+}

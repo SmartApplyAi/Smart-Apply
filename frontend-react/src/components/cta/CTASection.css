@@ -1,0 +1,109 @@
+/* ══════════════════════════════════════
+   CTA Section — Final Call to Action
+   ══════════════════════════════════════ */
+
+.cta {
+  position: relative;
+  padding: 40px var(--landing-section-px) 80px;
+}
+
+.cta__inner {
+  position: relative;
+  max-width: var(--landing-container);
+  margin: 0 auto;
+  border-radius: var(--landing-radius-xl);
+  padding: clamp(60px, 8vw, 100px) clamp(32px, 5vw, 80px);
+  text-align: center;
+  overflow: hidden;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.08) 0%,
+    rgba(139, 92, 246, 0.06) 50%,
+    rgba(59, 130, 246, 0.04) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+/* ── Animated gradient border glow ── */
+.cta__glow {
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--landing-radius-xl) + 2px);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.15) 25%,
+    transparent 50%,
+    rgba(139, 92, 246, 0.1) 75%,
+    transparent 100%
+  );
+  animation: gradientRotate 8s linear infinite;
+  z-index: -1;
+  filter: blur(2px);
+}
+
+.cta__content {
+  position: relative;
+  z-index: 1;
+}
+
+.cta__title {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.cta__desc {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--landing-text-2);
+  max-width: 480px;
+  margin: 0 auto 36px;
+}
+
+.cta__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 36px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+  border: none;
+  border-radius: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(59, 130, 246, 0.35);
+  transition: all 0.3s ease;
+}
+
+.cta__button:hover {
+  box-shadow: 0 10px 40px rgba(59, 130, 246, 0.5);
+  transform: translateY(-2px);
+}
+
+/* ── Background orbs ── */
+.cta__orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(60px);
+}
+
+.cta__orb--1 {
+  width: 300px;
+  height: 300px;
+  top: -100px;
+  left: -100px;
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.cta__orb--2 {
+  width: 200px;
+  height: 200px;
+  bottom: -60px;
+  right: -40px;
+  background: rgba(139, 92, 246, 0.06);
+}

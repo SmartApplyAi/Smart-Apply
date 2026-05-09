@@ -1,76 +1,126 @@
-import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import Logo from '../common/Logo';
-import ThemeToggle from '../common/ThemeToggle';
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
+import './Navbar.css';
 
-export default function Navbar({ variant = 'default', onMenuClick }) {
-  const { isAuthenticated, logout } = useAuth();
-  const location = useLocation();
+const NAV_LINKS = [
+  { label: 'Features', href: '#features' },
+  { label: 'How it Works', href: '#how-it-works' },
+  { label: 'FAQ', href: '#faq' },
+  { label: 'Contact', href: '#contact' },
+];
 
-  const isActive = (path) => location.pathname === path ? 'active' : '';
+export default function Navbar() {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  if (variant === 'landing') {
-    return (
-      <nav className="navbar navbar-landing">
-        <div className="nav-container">
-          <div className="nav-wrapper">
-            <Logo />
-            <div className="nav-menu">
-              <a href="#features" className="nav-link">Features</a>
-              <a href="#how-it-works" className="nav-link">How it Works</a>
-            </div>
-            <div className="nav-actions">
-              <ThemeToggle />
-              {isAuthenticated ? (
-                <Link to="/dashboard" className="btn btn-primary btn-sm">Dashboard</Link>
-              ) : (
-                <>
-                  <Link to="/login" className="btn btn-ghost btn-sm">Login</Link>
-                  <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-    );
-  }
+  const handleScroll = useCallback(() => {
+    setScrolled(window.scrollY > 30);
+  }, []);
 
-  // Protected pages navbar
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  const closeMobile = () => setMobileOpen(false);
+
   return (
-    <nav className="navbar">
-      <div className="container">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button className="mobile-sidebar-btn" onClick={onMenuClick} aria-label="Open menu">
-            <i className="fa-solid fa-bars"></i>
-          </button>
-          <Logo />
+    <motion.nav
+      className={`landing-nav ${scrolled ? 'landing-nav--scrolled' : ''}`}
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <div className="landing-nav__inner">
+        {/* Logo */}
+        <a href="#" className="landing-nav__logo" onClick={closeMobile}>
+          <span className="landing-nav__logo-dot" />
+          Smart<span className="landing-nav__logo-accent">Apply</span>
+        </a>
+
+        {/* Desktop Links */}
+        <ul className="landing-nav__links">
+          {NAV_LINKS.map((link) => (
+            <li key={link.label}>
+              <a href={link.href} className="landing-nav__link">
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        {/* Desktop Actions */}
+        <div className="landing-nav__actions">
+          <Link to="/login" className="landing-nav__login">
+            Login
+          </Link>
+          <Link to="/signup" className="landing-nav__cta">
+            Get Started <ArrowRight size={14} />
+          </Link>
         </div>
-        <div className="nav-links hide-mobile" id="nav-actions">
-          <ThemeToggle />
-          <Link to="/dashboard" className={`btn btn-ghost btn-sm ${isActive('/dashboard')}`}>
-            <i className="fa-solid fa-gauge"></i> Dashboard
-          </Link>
-          <Link to="/resume" className={`btn btn-ghost btn-sm ${isActive('/resume')}`}>
-            <i className="fa-solid fa-file-arrow-up"></i> Resumes
-          </Link>
-          <Link to="/ats" className={`btn btn-ghost btn-sm ${isActive('/ats')}`}>
-            <i className="fa-solid fa-chart-simple"></i> ATS
-          </Link>
-          <Link to="/linkedin-optimizer" className={`btn btn-ghost btn-sm ${isActive('/linkedin-optimizer')}`}>
-            <i className="fa-brands fa-linkedin"></i> LinkedIn Optimizer
-          </Link>
-          <Link to="/profile" className={`btn btn-ghost btn-sm ${isActive('/profile')}`}>
-            <i className="fa-solid fa-user"></i> Profile
-          </Link>
-          <Link to="/settings" className={`btn btn-ghost btn-sm ${isActive('/settings')}`}>
-            <i className="fa-solid fa-gear"></i> Settings
-          </Link>
-          <button onClick={logout} className="btn btn-ghost btn-sm">
-            <i className="fa-solid fa-right-from-bracket"></i> Logout
-          </button>
-        </div>
+
+        {/* Hamburger */}
+        <button
+          className={`landing-nav__hamburger ${mobileOpen ? 'landing-nav__hamburger--open' : ''}`}
+          onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label="Toggle menu"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
       </div>
-    </nav>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            className="landing-nav__mobile landing-nav__mobile--open"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {NAV_LINKS.map((link, i) => (
+              <motion.a
+                key={link.label}
+                href={link.href}
+                className="landing-nav__mobile-link"
+                onClick={closeMobile}
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: i * 0.08, duration: 0.4 }}
+              >
+                {link.label}
+              </motion.a>
+            ))}
+            <Link
+              to="/login"
+              className="landing-nav__mobile-link"
+              onClick={closeMobile}
+              style={{ color: '#A1A1AA', fontSize: '22px' }}
+            >
+              Login
+            </Link>
+            <Link
+              to="/signup"
+              className="landing-nav__cta"
+              onClick={closeMobile}
+              style={{ fontSize: '18px', padding: '14px 32px', marginTop: '8px' }}
+            >
+              Get Started <ArrowRight size={16} />
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.nav>
   );
 }

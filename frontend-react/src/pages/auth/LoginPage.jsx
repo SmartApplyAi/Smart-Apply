@@ -8,6 +8,7 @@ import GoogleOAuthButton from '../../components/common/GoogleOAuthButton';
 import PasswordInput from '../../components/common/PasswordInput';
 import LoadingButton from '../../components/common/LoadingButton';
 import ThemeToggle from '../../components/common/ThemeToggle';
+import '../../styles/auth-premium.css';
 
 
 const OAUTH_ERRORS = {
@@ -98,7 +99,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-container auth-container--premium">
+      <div className="auth-ambient-1" />
+      <div className="auth-ambient-2" />
       <div className="theme-toggle-fixed">
         <ThemeToggle />
       </div>

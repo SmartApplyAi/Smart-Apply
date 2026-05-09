@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -25,33 +25,20 @@ import ATSPage from './pages/ATSPage';
 import LinkedInOptimizerPage from './pages/LinkedInOptimizerPage';
 import AdminPage from './pages/AdminPage';
 
+import OrbLoader from './components/loader/OrbLoader';
 import './App.css';
 
 
 
-function SiteLoader() {
-  return (
-    <div className="site-loader" style={{
-      position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 99999,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      pointerEvents: 'none', animation: 'fadeOut 0.5s ease forwards 1.2s'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-        <svg style={{ width: '64px', height: '64px', color: 'var(--primary)' }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 1L14.85 8.15L22 11L14.85 13.85L12 21L9.15 13.85L2 11L9.15 8.15L12 1Z" fill="currentColor" />
-        </svg>
-        <div style={{ fontFamily: 'Syne', fontSize: '60px', fontWeight: 800, letterSpacing: '-0.05em' }}>
-          Smart<span style={{ color: 'var(--primary)' }}>Apply</span>
-        </div>
-      </div>
-      <style>{`
-        @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
-      `}</style>
-    </div>
-  );
-}
+
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
   useEffect(() => {
     // ── Reveal & Fade Observer ──
     const revealObserver = new IntersectionObserver((entries) => {
@@ -149,11 +136,7 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <WebSocketProvider>
-              <SiteLoader />
-
-            <div className="ambient-glow"></div>
-            <div className="blob blob-1"></div>
-            <div className="blob blob-2"></div>
+              <OrbLoader isLoading={isLoading} />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />

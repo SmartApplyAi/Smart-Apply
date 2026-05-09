@@ -9,6 +9,7 @@ import PasswordStrength from '../../components/common/PasswordStrength';
 import PinInput from '../../components/common/PinInput';
 import LoadingButton from '../../components/common/LoadingButton';
 import ThemeToggle from '../../components/common/ThemeToggle';
+import '../../styles/auth-premium.css';
 
 
 export default function SignupPage() {
@@ -83,7 +84,9 @@ export default function SignupPage() {
 
   if (step === 'verify') {
     return (
-      <div className="auth-container">
+      <div className="auth-container auth-container--premium">
+        <div className="auth-ambient-1" />
+        <div className="auth-ambient-2" />
         <div className="theme-toggle-fixed">
           <ThemeToggle />
         </div>
@@ -119,7 +122,9 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="auth-container">
+    <div className="auth-container auth-container--premium">
+      <div className="auth-ambient-1" />
+      <div className="auth-ambient-2" />
       <div className="theme-toggle-fixed">
         <ThemeToggle />
       </div>

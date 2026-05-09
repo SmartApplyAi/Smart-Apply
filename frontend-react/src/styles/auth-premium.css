@@ -1,0 +1,241 @@
+/* ══════════════════════════════════════
+   Auth Pages — Premium Dark Override
+   Matches the landing page futuristic theme
+   ══════════════════════════════════════ */
+
+/* ── Force dark cinematic background ── */
+.auth-container--premium {
+  background-color: #050816 !important;
+  background-image: none !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Ambient Blobs ── */
+.auth-container--premium .auth-ambient-1 {
+  position: absolute;
+  top: -15%;
+  left: -10%;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.07) 0%, transparent 70%);
+  filter: blur(80px);
+  pointer-events: none;
+  animation: authAmbientDrift 20s ease-in-out infinite;
+}
+
+.auth-container--premium .auth-ambient-2 {
+  position: absolute;
+  bottom: -15%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+  filter: blur(80px);
+  pointer-events: none;
+  animation: authAmbientDrift 25s ease-in-out infinite reverse;
+}
+
+/* ── Card Override ── */
+.auth-container--premium .auth-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 80px rgba(59, 130, 246, 0.04) !important;
+  animation: authCardReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+/* ── Typography ── */
+.auth-container--premium h2 {
+  color: #fff !important;
+  font-family: 'Syne', 'Inter', sans-serif !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+}
+
+.auth-container--premium .subtitle {
+  color: #A1A1AA !important;
+}
+
+/* ── Logo Accent ── */
+.auth-container--premium .auth-logo,
+.auth-container--premium .logo {
+  color: #fff !important;
+}
+
+.auth-container--premium .auth-logo span,
+.auth-container--premium .logo span,
+.auth-container--premium .logo-accent {
+  color: #3B82F6 !important;
+}
+
+.auth-container--premium .logo-dot {
+  background: #3B82F6 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5) !important;
+}
+
+/* ── Inputs ── */
+.auth-container--premium .input-wrapper input,
+.auth-container--premium .form-group input:not([type="checkbox"]):not([type="radio"]),
+.auth-container--premium .form-group textarea,
+.auth-container--premium .form-group select {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+.auth-container--premium .input-wrapper input::placeholder,
+.auth-container--premium .form-group input::placeholder,
+.auth-container--premium .form-group textarea::placeholder {
+  color: #52525B !important;
+}
+
+.auth-container--premium .input-wrapper input:focus,
+.auth-container--premium .form-group input:not([type="checkbox"]):not([type="radio"]):focus,
+.auth-container--premium .form-group textarea:focus {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ── Labels ── */
+.auth-container--premium .form-group label {
+  color: #A1A1AA !important;
+}
+
+.auth-container--premium .form-group label i {
+  color: #3B82F6 !important;
+}
+
+/* ── Primary Button ── */
+.auth-container--premium .btn-primary {
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3) !important;
+  border-radius: 12px !important;
+  color: #fff !important;
+}
+
+.auth-container--premium .btn-primary:hover {
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.45) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+}
+
+/* ── Google Button ── */
+.auth-container--premium .btn-google {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.08) !important;
+  color: #A1A1AA !important;
+  border-radius: 12px !important;
+}
+
+.auth-container--premium .btn-google:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+
+/* ── Divider ── */
+.auth-container--premium .divider {
+  color: #52525B !important;
+}
+
+.auth-container--premium .divider::before,
+.auth-container--premium .divider::after {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── Footer ── */
+.auth-container--premium .auth-footer {
+  color: #71717A !important;
+}
+
+.auth-container--premium .auth-footer a {
+  color: #3B82F6 !important;
+}
+
+/* ── Forgot link ── */
+.auth-container--premium #forgot-link {
+  color: #3B82F6 !important;
+}
+
+/* ── Password Eye Toggle ── */
+.auth-container--premium .pw-toggle {
+  color: #71717A !important;
+}
+
+.auth-container--premium .pw-toggle:hover {
+  color: #fff !important;
+}
+
+/* ── PIN Inputs ── */
+.auth-container--premium .pin-inputs input {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 2px solid rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+.auth-container--premium .pin-inputs input:focus {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
+}
+
+.auth-container--premium .pin-inputs input.filled {
+  border-color: #3B82F6 !important;
+  color: #3B82F6 !important;
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+
+/* ── Password Strength ── */
+.auth-container--premium .pw-bar {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── Alerts ── */
+.auth-container--premium .alert {
+  backdrop-filter: blur(10px) !important;
+}
+
+/* ── OAuth Error ── */
+.auth-container--premium .oauth-error {
+  background: rgba(255, 59, 48, 0.08) !important;
+  border: 1px solid rgba(255, 59, 48, 0.15) !important;
+}
+
+/* ── Theme Toggle — hide on premium auth (forced dark) ── */
+.auth-container--premium .theme-toggle-fixed {
+  display: none;
+}
+
+/* ── Back Link ── */
+.auth-container--premium .auth-footer a i {
+  color: #3B82F6 !important;
+}
+
+/* ══════════════════════════════════════
+   Keyframes
+   ══════════════════════════════════════ */
+
+@keyframes authCardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.97);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes authAmbientDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(40px, -30px) scale(1.05); }
+  66%      { transform: translate(-30px, 20px) scale(0.95); }
+}

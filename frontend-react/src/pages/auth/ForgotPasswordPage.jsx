@@ -8,6 +8,7 @@ import PasswordInput from '../../components/common/PasswordInput';
 import PasswordStrength from '../../components/common/PasswordStrength';
 import LoadingButton from '../../components/common/LoadingButton';
 import ThemeToggle from '../../components/common/ThemeToggle';
+import '../../styles/auth-premium.css';
 
 export default function ForgotPasswordPage() {
   const token = getParam('token');
@@ -129,7 +130,9 @@ export default function ForgotPasswordPage() {
   );
 
   return (
-    <div className="auth-container">
+    <div className="auth-container auth-container--premium">
+      <div className="auth-ambient-1" />
+      <div className="auth-ambient-2" />
       <div className="theme-toggle-fixed">
         <ThemeToggle />
       </div>

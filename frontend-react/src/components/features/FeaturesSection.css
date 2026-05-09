@@ -1,0 +1,89 @@
+/* ══════════════════════════════════════
+   Features Section — Glass Cards Grid
+   ══════════════════════════════════════ */
+
+.features {
+  position: relative;
+  padding: var(--landing-section-py) var(--landing-section-px);
+}
+
+.features__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  max-width: var(--landing-container);
+  margin: 0 auto;
+}
+
+/* ── Feature Card ── */
+.feature-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 36px 32px;
+  overflow: hidden;
+  cursor: default;
+  transition: border-color 0.4s ease;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0) 20%,
+    rgba(59, 130, 246, 0.3) 50%,
+    rgba(59, 130, 246, 0) 80%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.feature-card:hover::before {
+  opacity: 1;
+}
+
+.feature-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  color: var(--landing-primary);
+  margin-bottom: 20px;
+}
+
+.feature-card__title {
+  font-family: var(--landing-font);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.feature-card__desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--landing-text-2);
+}
+
+@media (max-width: 768px) {
+  .features__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-card {
+    padding: 28px 24px;
+  }
+}

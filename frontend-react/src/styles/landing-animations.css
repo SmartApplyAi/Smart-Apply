@@ -1,0 +1,108 @@
+/* ══════════════════════════════════════
+   SmartApply Landing — Keyframe Animations
+   ══════════════════════════════════════ */
+
+/* ── Fade Up ── */
+@keyframes landingFadeUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Fade Down ── */
+@keyframes landingFadeDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Fade In ── */
+@keyframes landingFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Fade Out ── */
+@keyframes landingFadeOut {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+
+/* ── Float ── */
+@keyframes landingFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+/* ── Glow Pulse ── */
+@keyframes landingGlowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.15); }
+  50%      { box-shadow: 0 0 50px rgba(59, 130, 246, 0.35); }
+}
+
+/* ── Shimmer ── */
+@keyframes landingShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Orb Core Pulse ── */
+@keyframes orbCorePulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 60px 20px rgba(59, 130, 246, 0.3),
+                0 0 120px 60px rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 0 80px 30px rgba(59, 130, 246, 0.5),
+                0 0 160px 80px rgba(139, 92, 246, 0.25);
+  }
+}
+
+/* ── Orb Ring Rotation ── */
+@keyframes orbRotateCW {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes orbRotateCCW {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+/* ── Marquee ── */
+@keyframes landingMarquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ── Ambient Drift ── */
+@keyframes ambientDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(80px, -60px) scale(1.1); }
+  50%      { transform: translate(-40px, -120px) scale(0.95); }
+  75%      { transform: translate(-80px, 40px) scale(1.05); }
+}
+
+@keyframes ambientDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(-100px, 60px) scale(1.05); }
+  50%      { transform: translate(60px, 100px) scale(1.12); }
+  75%      { transform: translate(100px, -40px) scale(0.9); }
+}
+
+@keyframes ambientDrift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(50px, 80px) scale(1.08); }
+  66%      { transform: translate(-70px, -50px) scale(0.95); }
+}
+
+/* ── Gradient Rotate ── */
+@keyframes gradientRotate {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ── Step Line Grow ── */
+@keyframes stepLineGrow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}

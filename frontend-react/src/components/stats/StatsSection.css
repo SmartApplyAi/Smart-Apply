@@ -1,0 +1,86 @@
+/* ══════════════════════════════════════
+   Stats Section — Animated Counters
+   ══════════════════════════════════════ */
+
+.stats {
+  position: relative;
+  padding: 80px var(--landing-section-px);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.stats__grid {
+  max-width: var(--landing-container);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.stats__item {
+  text-align: center;
+  padding: 32px 16px;
+  position: relative;
+}
+
+/* Divider between items */
+.stats__item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.stats__value {
+  font-family: var(--landing-font-display);
+  font-size: clamp(2.4rem, 4vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stats__value--blue {
+  color: var(--landing-primary);
+}
+
+.stats__value--purple {
+  color: var(--landing-secondary);
+}
+
+.stats__value--white {
+  color: #fff;
+}
+
+.stats__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--landing-text-3);
+}
+
+@media (max-width: 768px) {
+  .stats__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+  }
+
+  .stats__item:not(:last-child)::after {
+    display: none;
+  }
+
+  .stats__item {
+    padding: 24px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

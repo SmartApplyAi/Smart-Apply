@@ -1,0 +1,73 @@
+/* ══════════════════════════════════════
+   SmartApply Landing — Global Styles
+   Scoped to .landing-page wrapper
+   ══════════════════════════════════════ */
+
+@import './variables.css';
+@import './landing-animations.css';
+
+/* ── Landing Page Container ── */
+.landing-page {
+  background: var(--landing-bg);
+  color: var(--landing-text);
+  min-height: 100vh;
+  font-family: var(--landing-font);
+  overflow-x: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.landing-page *,
+.landing-page *::before,
+.landing-page *::after {
+  box-sizing: border-box;
+}
+
+/* ── Landing Typography ── */
+.landing-page h1,
+.landing-page h2,
+.landing-page h3,
+.landing-page h4 {
+  font-family: var(--landing-font-display);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--landing-text);
+  margin: 0;
+}
+
+.landing-page p {
+  margin: 0;
+}
+
+.landing-page a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ── Section Wrapper ── */
+.landing-section {
+  position: relative;
+  padding: var(--landing-section-py) var(--landing-section-px);
+}
+
+.landing-container {
+  max-width: var(--landing-container);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Text Gradient ── */
+.landing-text-gradient {
+  background: linear-gradient(135deg, var(--landing-primary) 0%, var(--landing-secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline;
+}
+
+/* ── Selection ── */
+.landing-page ::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #fff;
+}
