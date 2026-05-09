@@ -16,6 +16,6 @@ def test_parse_json_from_response():
 async def test_answer_question():
     with patch("services.ai_service._call_nim", new_callable=AsyncMock) as mock_call:
         mock_call.return_value = "This is the answer"
-        result = await answer_question("How do I improve my resume?", "Profile info")
-        assert result == "This is the answer"
+        result = await answer_question("Test Question", {})
+        assert result["answer"] == "This is the answer"
         mock_call.assert_called_once()

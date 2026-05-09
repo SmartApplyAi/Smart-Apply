@@ -206,6 +206,8 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
         profiles_cursor = db.user_profiles.find({"user_id": {"$in": user_ids_str}})
         profiles_map = {p["user_id"]: p async for p in profiles_cursor}
 
+        # Build personalized HTML for each user (pure string formatting, no I/O)
+        email_tasks = []
         for user in users:
             user_id_str = str(user["_id"])
             profile = profiles_map.get(user_id_str, {})
@@ -213,6 +215,7 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
 
             personalized_message = message_html.replace("{{user-name}}", first_name)
 
+            # wrap_template is pure string formatting when templates are pre-fetched
             html_content = await wrap_template(
                 "Announcement",
                 personalized_message,
@@ -220,14 +223,11 @@ async def broadcast_announcement(subject: str, message_html: str) -> dict:
                 header_html=header_html,
                 footer_html=footer_html
             )
-            success = await send_email(
-                user["email"],
-                "",
-                subject,
-                html_content
-            )
-            if success:
-                count += 1
+            email_tasks.append(send_email(user["email"], "", subject, html_content))
+
+        # Send all emails in this batch concurrently
+        results = await asyncio.gather(*email_tasks, return_exceptions=True)
+        count += sum(1 for r in results if r is True)
 
         skip += batch_size
             

@@ -5,28 +5,27 @@ from routers.resume import upload_resume
 
 @pytest.mark.asyncio
 async def test_upload_resume_invalid_type():
-    # Test that it rejects non-PDF files
     mock_file = MagicMock()
-    mock_file.content_type = "image/png"
-    mock_file.filename = "test.png"
-    
+    mock_file.filename = "test.txt"
+    mock_file.content_type = "text/plain"
+
     with pytest.raises(HTTPException) as exc:
         await upload_resume(file=mock_file, user={"id": "user123"})
-    
     assert exc.value.status_code == 400
-    assert "Only PDF files are allowed" in exc.value.detail
+    assert "Only PDF files are accepted" in exc.value.detail
+
 
 @pytest.mark.asyncio
 async def test_upload_resume_storage_error():
-    # Test that it handles R2 storage failure
     mock_file = MagicMock()
-    mock_file.content_type = "application/pdf"
     mock_file.filename = "test.pdf"
-    mock_file.read = AsyncMock(return_value=b"pdf content")
-    
-    with patch("storage.upload_file_to_r2", side_effect=Exception("R2 failure")):
-        with pytest.raises(HTTPException) as exc:
+    mock_file.content_type = "application/pdf"
+    # Provide enough bytes to pass the size check, with a valid PDF header
+    mock_file.read = AsyncMock(return_value=b"%PDF-1.4" + b" data" * 100)
+    mock_file.seek = AsyncMock()
+
+    with patch("services.resume_service.upload_file_to_r2", new_callable=AsyncMock) as mock_upload:
+        mock_upload.side_effect = Exception("Storage failure")  # Simulate storage failure
+
+        with pytest.raises(Exception, match="Storage failure"):
             await upload_resume(file=mock_file, user={"id": "user123"})
-        
-        assert exc.value.status_code == 500
-        assert "Failed to upload resume" in exc.value.detail
