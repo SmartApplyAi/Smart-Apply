@@ -65,12 +65,26 @@ async def upload_resume(
         "object_key": object_key,
         "file_size": len(file_bytes),
         "content_type": "application/pdf",
-        "is_active": True,
+        "is_active": False,  # Start as False, auto-activate below if needed
         "parsed_data": parsed,
         "uploaded_at": datetime.now(timezone.utc),
         "created_at": datetime.now(timezone.utc),
     }
     result = await db.resumes.insert_one(resume_doc)
+    print("[SmartApply] Resume uploaded")
+
+    # Auto-activate if user has no active resume yet
+    existing_active = await db.resumes.find_one({
+        "user_id": user_id,
+        "is_active": True
+    })
+
+    if not existing_active:
+        await db.resumes.update_one(
+            {"_id": result.inserted_id},
+            {"$set": {"is_active": True}}
+        )
+        print("[SmartApply] Auto-activated uploaded resume")
 
     logger.info(f"Resume uploaded: {filename} for user {user_id}")
 
@@ -149,6 +163,24 @@ async def get_resume_bytes(user_id: str, object_key: str) -> tuple:
     return file_bytes, resume.get("filename", "resume.pdf")
 
 
+async def get_active_resume_bytes(user_id: str) -> tuple:
+    """Get the raw file bytes for the currently active resume."""
+    db = get_db()
+
+    resume = await db.resumes.find_one(
+        {"user_id": user_id, "is_active": True}
+    )
+    if not resume:
+        raise ValueError("No active resume found")
+
+    object_key = resume.get("object_key")
+    if not object_key:
+        raise ValueError("Active resume has no storage key")
+
+    # Reuse get_resume_bytes logic for file size check and R2 retrieval
+    return await get_resume_bytes(user_id, object_key)
+
+
 async def delete_resume(user_id: str, object_key: str) -> dict:
     """Delete a resume from R2 and MongoDB."""
     db = get_db()
@@ -166,7 +198,21 @@ async def delete_resume(user_id: str, object_key: str) -> dict:
         logger.warning(f"R2 delete failed for {object_key}: {e}")
 
     # Delete from MongoDB
+    was_active = resume.get("is_active", False)
     await db.resumes.delete_one({"_id": resume["_id"]})
+    
+    # If we deleted the active resume, activate the next most recent one
+    if was_active:
+        next_resume = await db.resumes.find_one(
+            {"user_id": user_id},
+            sort=[("uploaded_at", -1), ("_id", -1)]
+        )
+        if next_resume:
+            await db.resumes.update_one(
+                {"_id": next_resume["_id"]},
+                {"$set": {"is_active": True}}
+            )
+            print(f"[SmartApply] Auto-activated next resume after deletion: {next_resume.get('filename')}")
 
     logger.info(f"Resume deleted: {object_key} for user {user_id}")
     return {"message": "Resume deleted"}

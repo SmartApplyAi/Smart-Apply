@@ -101,8 +101,6 @@ app.add_middleware(
         "chrome-extension://" + settings.CHROME_EXTENSION_ID if settings.CHROME_EXTENSION_ID else "chrome-extension://*",
     ] + (["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"] if not settings.is_production else []),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
 )
 
 

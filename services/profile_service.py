@@ -55,12 +55,23 @@ async def get_full_profile(user_id: str) -> dict:
                 platform_data[key] = value
 
     profile_data = _clean_doc(profile) if profile else {}
+    
+    # Ensure resume fields are always initialized (Extension compatibility)
+    profile_data["resumePath"] = ""
+    profile_data["resumeUrl"] = ""
+    profile_data["resumeFileName"] = ""
+    profile_data["resumeMimeType"] = "application/pdf"
+    profile_data["resumeUploadedAt"] = ""
+
     if active_resume:
         profile_data["resumePath"] = active_resume.get("object_key", "")
         profile_data["resumeUrl"] = f"https://www.smartapplies.app/api/resume/download/{active_resume.get('object_key', '')}"
         profile_data["resumeFileName"] = active_resume.get("filename", "")
         profile_data["resumeMimeType"] = active_resume.get("content_type", "application/pdf")
         profile_data["resumeUploadedAt"] = active_resume.get("uploaded_at").isoformat() if active_resume.get("uploaded_at") else ""
+        print("[SmartApply] Injected active resume into profile")
+    else:
+        print("[SmartApply] No active resume found")
 
     return {
         "profile": profile_data,

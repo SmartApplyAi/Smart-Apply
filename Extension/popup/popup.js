@@ -56,49 +56,6 @@ function restoreLogsFromSession(logs) {
   feed.scrollTop = feed.scrollHeight;
 }
 
-// ── Naukri Log Helpers ────────────────────────────────────────────────────
-
-function addNaukriLog(text, type = '') {
-  const feed = $('naukri-log-feed');
-  if (!feed) return;
-  const placeholder = feed.querySelector('.muted');
-  if (placeholder && placeholder.textContent.includes('Waiting')) placeholder.remove();
-
-  const el = document.createElement('div');
-  el.className = `log-entry ${type}`;
-  el.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
-  feed.appendChild(el);
-  feed.scrollTop = feed.scrollHeight;
-
-  while (feed.children.length > 80) feed.removeChild(feed.firstChild);
-  
-  saveNaukriLogsToSession();
-}
-
-function saveNaukriLogsToSession() {
-  const feed = $('naukri-log-feed');
-  if (!feed) return;
-  const logs = [];
-  for (const el of feed.children) {
-    logs.push({ text: el.textContent, className: el.className });
-  }
-  chrome.storage.session.set({ naukriPopupLogs: logs });
-}
-
-function restoreNaukriLogsFromSession(logs) {
-  if (!logs || !logs.length) return;
-  const feed = $('naukri-log-feed');
-  if (!feed) return;
-  feed.innerHTML = '';
-  for (const log of logs) {
-    const el = document.createElement('div');
-    el.className = log.className;
-    el.textContent = log.text;
-    feed.appendChild(el);
-  }
-  feed.scrollTop = feed.scrollHeight;
-}
-
 // ── Status / UI Helpers ───────────────────────────────────────────────────
 
 function setStatus(status) {
@@ -124,16 +81,6 @@ function setRunningUI(running, paused = false) {
   $('btn-stop').classList.toggle('hidden', !running && !paused);
   $('step-row').classList.toggle('hidden', !running && !paused);
   setStatus(running ? (paused ? 'paused' : 'running') : 'idle');
-}
-
-function setNaukriRunningUI(running, paused = false) {
-  $('naukri-btn-start').classList.toggle('hidden', running);
-  $('naukri-btn-pause').classList.toggle('hidden', !running || paused);
-  $('naukri-btn-resume').classList.toggle('hidden', !paused);
-  $('naukri-btn-stop').classList.toggle('hidden', !running && !paused);
-  $('naukri-step-row').classList.toggle('hidden', !running && !paused);
-  // Update global status if Naukri is running
-  if (running) setStatus(paused ? 'paused' : 'running');
 }
 
 function setLoginLoading(on) {
@@ -171,12 +118,6 @@ function updateStats(applied, failed, skipped) {
   $('stat-skipped').textContent = skipped;
 }
 
-function updateNaukriStats(applied, failed, skipped) {
-  $('naukri-stat-applied').textContent = applied;
-  $('naukri-stat-failed').textContent  = failed;
-  $('naukri-stat-skipped').textContent = skipped;
-}
-
 function updateSearchTerm(term, index, total) {
   const bar = $('search-term-bar');
   const text = $('search-term-text');
@@ -191,25 +132,12 @@ function updateSearchTerm(term, index, total) {
   }
 }
 
-// ── Tab Switching ─────────────────────────────────────────────────────────
-
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    const panel = $(`panel-${btn.dataset.tab}`);
-    if (panel) panel.classList.add('active');
-  });
-});
-
 // ── Init ──────────────────────────────────────────────────────────────────
 
 async function init() {
   const response = await msg('GET_STATE', {});
-  const sessionData = await chrome.storage.session.get(['popupLogs', 'naukriPopupLogs']);
+  const sessionData = await chrome.storage.session.get(['popupLogs']);
   if (sessionData.popupLogs) restoreLogsFromSession(sessionData.popupLogs);
-  if (sessionData.naukriPopupLogs) restoreNaukriLogsFromSession(sessionData.naukriPopupLogs);
 
   const state = response?.state;
 
@@ -230,13 +158,6 @@ async function init() {
   const terms = state.profile?.search_terms;
   if (rt.currentSearchTerm) {
     updateSearchTerm(rt.currentSearchTerm, rt.currentSearchTermIndex, terms?.length || 1);
-  }
-
-  // Naukri state
-  const nrt = state.naukriRuntime;
-  if (nrt) {
-    updateNaukriStats(nrt.totalApplied || 0, nrt.totalFailed || 0, nrt.totalSkipped || 0);
-    setNaukriRunningUI(nrt.isRunning, nrt.isPaused);
   }
 }
 
@@ -319,39 +240,6 @@ $('btn-stop').addEventListener('click', async () => {
   $('confirm-panel').classList.add('hidden');
 });
 
-// ── Naukri Start ──────────────────────────────────────────────────────────
-
-$('naukri-btn-start').addEventListener('click', async () => {
-  const res = await msg('START_NAUKRI_AUTOMATION', {});
-  if (res?.ok) {
-    setNaukriRunningUI(true);
-    addNaukriLog('🚀 Opening Naukri Jobs…', 'success');
-  } else {
-    addNaukriLog(`Could not start: ${res?.reason || 'unknown'}`, 'error');
-  }
-});
-
-// ── Naukri Pause / Resume / Stop ──────────────────────────────────────────
-
-$('naukri-btn-pause').addEventListener('click', async () => {
-  await msg('PAUSE_NAUKRI_AUTOMATION', {});
-  setNaukriRunningUI(true, true);
-  addNaukriLog('Paused.', 'warn');
-});
-
-$('naukri-btn-resume').addEventListener('click', async () => {
-  await msg('RESUME_NAUKRI_AUTOMATION', {});
-  setNaukriRunningUI(true, false);
-  addNaukriLog('Resumed.', 'success');
-});
-
-$('naukri-btn-stop').addEventListener('click', async () => {
-  await msg('STOP_NAUKRI_AUTOMATION', {});
-  setNaukriRunningUI(false);
-  addNaukriLog('Stopped.', 'warn');
-  $('naukri-job-card').classList.add('hidden');
-});
-
 // ── Confirm submit (LinkedIn) ─────────────────────────────────────────────
 
 $('btn-confirm').addEventListener('click', async () => {
@@ -382,24 +270,6 @@ $('btn-copy-log').addEventListener('click', () => {
 $('btn-clear-log').addEventListener('click', () => {
   $('log-feed').innerHTML = '<div class="log-entry muted">Log cleared.</div>';
   chrome.storage.session.remove('popupLogs');
-});
-
-// ── Log clear (Naukri) ────────────────────────────────────────────────────
-
-$('naukri-btn-copy-log').addEventListener('click', () => {
-  const feed = $('naukri-log-feed');
-  const logText = Array.from(feed.children).map(el => el.textContent).join('\n');
-  navigator.clipboard.writeText(logText).then(() => {
-    const btn = $('naukri-btn-copy-log');
-    const oldText = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = oldText, 2000);
-  });
-});
-
-$('naukri-btn-clear-log').addEventListener('click', () => {
-  $('naukri-log-feed').innerHTML = '<div class="log-entry muted">Log cleared.</div>';
-  chrome.storage.session.remove('naukriPopupLogs');
 });
 
 // ── Settings ──────────────────────────────────────────────────────────────
@@ -495,44 +365,13 @@ chrome.runtime.onMessage.addListener((message) => {
       updateSearchTerm(message.term, message.index, message.total);
       break;
 
-    // ── Naukri messages ──
-    case 'NAUKRI_POPUP_LOG':
-      addNaukriLog(message.text);
-      break;
-
-    case 'NAUKRI_PROGRESS_UPDATE': {
-      const { totalApplied, totalFailed, totalSkipped } = message.payload;
-      updateNaukriStats(totalApplied, totalFailed, totalSkipped);
-      break;
-    }
-
-    case 'NAUKRI_REPORT_RESULT': {
-      const r = message.payload;
-      const icon = r.result === 'Applied' ? '✓' : r.result === 'Failed' ? '✗' : '—';
-      const type = r.result === 'Applied' ? 'success' : r.result === 'Failed' ? 'error' : 'warn';
-      addNaukriLog(`${icon} ${r.job_title || 'Unknown'} @ ${r.company || 'Unknown'} → ${r.result}`, type);
-
-      if (r.job_title) {
-        $('naukri-job-title').textContent  = r.job_title;
-        $('naukri-job-company').textContent = r.company || '';
-        $('naukri-job-card').classList.remove('hidden');
-      }
-      break;
-    }
-
-    case 'NAUKRI_AUTOMATION_ERROR':
-      setNaukriRunningUI(false);
+    case 'AUTH_EXPIRED':
+      setRunningUI(false);
       setStatus('error');
-      addNaukriLog(`Error: ${message.error || 'Unknown error'}`, 'error');
+      addLog('❌ Session expired — please log in again.', 'error');
+      // Give user a moment to see the message before redirecting to login
+      setTimeout(() => showScreen('login'), 2000);
       break;
-
-    case 'NAUKRI_AUTOMATION_FINISHED': {
-      const { totalApplied, totalFailed, totalSkipped } = message.payload;
-      setNaukriRunningUI(false);
-      setStatus('success');
-      addNaukriLog(`✓ Done! Applied: ${totalApplied} | Failed: ${totalFailed} | Skipped: ${totalSkipped}`, 'success');
-      break;
-    }
   }
 });
 
