@@ -178,31 +178,14 @@ async def get_session_logs(user_id: str, session_id: Optional[str] = None, limit
 
 # ── Extension Auth ──────────────────────────────────────────────────────────
 
+# Deprecated: use new pairing flow instead.
 async def extension_connect(
     user_id: str,
     device_name: str = "",
     ip_address: str = "",
     user_agent: str = "",
 ) -> dict:
-    """Generate an extension token for the browser extension."""
-    db = get_db()
-
-    token = generate_extension_token()
-
-    doc = {
-        "user_id": user_id,
-        "token": token,
-        "device_name": device_name or "Chrome Extension",
-        "ip_address": ip_address,
-        "user_agent": user_agent,
-        "last_active": datetime.now(timezone.utc),
-        "revoked": False,
-        "created_at": datetime.now(timezone.utc),
-    }
-    await db.extension_tokens.insert_one(doc)
-
-    logger.info(f"Extension connected for user {user_id} from {ip_address}")
-    return {"token": token, "message": "Extension connected"}
+    raise ValueError("Deprecated: use the new pairing flow endpoint /api/extension/pairing-code")
 
 
 async def extension_heartbeat(token: str, ip_address: str = "") -> dict:
@@ -222,13 +205,26 @@ async def extension_heartbeat(token: str, ip_address: str = "") -> dict:
 
 async def validate_extension_token(token: str) -> Optional[str]:
     """Validate an extension token and return the user_id."""
+    from utils import decode_token
+    from database import get_db
+    import hashlib
     db = get_db()
 
     try:
-        doc = await db.extension_tokens.find_one({"token": token, "revoked": False})
+        payload = decode_token(token)
+        if not payload or payload.get("type") != "extension":
+            return None
+
+        user_id = payload.get("sub")
+        device_id = payload.get("device_id")
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+        # Verify it hasn't been revoked in DB
+        doc = await db.extension_sessions.find_one({"user_id": user_id, "device_id": device_id, "token_hash": token_hash, "is_active": True})
         if not doc:
             return None
-        return doc["user_id"]
+
+        return user_id
     except Exception as e:
         logger.error(f"Error validating extension token: {e}")
         return None

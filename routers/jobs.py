@@ -186,32 +186,11 @@ async def extension_connect(
     body: dict = Body(...),
     user: dict = Depends(get_current_user)
 ):
-    """Generate a secure token for the browser extension."""
-    result = await automation_service.extension_connect(
-        user["id"],
-        device_name=body.get("device_name", ""),
-        ip_address=_get_ip(request),
-        user_agent=request.headers.get("user-agent", ""),
-    )
-    return result
+    """Deprecated."""
+    raise HTTPException(status_code=410, detail="Deprecated: use the new pairing flow endpoint /api/extension/pairing-code")
 
 
-@router.post("/extension/heartbeat")
-async def extension_heartbeat(request: Request):
-    """Extension heartbeat to keep the connection alive."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    
-    token = body.get("token", "")
-    if not token:
-        raise HTTPException(status_code=400, detail="Token required")
-
-    try:
-        return await automation_service.extension_heartbeat(token, _get_ip(request))
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+# Deprecated heartbeat endpoint. New one is in extension_auth.py
 
 
 @router.post("/extension/report-step")

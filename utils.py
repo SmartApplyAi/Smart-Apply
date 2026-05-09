@@ -14,7 +14,7 @@ import random
 import math
 
 # ── Password hashing ────────────────────────────────────────────────────────
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
@@ -23,6 +23,9 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
+
+def needs_rehash(hashed: str) -> bool:
+    return pwd_context.needs_update(hashed)
 
 
 # ── JWT Tokens ───────────────────────────────────────────────────────────────

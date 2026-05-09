@@ -1,91 +1,115 @@
-/* ── SmartApply API Service ─────────────────────────────────────────────── */
-const BASE_URL = '/api';
+import axios from 'axios';
+import { authStore } from '../auth/authStore';
+import { refreshManager } from '../auth/refreshManager';
 
-function getToken() {
-  return localStorage.getItem('sa_token') || '';
-}
+// We create an axios instance to easily apply interceptors
+const api = axios.create({
+  baseURL: '/api',
+});
 
-function authHeaders(extra = {}) {
-  const token = getToken();
-  const headers = { ...extra };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  return headers;
-}
+// Request interceptor: add auth token from volatile memory
+api.interceptors.request.use(
+  (config) => {
+    const token = authStore.getToken();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-async function handleResponse(resp) {
-  if (resp.status === 401) {
-    localStorage.removeItem('sa_token');
-    localStorage.removeItem('sa_user');
-    window.location.href = '/login';
-    throw { detail: 'Session expired. Please log in again.' };
+// Response interceptor: handle 401s and attempt refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If error is 401 and we haven't already retried
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      // Do not try to refresh if the failed request was already a refresh attempt
+      if (originalRequest.url === '/auth/refresh') {
+         return Promise.reject(error);
+      }
+
+      try {
+        await refreshManager.refresh();
+        // Since refresh succeeded, the new token is in authStore.
+        // Update the header and retry the original request
+        originalRequest.headers['Authorization'] = `Bearer ${authStore.getToken()}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed (e.g. refresh token expired or revoked)
+        // Clean up and potentially trigger a redirect via a global event or context
+        authStore.clear();
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
   }
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    throw data;
-  }
-  return data;
-}
+);
 
-const api = {
+// Wrapper mapping the old API methods to the new Axios instance to avoid breaking existing code
+const legacyApi = {
   async get(path) {
-    const resp = await fetch(BASE_URL + path, {
-      headers: authHeaders(),
-    });
-    return handleResponse(resp);
+    try {
+      const res = await api.get(path);
+      return res.data;
+    } catch (e) {
+      throw e.response?.data || e;
+    }
   },
 
-  async post(path, body) {
-    const resp = await fetch(BASE_URL + path, {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(body),
-    });
-    return handleResponse(resp);
+  async post(path, body, config = {}) {
+    try {
+      const res = await api.post(path, body, config);
+      return res.data;
+    } catch (e) {
+      throw e.response?.data || e;
+    }
   },
 
   async put(path, body) {
-    const resp = await fetch(BASE_URL + path, {
-      method: 'PUT',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(body),
-    });
-    return handleResponse(resp);
+    try {
+      const res = await api.put(path, body);
+      return res.data;
+    } catch (e) {
+      throw e.response?.data || e;
+    }
   },
 
   async patch(path, body) {
-    const resp = await fetch(BASE_URL + path, {
-      method: 'PATCH',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(body),
-    });
-    return handleResponse(resp);
+    try {
+      const res = await api.patch(path, body);
+      return res.data;
+    } catch (e) {
+      throw e.response?.data || e;
+    }
   },
 
   async delete(path) {
-    const resp = await fetch(BASE_URL + path, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    });
-    return handleResponse(resp);
-  },
-
-  async request(method, path, body) {
-    const resp = await fetch(BASE_URL + path, {
-      method,
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    return handleResponse(resp);
+    try {
+      const res = await api.delete(path);
+      return res.data;
+    } catch (e) {
+      throw e.response?.data || e;
+    }
   },
 
   async upload(path, formData) {
-    const resp = await fetch(BASE_URL + path, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: formData,
-    });
-    return handleResponse(resp);
-  },
+    try {
+      const res = await api.post(path, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return res.data;
+    } catch (e) {
+      throw e.response?.data || e;
+    }
+  }
 };
 
-export default api;
+export default legacyApi;

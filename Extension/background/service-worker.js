@@ -146,9 +146,17 @@ async function loadProfile(token) {
   return apiGet('/profile/me', token);
 }
 
-async function connectExtension(token) {
-  const data = await apiPost('/jobs/extension/connect', { device_name: 'Chrome Extension' }, token);
-  return data.token;
+async function pairExtension(pairingCode) {
+  const navigatorInfo = {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    language: navigator.language
+  };
+  const data = await apiPost('/extension/exchange', {
+    pairing_code: pairingCode,
+    device_info: navigatorInfo
+  }, null);
+  return data;
 }
 
 // ── Heartbeat ─────────────────────────────────────────────────────────────
@@ -166,7 +174,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     try {
       const extToken = appState.runtime.extensionToken;
       if (!extToken) return;
-      await apiPost('/jobs/extension/heartbeat', { token: extToken });
+      // We don't have a heartbeat endpoint in extension_auth yet, but we will add one, or we can just send ping on the websocket
+      // For now, keep the old endpoint or update it. Since we deprecated the old token system, let's change to the new one.
+      await apiPost('/extension/heartbeat', { token: extToken }, null);
     } catch (e) {
       console.warn('[SmartApply SW] Heartbeat failed:', e.message);
     }
@@ -611,22 +621,26 @@ async function handleMessage(message, sender) {
         console.warn('[SmartApply SW] Failed to fetch resumes:', err.message);
       }
 
-      const extToken = await connectExtension(loginData.access_token);
-      appState.runtime.extensionToken = extToken;
-      startHeartbeat(extToken);
-      await saveState();
+      // ConnectExtension removed. We no longer auto-pair via web login credentials
+      // The user must manually enter a pairing code from the web UI to link the extension
+      return { ok: true, user: loginData.user, paired: false };
+    }
 
-      chrome.tabs.query({ url: ['*://localhost/*', '*://*.smartapply.ai/*', '*://smartapply.ai/*', '*://*.smartapplies.app/*', '*://smartapplies.app/*'] }, (tabs) => {
-        for (const tab of tabs) {
-          chrome.tabs.sendMessage(tab.id, {
-            type: 'SET_WEBAPP_AUTH_FLAG',
-            token: loginData.access_token,
-            user: loginData.user
-          }).catch(() => {});
-        }
-      });
+    case 'PAIR_EXTENSION': {
+      try {
+        const { pairingCode } = message;
+        if (!pairingCode) return { ok: false, error: 'Pairing code required' };
 
-      return { ok: true, user: loginData.user };
+        const data = await pairExtension(pairingCode);
+        if (!data.extension_token) throw new Error("Invalid response from server");
+
+        appState.runtime.extensionToken = data.extension_token;
+        startHeartbeat(data.extension_token);
+        await saveState();
+        return { ok: true, message: 'Extension paired successfully' };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
     }
 
     case 'LOGOUT': {

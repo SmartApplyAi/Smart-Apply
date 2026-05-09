@@ -10,7 +10,7 @@ pymongo==4.12.1
 
 # ── Auth & Security ──────────────────────────────────
 python-jose[cryptography]==3.4.0
-passlib[bcrypt]==1.7.4
+passlib[argon2]==1.7.4
 bcrypt==4.3.0
 
 # ── Validation & Settings ────────────────────────────
@@ -49,3 +49,6 @@ cryptography==44.0.2
 
 # ── Monitoring ───────────────────────────────────────
 psutil==5.9.8
+redis>=5.2.0
+argon2-cffi>=23.1.0
+websockets>=12.0

@@ -5,11 +5,19 @@ import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 
 export default function ProtectedLayout() {
-  const { isAuthenticated, user } = useAuth();
+  const { authState, isAuthenticated, user } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  if (!isAuthenticated) {
+  if (authState === 'loading') {
+    return (
+      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
+  if (authState === 'unauthenticated') {
     return <Navigate to="/login" replace />;
   }
 
