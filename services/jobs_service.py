@@ -162,6 +162,8 @@ async def create_application(user_id: str, data: dict) -> dict:
     company = data.get("company", "").strip()
     job_link = data.get("job_link") or data.get("job_url")
     
+    existing = None
+
     # 1. Deduplication check (avoid literal "unknown" matching)
     query = {"user_id": user_id}
     if job_title and job_title != "unknown" and company and company != "unknown":

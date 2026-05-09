@@ -7,7 +7,7 @@ const WebSocketContext = createContext(null);
 
 export function WebSocketProvider({ children }) {
   const { authState, logout } = useAuth();
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const ws = useRef(null);
   const reconnectTimeout = useRef(null);
   const pingInterval = useRef(null);
@@ -51,13 +51,13 @@ export function WebSocketProvider({ children }) {
             case 'SESSION_REVOKED':
               shouldReconnect.current = false; // Prevent raccoon behavior
               socket.close();
-              addToast('Your session was revoked.', 'error');
+              showToast('Your session was revoked.', 'error');
               logout();
               break;
             case 'NOTIFICATION':
             case 'USER_NOTIFICATION':
               if (data.payload?.message) {
-                addToast(data.payload.message, 'info');
+                showToast(data.payload.message, 'info');
               }
               break;
             // Add other typed events here

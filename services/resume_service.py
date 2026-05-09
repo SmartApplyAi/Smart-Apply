@@ -254,10 +254,13 @@ async def activate_resume_by_key(user_id: str, object_key: str) -> dict:
             [{"$set": {"is_active": {"$eq": ["$object_key", object_key]}}}]
         )
     except Exception as e:
-        logger.warning(f"Atomic resume activation failed (pipeline update): {e}. Falling back to two-step update.")
-        # Fallback for older MongoDB versions
-        await db.resumes.update_many({"user_id": user_id}, {"$set": {"is_active": False}})
-        await db.resumes.update_one({"user_id": user_id, "object_key": object_key}, {"$set": {"is_active": True}})
+        logger.warning(f"Atomic resume activation failed (pipeline update): {e}. Falling back to bulk update.")
+        # Fallback for older MongoDB versions using bulk_write for atomicity
+        from pymongo import UpdateMany, UpdateOne
+        await db.resumes.bulk_write([
+            UpdateMany({"user_id": user_id}, {"$set": {"is_active": False}}),
+            UpdateOne({"user_id": user_id, "object_key": object_key}, {"$set": {"is_active": True}})
+        ])
 
     return {"message": "Resume activated"}
 

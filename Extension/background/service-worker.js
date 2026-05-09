@@ -452,13 +452,16 @@ async function navigateAndStart(state, resumeCounters = null) {
 
     // Step 4: Send START_AUTOMATION (include resume counters if switching terms)
     notifyPopup('LOG', '✓ Connected. Starting automation…');
+
+    appState.runtime.isStartingAutomation = false;
+    saveState().catch(() => {});
+
     chrome.tabs.sendMessage(tabId, { type: 'START_AUTOMATION', state, resumeCounters }, (res) => {
       if (chrome.runtime.lastError) {
         console.error('[SmartApply SW] START_AUTOMATION failed:', chrome.runtime.lastError.message);
         appState.runtime.activeAutomationTabId = null; // CLEAR LOCK ON SEND FAILURE
+        saveState().catch(() => {});
       }
-      appState.runtime.isStartingAutomation = false;
-      saveState().catch(() => {});
     });
   } catch (err) {
     console.error('[SmartApply SW] navigateAndStart fatal error:', err);

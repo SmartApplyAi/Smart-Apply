@@ -39,9 +39,9 @@ async def _get_api_key() -> str:
 async def reset_keys_cycle():
     """Reset the API key cycle (useful when keys are updated in settings)."""
     global _keys_cycle
+    # 1. Clear the cached list in settings first (async)
+    await settings.reset_nim_cache()
     async with _keys_lock:
-        # 1. Clear the cached list in settings first (async)
-        await settings.reset_nim_cache()
         # 2. Null out the cycle so it's recreated on next call
         _keys_cycle = None
     logger.info("NVIDIA NIM API key cycle reset.")
