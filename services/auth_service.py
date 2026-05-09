@@ -56,7 +56,7 @@ async def register_user(email: str, password: str) -> dict:
             return {"message": "Verification code resent to your email"}
 
     # Create user
-    role = "admin" if email.lower().strip() == "kovvurinandivardhanreddy2007@gmail.com" else "user"
+    role = "user"
     user_doc = {
         "email": email.lower().strip(),
         "password_hash": hash_password(password),
@@ -186,9 +186,7 @@ async def login_user(email: str, password: str, ip: str = "") -> dict:
     has_profile = profile is not None and bool(profile.get("first_name")) and bool(profile.get("phone_number"))
 
     # Generate tokens
-    role = "admin" if user["email"].lower().strip() == "kovvurinandivardhanreddy2007@gmail.com" else user.get("role", "user")
-    if role == "admin" and user.get("role") != "admin":
-        await db.users.update_one({"_id": user["_id"]}, {"$set": {"role": "admin"}})
+    role = user.get("role", "user")
     
     token_data = {
         "sub": user_id,
@@ -249,7 +247,7 @@ async def google_login_user(email: str, name: str, ip: str = "") -> dict:
     
     if not user:
         # Register new user
-        role = "admin" if email.lower().strip() == "kovvurinandivardhanreddy2007@gmail.com" else "user"
+        role = "user"
         user_doc = {
             "email": email,
             "password_hash": "", # No password for Google users
@@ -297,9 +295,7 @@ async def google_login_user(email: str, name: str, ip: str = "") -> dict:
     has_profile = profile is not None and bool(profile.get("first_name"))
     
     # Generate tokens
-    role = "admin" if user["email"].lower().strip() == "kovvurinandivardhanreddy2007@gmail.com" else user.get("role", "user")
-    if role == "admin" and user.get("role") != "admin":
-        await db.users.update_one({"_id": user["_id"]}, {"$set": {"role": "admin"}})
+    role = user.get("role", "user")
         
     token_data = {
         "sub": user_id,
