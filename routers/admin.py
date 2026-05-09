@@ -147,3 +147,28 @@ async def update_email_template(template_id: str, payload: dict = Body(...), adm
     return await admin_service.update_email_template(template_id, payload.get("content", ""))
 
 
+class MailConfigBody(BaseModel):
+    api_key: Optional[str] = None
+    sender_email: Optional[str] = None
+
+@router.get("/admin/mail-config")
+async def get_mail_config(admin: dict = Depends(require_admin)):
+    """Get the current Brevo mail configuration."""
+    return {
+        "api_key": settings.BREVO_API_KEY[:6] + "..." if settings.BREVO_API_KEY else None,
+        "sender_email": settings.BREVO_SENDER_EMAIL
+    }
+
+@router.put("/admin/mail-config")
+async def update_mail_config(
+    body: MailConfigBody,
+    admin: dict = Depends(require_admin)
+):
+    """Update the Brevo mail configuration."""
+    await admin_service.update_mail_config(
+        api_key=body.api_key,
+        sender_email=body.sender_email
+    )
+    return {"message": "Mail configuration updated successfully"}
+
+
