@@ -565,10 +565,8 @@ async function handleMessage(message, sender) {
 
     // ── Secure Authenticated Resume Fetch ─────────────────────────────────
     case 'FETCH_RESUME': {
-      console.log('[SmartApply] Resume fetch initiated');
-
-      // FIX A — Validate token availability
       const storedSession = await chrome.storage.session.get('userToken');
+
       const resumeToken =
         storedSession.userToken ||
         appState.runtime.token ||
@@ -578,139 +576,139 @@ async function handleMessage(message, sender) {
         console.warn('[SmartApply] Resume fetch failed: Missing auth token');
         return { ok: false, error: 'missing_token' };
       }
-      console.log('[SmartApply] Auth token validated');
 
-      const resumeProfile = appState.profile;
-      let resumeUrl = resumeProfile.resumeUrl || '';
-      if (!resumeUrl && resumeProfile.resumePath) {
-        const encodedPath = resumeProfile.resumePath.split('/').map(encodeURIComponent).join('/');
-        resumeUrl = `${API_BASE}/resume/download/${encodedPath}`;
-      }
-      if (!resumeUrl) {
-        console.warn('[SmartApply] Resume fetch failed: No resumeUrl or resumePath in profile');
-        return { ok: false, error: 'no_resume_url' };
-      }
+      // Direct authenticated resume stream endpoint
+      const directUrl = `${API_BASE}/resume/stream-active`;
 
-      // ── Step 1: Resolve the signed download URL from our API ────────────
-      // We set redirect:'manual' so fetch doesn't blindly follow the 302.
-      // If the backend returns a direct 200 (streaming), we fall through normally.
-      const maxAttempts = 3;
-      let lastFetchError = null;
-      let resolvedUrl = resumeUrl; // may be overridden by 302 Location
       let rawBytes = null;
+      const maxAttempts = 3;
+      let lastError = null;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        let apiResp;
         try {
-          const ctrl1 = new AbortController();
-          const t1 = setTimeout(() => ctrl1.abort(), 20000);
+          const ctrl = new AbortController();
+
+          let timeout;
+          let resp;
+
           try {
-            apiResp = await fetch(resolvedUrl, {
+            timeout = setTimeout(() => ctrl.abort(), 30000);
+
+            resp = await fetch(directUrl, {
               method: 'GET',
-              redirect: 'manual', // capture the 302 ourselves
               headers: {
                 Authorization: `Bearer ${resumeToken}`,
-                Accept: 'application/pdf,application/octet-stream,*/*',
+                Accept: 'application/pdf,*/*',
               },
-              signal: ctrl1.signal,
+              signal: ctrl.signal,
             });
-          } finally { clearTimeout(t1); }
-        } catch (err) {
-          lastFetchError = err.message;
-          console.warn(`[SmartApply] Resume API call network error (attempt ${attempt}/${maxAttempts}):`, err.message);
-          if (attempt < maxAttempts) { await sleep(Math.pow(2, attempt) * 1000); continue; }
-          return { ok: false, error: 'network_error', detail: lastFetchError };
-        }
-
-        if (apiResp.status === 401 || apiResp.status === 403) {
-          console.error(`[SmartApply] Resume fetch auth expired (HTTP ${apiResp.status})`);
-          chrome.runtime.sendMessage({ type: 'AUTH_EXPIRED' }).catch(() => {});
-          return { ok: false, error: 'auth_expired', status: apiResp.status };
-        }
-        if (apiResp.status === 404) {
-          console.error('[SmartApply] Resume fetch failed: File not found (404)');
-          return { ok: false, error: 'not_found' };
-        }
-
-        // 302 redirect → extract the R2 signed URL from Location header
-        if (apiResp.type === 'opaqueredirect' || apiResp.status === 302 || apiResp.status === 301 || apiResp.status === 0) {
-          let signedUrl = apiResp.headers.get('Location');
-          
-          // If status is 0 (opaque), we can't read Location, but extensions with host_permissions
-          // for the API origin should get a non-opaque response. 
-          if (!signedUrl) {
-            console.error('[SmartApply] Resume fetch: Could not read redirect Location. Checking for status 0 fallback...');
-            return { ok: false, error: 'missing_redirect_location' };
+          } finally {
+            if (timeout) clearTimeout(timeout);
           }
 
-          // Ensure URL is absolute (resolve relative redirects)
-          signedUrl = new URL(signedUrl, resolvedUrl).href;
-          console.log('[SmartApply] Resume fetch: Following resolved URL:', signedUrl);
+          if (resp.status === 401 || resp.status === 403) {
+            chrome.runtime.sendMessage({
+              type: 'AUTH_EXPIRED',
+            }).catch(() => {});
 
-          // ── Step 2: Fetch raw bytes from R2 WITHOUT auth header ──────────
-          try {
-            const ctrl2 = new AbortController();
-            const t2 = setTimeout(() => ctrl2.abort(), 30000);
-            let r2Resp;
-            try {
-              r2Resp = await fetch(signedUrl, {
-                method: 'GET',
-                // Do NOT include Authorization — R2 signed URLs use query-string auth
-                signal: ctrl2.signal,
-              });
-            } finally { clearTimeout(t2); }
+            return {
+              ok: false,
+              error: 'auth_expired',
+              status: resp.status,
+            };
+          }
 
-            if (!r2Resp.ok) {
-              console.error(`[SmartApply] R2 fetch failed: HTTP ${r2Resp.status}`);
-              if (attempt < maxAttempts) { await sleep(Math.pow(2, attempt) * 1000); continue; }
-              return { ok: false, error: 'r2_fetch_failed', status: r2Resp.status };
+          if (resp.status === 404) {
+            return {
+              ok: false,
+              error: 'not_found',
+            };
+          }
+
+          if (!resp.ok) {
+            lastError = `HTTP ${resp.status}`;
+
+            if (attempt < maxAttempts) {
+              await sleep(Math.pow(2, attempt) * 1000);
+              continue;
             }
-            rawBytes = await r2Resp.arrayBuffer();
-          } catch (err) {
-            lastFetchError = err.message;
-            console.warn(`[SmartApply] R2 fetch error (attempt ${attempt}/${maxAttempts}):`, err.message);
-            if (attempt < maxAttempts) { await sleep(Math.pow(2, attempt) * 1000); continue; }
-            return { ok: false, error: 'r2_network_error', detail: lastFetchError };
-          }
-          break; // success
-        }
 
-        // Direct 200 response (streaming, no redirect) — read bytes directly
-        if (apiResp.ok) {
-          try {
-            rawBytes = await apiResp.arrayBuffer();
-          } catch (err) {
-            console.error('[SmartApply] Resume fetch failed: body read error:', err.message);
-            return { ok: false, error: 'body_read_error', detail: err.message };
+            return {
+              ok: false,
+              error: 'server_error',
+              status: resp.status,
+            };
           }
-          break; // success
-        }
 
-        lastFetchError = `HTTP ${apiResp.status}`;
-        console.warn(`[SmartApply] Resume fetch server error (attempt ${attempt}/${maxAttempts}): ${lastFetchError}`);
-        if (attempt < maxAttempts) { await sleep(Math.pow(2, attempt) * 1000); continue; }
-        return { ok: false, error: 'server_error', status: apiResp.status };
+          rawBytes = await resp.arrayBuffer();
+          break;
+        } catch (err) {
+          lastError = err?.message || 'Unknown network error';
+
+          console.error(
+            '[SmartApply] Resume stream failed:',
+            lastError
+          );
+
+          if (attempt < maxAttempts) {
+            await sleep(Math.pow(2, attempt) * 1000);
+            continue;
+          }
+
+          return {
+            ok: false,
+            error: 'network_error',
+            detail: lastError,
+          };
+        }
       }
 
       if (!rawBytes) {
-        console.error('[SmartApply] Resume fetch failed after all retries:', lastFetchError);
-        return { ok: false, error: 'max_retries_exceeded', detail: lastFetchError };
+        return {
+          ok: false,
+          error: 'max_retries_exceeded',
+          detail: lastError,
+        };
       }
 
-      // Encode bytes as base64 for transport through chrome.runtime.sendMessage
       try {
         const uint8 = new Uint8Array(rawBytes);
+
         let binary = '';
-        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+
+        for (let i = 0; i < uint8.length; i++) {
+          binary += String.fromCharCode(uint8[i]);
+        }
+
         const base64 = btoa(binary);
-        const mimeType = resumeProfile.resumeMimeType || 'application/pdf';
-        const fileName = resumeProfile.resumeFileName || 'resume.pdf';
-        console.log('[SmartApply] Resume fetch authorized');
-        console.log(`[SmartApply] Resume fetch success — ${rawBytes.byteLength} bytes, file: ${fileName}`);
-        return { ok: true, base64, mimeType, fileName, byteLength: rawBytes.byteLength };
+
+        const profile = appState.profile || {};
+
+        const mimeType =
+          profile.resumeMimeType ||
+          'application/pdf';
+
+        const fileName =
+          profile.resumeFileName ||
+          'resume.pdf';
+
+        console.log(
+          `[SmartApply] Resume fetch success — ${rawBytes.byteLength} bytes, file: ${fileName}`
+        );
+
+        return {
+          ok: true,
+          base64,
+          mimeType,
+          fileName,
+          byteLength: rawBytes.byteLength,
+        };
       } catch (err) {
-        console.error('[SmartApply] Resume fetch failed: base64 encode error:', err.message);
-        return { ok: false, error: 'encode_error', detail: err.message };
+        return {
+          ok: false,
+          error: 'encode_error',
+          detail: err?.message || 'Base64 encoding failed',
+        };
       }
     }
 

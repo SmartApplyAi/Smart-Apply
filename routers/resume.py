@@ -12,6 +12,37 @@ import io
 router = APIRouter(prefix="/resume", tags=["Resume"])
 
 
+@router.get("/stream-active")
+async def stream_active_resume(user: dict = Depends(get_current_user)):
+    """Retrieve and stream the user's currently active resume directly."""
+    try:
+        from services.audit_service import log_action
+        from urllib.parse import quote
+        
+        file_bytes, filename = await resume_service.get_active_resume_bytes(user["id"])
+        
+        # Proper header encoding for filenames with special characters (RFC 5987)
+        encoded_filename = quote(filename)
+        
+        await log_action(user["id"], "stream_active_resume", "resume", metadata={"filename": filename})
+        
+        return StreamingResponse(
+            io.BytesIO(file_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=\"{filename}\"; filename*=UTF-8''{encoded_filename}",
+                "Content-Length": str(len(file_bytes)),
+                "Cache-Control": "no-store",
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        from loguru import logger
+        logger.error(f"Error streaming active resume: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during resume streaming")
+
+
 @router.post("/upload")
 async def upload_resume(
     file: UploadFile = File(...),
