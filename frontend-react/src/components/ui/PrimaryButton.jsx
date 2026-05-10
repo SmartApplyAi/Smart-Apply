@@ -58,7 +58,7 @@ export default function PrimaryButton({
   };
 
   const hoverEffect = {
-    scale: 1.03,
+    scale: 1.01,
     boxShadow: variant === 'primary'
       ? '0 8px 32px rgba(59, 130, 246, 0.45)'
       : '0 4px 16px rgba(255,255,255,0.08)',
