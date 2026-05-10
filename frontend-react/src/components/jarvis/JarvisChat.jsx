@@ -62,6 +62,59 @@ const SUGGESTIONS = [
   '🚀 How SmartApply works',
 ];
 
+const BotMessage = ({ content, isNew }) => {
+  const [displayedHtml, setDisplayedHtml] = useState(isNew ? '' : renderMarkdown(content));
+  const [isTyping, setIsTyping] = useState(isNew);
+
+  useEffect(() => {
+    if (!isNew) return;
+
+    let i = 0;
+    let isMounted = true;
+    const fullHtml = renderMarkdown(content);
+    
+    const typeWriter = () => {
+      if (!isMounted) return;
+      if (i < fullHtml.length) {
+        if (fullHtml.charAt(i) === '<') {
+          const closeIdx = fullHtml.indexOf('>', i);
+          if (closeIdx !== -1) i = closeIdx + 1;
+          else i++;
+        } else if (fullHtml.charAt(i) === '&') {
+          const closeIdx = fullHtml.indexOf(';', i);
+          if (closeIdx !== -1 && closeIdx - i < 10) i = closeIdx + 1;
+          else i++;
+        } else {
+          i++;
+        }
+        
+        setDisplayedHtml(fullHtml.substring(0, i));
+        
+        const messagesArea = document.getElementById('jarvis-messages-area');
+        if (messagesArea) {
+          messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        setTimeout(typeWriter, 10 + Math.random() * 15);
+      } else {
+        setIsTyping(false);
+        setDisplayedHtml(fullHtml);
+      }
+    };
+    
+    setTimeout(typeWriter, 400);
+    
+    return () => { isMounted = false; };
+  }, [content, isNew]);
+
+  return (
+    <div 
+      className={isTyping ? 'typing-active' : ''}
+      dangerouslySetInnerHTML={{ __html: displayedHtml }} 
+    />
+  );
+};
+
 export default function JarvisChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -137,7 +190,7 @@ export default function JarvisChat() {
 
     try {
       const reply = await callBackendAPI(newMessages);
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: reply, isNew: true }]);
     } catch (err) {
       const errorMsg = err?.detail || err?.message || 'Something went wrong. Please try again.';
       setMessages(prev => [
@@ -237,7 +290,7 @@ export default function JarvisChat() {
                   {msg.role === 'user' ? (
                     msg.content
                   ) : (
-                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+                    <BotMessage content={msg.content} isNew={msg.isNew} />
                   )}
                 </div>
               );
