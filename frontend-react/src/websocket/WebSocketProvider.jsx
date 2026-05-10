@@ -16,7 +16,9 @@ export function WebSocketProvider({ children }) {
   const shouldReconnect = useRef(true);
   const listenersRef = useRef({});
   const [lastEvent, setLastEvent] = useState(null);
-  const [liveFeed, setLiveFeed] = useState([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [liveFeed, setLiveFeed] = useState([]); // List of recent bot activities
+  const [recommendedJobs, setRecommendedJobs] = useState([]); // List of high-match external jobsc event types
 
   // Subscribe to specific event types
   const subscribe = useCallback((eventType, callback) => {
@@ -31,6 +33,12 @@ export function WebSocketProvider({ children }) {
         (cb) => cb !== callback
       );
     };
+  }, []);
+
+  const sendMessage = useCallback((type, payload) => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type, payload }));
+    }
   }, []);
 
   const connect = async () => {
@@ -48,6 +56,7 @@ export function WebSocketProvider({ children }) {
 
       socket.onopen = () => {
         reconnectAttempts.current = 0;
+        setIsConnected(true);
 
         // Setup ping interval
         pingInterval.current = setInterval(() => {
@@ -83,6 +92,12 @@ export function WebSocketProvider({ children }) {
               const scoreText = p.match_score != null ? ` (${p.match_score}% match)` : '';
               showToast(`✅ Applied: ${p.job_title} at ${p.company}${scoreText}`, 'success');
               setLiveFeed(prev => [{...p, type: 'applied', receivedAt: Date.now()}, ...prev].slice(0, 50));
+              break;
+            }
+            case 'JOB_RECOMMENDED': {
+              const p = data.payload || {};
+              showToast(`🎯 High Match Found: ${p.job_title} at ${p.company} (${p.match_score}%)`, 'success');
+              setRecommendedJobs(prev => [{...p, receivedAt: Date.now()}, ...prev].slice(0, 20));
               break;
             }
             case 'JOB_FAILED': {
@@ -141,6 +156,7 @@ export function WebSocketProvider({ children }) {
       };
 
       socket.onclose = () => {
+        setIsConnected(false);
         clearInterval(pingInterval.current);
         ws.current = null;
 
@@ -177,6 +193,7 @@ export function WebSocketProvider({ children }) {
       clearTimeout(reconnectTimeout.current);
       clearInterval(pingInterval.current);
       setLiveFeed([]);
+      setRecommendedJobs([]);
     }
 
     return () => {
@@ -187,15 +204,8 @@ export function WebSocketProvider({ children }) {
     };
   }, [authState]);
 
-  const value = {
-    socket: ws.current,
-    lastEvent,
-    liveFeed,
-    subscribe,
-  };
-
   return (
-    <WebSocketContext.Provider value={value}>
+    <WebSocketContext.Provider value={{ isConnected, sendMessage, liveFeed, recommendedJobs, subscribe }}>
       {children}
     </WebSocketContext.Provider>
   );

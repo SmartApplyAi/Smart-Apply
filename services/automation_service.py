@@ -336,6 +336,56 @@ async def extension_report_step(
     return {"message": "Step logged"}
 
 
+async def _process_manual_recommendation(user_id: str, result_data: dict):
+    """Background task to compute match score for skipped jobs and recommend them if highly matched."""
+    from services.ai_service import compute_match_score
+    from services.jobs_service import create_application
+    from websocket.pubsub import publish_job_event
+    from websocket.events import JOB_RECOMMENDED
+    
+    try:
+        job_description = result_data.get("job_description", "").strip()
+        job_title = result_data.get("job_title", "").strip()
+        company = result_data.get("company", "").strip()
+        
+        if not job_description or not job_title or not company:
+            return
+            
+        resume_text = await _get_user_resume_text(user_id)
+        if not resume_text:
+            return
+            
+        match_result = await compute_match_score(resume_text, job_description)
+        match_score = match_result.get("match_score", 0)
+        
+        if match_score >= 80:
+            logger.info(f"High match external job found: {job_title} ({match_score}%)")
+            
+            # Create a localized copy of the data for DB saving
+            rec_data = dict(result_data)
+            rec_data["match_score"] = match_score
+            rec_data["matched_skills"] = match_result.get("matched_skills", [])
+            rec_data["missing_skills"] = match_result.get("missing_skills", [])
+            rec_data["skill_gap"] = match_result.get("skill_gap", {})
+            rec_data["result"] = "Recommended"
+            
+            await create_application(user_id, rec_data)
+            
+            event_payload = {
+                "job_title": job_title,
+                "company": company,
+                "platform": rec_data.get("platform", "linkedin"),
+                "result": "Recommended",
+                "match_score": match_score,
+                "job_url": rec_data.get("job_url", ""),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            await publish_job_event(user_id, JOB_RECOMMENDED, event_payload)
+            
+    except Exception as e:
+        logger.warning(f"Failed to process manual recommendation: {e}")
+
+
 async def extension_report_result(user_id: str, session_id: str, result_data: dict) -> dict:
     """Report a completed application result from the extension."""
     db = get_db()
@@ -394,6 +444,10 @@ async def extension_report_result(user_id: str, session_id: str, result_data: di
 
     if result_type == "Applied" and job_title and company:
         await create_application(user_id, result_data)
+    elif result_type == "Skipped" and result_data.get("reason") in ("external_apply", "no_easy_apply"):
+        import asyncio
+        asyncio.create_task(_process_manual_recommendation(user_id, result_data))
+        logger.info(f"Automation skipped job {job_title}. Triggered background recommendation check.")
     elif result_type != "Applied":
         logger.info(f"Automation finished with {result_type} for user {user_id}. Skipping database application record.")
     else:

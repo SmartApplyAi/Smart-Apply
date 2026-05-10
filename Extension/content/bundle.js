@@ -3097,8 +3097,10 @@ async function startAutomation(state, resumeCounters = null) {
         continue;
       }
 
-      const total = automation.totalApplied + automation.totalFailed + automation.totalSkipped;
-      if (total >= maxApps) {
+      // Only count successfully applied jobs towards the limit
+      // But add a safety limit of 300 total attempts to avoid infinite loops
+      const totalAttempts = automation.totalApplied + automation.totalFailed + automation.totalSkipped;
+      if (automation.totalApplied >= maxApps || totalAttempts >= 300) {
         logger.info(`Max applications (${maxApps}) reached. Stopping.`);
         break;
       }
@@ -3298,12 +3300,26 @@ async function clickJobCard(card) {
     6000
   );
 
-  // Extract job description for AI context
-  const jdEl = document.querySelector('.jobs-description__content, .jobs-box__html-content, #job-details');
-  if (jdEl) {
-    automation.currentJobDescription = jdEl.innerText.trim();
-  } else {
-    automation.currentJobDescription = '';
+  // Extract job description for AI context using robust selectors
+  const selectors = [
+    '.jobs-description-content__text',
+    '.jobs-description__content',
+    '.jobs-box__html-content',
+    '.jobs-description',
+    '#job-details'
+  ];
+  
+  automation.currentJobDescription = '';
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el && el.innerText.trim().length > 50) {
+      automation.currentJobDescription = el.innerText.trim().substring(0, 5000);
+      break;
+    }
+  }
+  
+  if (!automation.currentJobDescription) {
+    logger.warn('[SmartApply] Failed to extract Job Description from the right panel.');
   }
 }
 
@@ -3369,6 +3385,11 @@ async function clickEasyApplyAndProcess(state) {
   }
 
   if (!easyApplyBtn) {
+    const titleEl = document.querySelector('.jobs-unified-top-card__job-title, h1.t-24, .job-details-jobs-unified-top-card__job-title');
+    const companyEl = document.querySelector('.jobs-unified-top-card__company-name a, .jobs-details-top-card__company-url');
+    const jobTitle = titleEl?.textContent?.trim() || 'Unknown';
+    const company = companyEl?.textContent?.trim() || 'Unknown';
+    
     // Check if there's any apply button (external) to explain the skip
     const anyApplyBtn = document.querySelector(
       "#jobs-apply-button-id, button[data-live-test-job-apply-button], button.jobs-apply-button"
@@ -3381,6 +3402,21 @@ async function clickEasyApplyAndProcess(state) {
       logger.warn('No Easy Apply button found');
       chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: '⚠️ Skip: No Easy Apply button on this job' }).catch(()=>{});
     }
+    
+    // Report skipped job for manual recommendation pipeline
+    reportResult({
+      result: 'Skipped',
+      reason: 'no_easy_apply',
+      job_title: jobTitle,
+      company: company,
+      job_url: window.location.href,
+      job_link: window.location.href,
+      job_description: automation.currentJobDescription || '',
+      platform: 'linkedin',
+      session_id: automation.sessionId,
+      token: state.runtime?.token || '',
+    });
+    
     return false;
   }
 
@@ -3392,9 +3428,28 @@ async function clickEasyApplyAndProcess(state) {
     easyApplyBtn.hasAttribute('data-live-test-job-apply-button');
   const isEasyApply = btnLabel.includes('easy apply') || btnText.toLowerCase().includes('easy apply') || btnLabel.includes('linkedin apply');
 
+  const titleEl = document.querySelector('.jobs-unified-top-card__job-title, h1.t-24, .job-details-jobs-unified-top-card__job-title');
+  const companyEl = document.querySelector('.jobs-unified-top-card__company-name a, .jobs-details-top-card__company-url');
+  const jobTitle = titleEl?.textContent?.trim() || 'Unknown';
+  const company = companyEl?.textContent?.trim() || 'Unknown';
+
   if (!isEasyApply && !isStableAttrMatch) {
     logger.warn('Button is not Easy Apply:', btnText);
     chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `↪ External apply job — skipping (button: ${btnText})` }).catch(()=>{});
+    
+    reportResult({
+      result: 'Skipped',
+      reason: 'external_apply',
+      job_title: jobTitle,
+      company: company,
+      job_url: window.location.href,
+      job_link: window.location.href,
+      job_description: automation.currentJobDescription || '',
+      platform: 'linkedin',
+      session_id: automation.sessionId,
+      token: state.runtime?.token || '',
+    });
+    
     return false;
   }
 
@@ -3406,14 +3461,23 @@ async function clickEasyApplyAndProcess(state) {
     if (!btnLabel.includes('easy apply') && !btnLabel.includes('linkedin apply') && !btnText.toLowerCase().includes('apply')) {
       logger.info('Stable-attr button is external apply:', btnText, btnLabel);
       chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `↪ External apply — skipping (button: "${btnText}")` }).catch(()=>{});
+      
+      reportResult({
+        result: 'Skipped',
+        reason: 'external_apply',
+        job_title: jobTitle,
+        company: company,
+        job_url: window.location.href,
+        job_link: window.location.href,
+        job_description: automation.currentJobDescription || '',
+        platform: 'linkedin',
+        session_id: automation.sessionId,
+        token: state.runtime?.token || '',
+      });
+      
       return false;
     }
   }
-
-  const titleEl = document.querySelector('.jobs-unified-top-card__job-title, h1.t-24, .job-details-jobs-unified-top-card__job-title');
-  const companyEl = document.querySelector('.jobs-unified-top-card__company-name a, .jobs-details-top-card__company-url');
-  const jobTitle = titleEl?.textContent?.trim() || 'Unknown';
-  const company = companyEl?.textContent?.trim() || 'Unknown';
 
   state.job = {
     title: jobTitle,
@@ -3477,6 +3541,7 @@ async function processOneApplication(state) {
     platform: 'linkedin',
     session_id: automation.sessionId,
     token: state.runtime?.token || '',
+    job_description: automation.currentJobDescription || '',
   };
 
   if (result.result === 'Applied') {

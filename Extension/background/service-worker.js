@@ -293,6 +293,10 @@ function buildLinkedInSearchUrl(profile, termIndex = -1) {
     if (role) params.set('keywords', role);
   }
 
+  // Automatically filter to "Easy Apply" jobs
+  params.set('f_LF', 'f_AL');
+
+  // Location parameters
   const loc = profile.search_location || profile.current_city || 'India';
   params.set('location', loc);
 

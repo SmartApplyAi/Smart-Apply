@@ -38,6 +38,7 @@ export default function DashboardPage() {
   const [history, setHistory] = useState({ applications: [], total: 0, pages: 0 });
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
+  const [pastRecommendations, setPastRecommendations] = useState([]);
   const searchTimer = useRef(null);
 
   useEffect(() => {
@@ -71,7 +72,14 @@ export default function DashboardPage() {
     } finally { setHistoryLoading(false); }
   }, [historyPage, historyFilter, debouncedSearchQuery]);
 
-  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  const loadRecommendations = useCallback(async () => {
+    try {
+      const data = await api.get('/jobs/history?result=Recommended&limit=5');
+      setPastRecommendations(data.applications || []);
+    } catch { /* silently fail */ }
+  }, []);
+
+  useEffect(() => { loadDashboard(); loadRecommendations(); }, [loadDashboard, loadRecommendations]);
   useEffect(() => { if (activeTab === 'history') loadHistory(); }, [activeTab, loadHistory]);
 
   // WebSocket-driven reactive updates (replace polling when WS connected)
@@ -126,6 +134,14 @@ export default function DashboardPage() {
 
   // Live feed from WebSocket
   const liveFeed = wsCtx?.liveFeed || [];
+  
+  // Combine real-time recommendations with past recommendations
+  const recommendedJobs = [...(wsCtx?.recommendedJobs || []), ...pastRecommendations].reduce((acc, job) => {
+    if (!acc.find(j => j.id === job.id || j.job_url === job.job_url)) {
+      acc.push(job);
+    }
+    return acc;
+  }, []).slice(0, 5);
 
     return (
       <>
@@ -165,6 +181,30 @@ export default function DashboardPage() {
                         </div>
                         <MatchBadge score={item.match_score} />
                         <span className={`result-pill result-${item.result || item.type}`} style={{ fontSize: '11px', textTransform: 'capitalize' }}>{item.result || item.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended Manual Applies */}
+              {recommendedJobs.length > 0 && (
+                <div className="card" style={{ marginTop: '28px', border: '1px solid rgba(245,158,11,0.3)', background: 'linear-gradient(145deg, var(--card-bg) 0%, rgba(245,158,11,0.02) 100%)' }}>
+                  <h4 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b' }}>
+                    <i className="fa-solid fa-bullseye"></i> Highly Recommended Manual Applies
+                  </h4>
+                  <p className="text-sm text-muted" style={{ marginBottom: '16px' }}>The bot found these external jobs to be a high match for your resume. You can apply to them manually.</p>
+                  <div>
+                    {recommendedJobs.map((item, i) => (
+                      <div key={i} className="reveal active" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < recommendedJobs.length - 1 ? '1px solid var(--border)' : 'none', flexWrap: 'wrap', gap: '8px', animation: `fadeIn 0.4s ease ${i * 0.1}s both` }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{item.job_title || 'Unknown'}</div>
+                          <div className="text-muted" style={{ fontSize: '13px' }}>{item.company || 'Unknown'}</div>
+                        </div>
+                        <MatchBadge score={item.match_score} />
+                        <a href={item.job_url || '#'} target="_blank" rel="noreferrer" className="btn btn-sm" style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '6px 14px', fontSize: '12px' }}>
+                          <i className="fa-solid fa-arrow-up-right-from-square"></i> Apply
+                        </a>
                       </div>
                     ))}
                   </div>
