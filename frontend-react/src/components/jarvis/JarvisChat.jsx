@@ -40,16 +40,29 @@ const ChatBubbleIcon = () => (
 function renderMarkdown(text) {
   if (!text) return '';
   let html = text
+    .replace(/\r/g, '') // Remove carriage returns
     .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^(.+)\n={3,}$/gm, '<h3>$1</h3>') // Underlined headers (====)
+    .replace(/^(.+)\n-{3,}$/gm, '<h4>$1</h4>') // Underlined headers (----)
+    .replace(/^###\s+(.*)$/gm, '<h4>$1</h4>') // ### Header
+    .replace(/^##\s+(.*)$/gm, '<h3>$1</h3>')  // ## Header
+    .replace(/^#\s+(.*)$/gm, '<h2>$1</h2>')   // # Header
     .replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>')
     .replace(/^\s*\d+\.\s+(.+)$/gm, '<li>$1</li>')
-    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g, '<br/>');
+
+  // Wrap loose <li> in <ul>
   html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
-  return `<p>${html}</p>`;
+
+  // Clean up <br/> tags around block elements to prevent excessive spacing
+  html = html.replace(/<br\/>\s*(<h[1-6]>|<ul|<ol|<pre)/g, '$1');
+  html = html.replace(/(<\/h[1-6]>|<\/ul>|<\/ol>|<\/pre>)\s*<br\/>/g, '$1');
+
+  return html;
 }
 
 // Quick suggestions
