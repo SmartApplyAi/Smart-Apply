@@ -261,6 +261,42 @@ export default function ATSPage() {
                     </div>
                   </div>
                 </div>
+
+                {results.improvements && results.improvements.length > 0 && (
+                  <div className="card" style={{ marginBottom: '20px' }}>
+                    <h4 style={{ marginBottom: '16px' }}>
+                      <i className="fa-solid fa-lightbulb" style={{ color: 'var(--accent-2)' }}></i> Improvements to Boost Your Score
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {results.improvements.map((item, idx) => {
+                        const priorityColors = { high: { bg: 'rgba(255,107,107,0.1)', text: 'var(--danger)', border: 'rgba(255,107,107,0.25)' }, medium: { bg: 'rgba(255,193,94,0.1)', text: '#ffb347', border: 'rgba(255,193,94,0.25)' }, low: { bg: 'rgba(126,232,162,0.1)', text: 'var(--accent)', border: 'rgba(126,232,162,0.25)' } };
+                        const pc = priorityColors[item.priority] || priorityColors.medium;
+                        const categoryIcons = { formatting: 'fa-solid fa-align-left', content: 'fa-solid fa-pen-fancy', skills: 'fa-solid fa-code', keywords: 'fa-solid fa-tags' };
+                        const catIcon = categoryIcons[item.category] || 'fa-solid fa-circle-info';
+                        return (
+                          <div key={idx} className="improvement-item" style={{ display: 'flex', gap: '14px', padding: '14px 16px', background: 'var(--bg-3)', borderRadius: '10px', borderLeft: `3px solid ${pc.text}`, alignItems: 'flex-start' }}>
+                            <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                              <i className={catIcon} style={{ fontSize: '16px', color: pc.text }}></i>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                                <span className="improvement-priority-badge" style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '2px 8px', borderRadius: '99px', background: pc.bg, color: pc.text, border: `1px solid ${pc.border}` }}>
+                                  {item.priority}
+                                </span>
+                                {item.category && (
+                                  <span style={{ fontSize: '11px', color: 'var(--text-2)', fontWeight: 500 }}>
+                                    {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '13px', lineHeight: '1.5', color: 'var(--text)' }}>{item.tip}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
