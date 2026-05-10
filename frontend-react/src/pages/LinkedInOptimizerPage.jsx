@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
-import linkedin from '../services/linkedin';
+import LinkedInBridge from '../services/linkedinBridge';
 import ScoreRing from '../components/common/ScoreRing';
 import Sidebar from '../components/layout/Sidebar';
 import Modal from '../components/common/Modal';
@@ -22,7 +22,7 @@ export default function LinkedInOptimizerPage() {
     setLoadingMsg('Scraping your LinkedIn profile via Extension...');
     
     try {
-      const result = await linkedin.scrapeProfile();
+      const result = await LinkedInBridge.scrapeProfile();
       if (result.ok && result.data) {
         setScrapedData(result.data);
         setShowPreview(true);

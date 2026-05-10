@@ -72,7 +72,7 @@ async def upload_resume(
         "created_at": datetime.now(timezone.utc),
     }
     result = await db.resumes.insert_one(resume_doc)
-    print("[SmartApply] Resume uploaded")
+    logger.info("[SmartApply] Resume uploaded")
 
     # Auto-activate if user has no active resume yet
     existing_active = await db.resumes.find_one({
@@ -85,7 +85,7 @@ async def upload_resume(
             {"_id": result.inserted_id},
             {"$set": {"is_active": True}}
         )
-        print("[SmartApply] Auto-activated uploaded resume")
+        logger.info("[SmartApply] Auto-activated uploaded resume")
 
     logger.info(f"Resume uploaded: {filename} for user {user_id}")
 
@@ -213,7 +213,7 @@ async def delete_resume(user_id: str, object_key: str) -> dict:
                 {"_id": next_resume["_id"]},
                 {"$set": {"is_active": True}}
             )
-            print(f"[SmartApply] Auto-activated next resume after deletion: {next_resume.get('filename')}")
+            logger.info(f"[SmartApply] Auto-activated next resume after deletion: {next_resume.get('filename')}")
 
     logger.info(f"Resume deleted: {object_key} for user {user_id}")
     return {"message": "Resume deleted"}

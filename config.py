@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "SmartApply"
     APP_ENV: str = "development"
     DEBUG: bool = True
+    DEMO_MODE: bool = False
+    DEMO_EMAIL: str = "demo@smartapply.ai"
 
     # ── Security ──────────────────────────────────────
     SECRET_KEY: str = os.environ.get("SECRET_KEY", secrets.token_urlsafe(64))

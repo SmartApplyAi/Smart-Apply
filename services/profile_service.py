@@ -8,6 +8,7 @@ from bson import ObjectId
 from database import get_db
 from utils import encrypt_value, decrypt_value
 from loguru import logger
+from config import settings
 
 
 async def get_full_profile(user_id: str) -> dict:
@@ -64,14 +65,15 @@ async def get_full_profile(user_id: str) -> dict:
     profile_data["resumeUploadedAt"] = ""
 
     if active_resume:
+        base_url = settings.APP_BASE_URL or settings.RENDER_EXTERNAL_URL or "http://localhost:8000"
         profile_data["resumePath"] = active_resume.get("object_key", "")
-        profile_data["resumeUrl"] = f"https://www.smartapplies.app/api/resume/download/{active_resume.get('object_key', '')}"
+        profile_data["resumeUrl"] = f"{base_url.rstrip('/')}/api/resume/download/{active_resume.get('object_key', '')}"
         profile_data["resumeFileName"] = active_resume.get("filename", "")
         profile_data["resumeMimeType"] = active_resume.get("content_type", "application/pdf")
         profile_data["resumeUploadedAt"] = active_resume.get("uploaded_at").isoformat() if active_resume.get("uploaded_at") else ""
-        print("[SmartApply] Injected active resume into profile")
+        logger.info("[SmartApply] Injected active resume into profile")
     else:
-        print("[SmartApply] No active resume found")
+        logger.info("[SmartApply] No active resume found")
 
     return {
         "profile": profile_data,
