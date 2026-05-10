@@ -1,6 +1,6 @@
-# SmartApply — AI-Assisted Job Application Automation `v1.1.0`
+# SmartApply — AI-Assisted Job Application Automation `v1.2.0`
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-active-success.svg)
 
 
@@ -19,6 +19,9 @@ Webapp/
 ├── requirements.txt        # Python dependencies
 ├── .env                    # Environment variables (not committed)
 ├── .env.example            # Template for .env
+├── redis_client.py         # Redis (upstash/local) client
+├── limiter.py              # Rate limiting configuration
+├── middleware/             # Global & endpoint-specific middleware
 ├── routers/                # API route definitions
 │   ├── auth.py             #   /api/auth/*
 │   ├── profile.py          #   /api/profile/*
@@ -27,6 +30,11 @@ Webapp/
 │   ├── automation.py       #   /api/automation/*
 │   ├── dashboard.py        #   /api/dashboard/*
 │   ├── ai.py               #   /api/ai/*
+│   ├── admin.py            #   /api/admin/* (Admin Dashboard)
+│   ├── monitor.py          #   /api/monitor/* (System Health)
+│   ├── extension_auth.py   #   /api/extension-auth/*
+│   ├── profile_linkedin.py #   /api/profile/linkedin/*
+│   ├── websocket_router.py #   /api/ws/* (Real-time updates)
 │   └── notifications.py    #   /api/notifications/*
 ├── services/               # Business logic
 │   ├── auth_service.py     #   Registration, login, tokens, reset
@@ -36,9 +44,14 @@ Webapp/
 │   ├── automation_service.py   Session mgmt, extension auth
 │   ├── dashboard_service.py    Aggregated dashboard data
 │   ├── ai_service.py       #   NVIDIA NIM: ATS, cover letter, AI
+│   ├── admin_service.py    #   Platform stats, user management
+│   ├── monitor_service.py  #   Health checks and metrics
 │   ├── email_service.py    #   Brevo transactional emails
 │   ├── notification_service.py In-app notifications
-│   └── audit_service.py    #   Security audit logging
+│   ├── audit_service.py    #   Security audit logging
+│   └── linkedin_parser.py  #   LinkedIn profile data extraction
+├── websocket/              # Redis Pub/Sub & Connection Manager
+├── tests/                  # Pytest suite (Unit & Integration)
 └── frontend-react/         # Vite + React Frontend
     ├── src/
     │   ├── components/     #   Reusable UI components
@@ -57,12 +70,12 @@ Webapp/
 | Layer | Technology |
 |---|---|
 | **Backend** | Python 3.11+, FastAPI, Uvicorn |
-| **Database** | MongoDB Atlas (Motor async driver) |
+| **Database** | MongoDB Atlas (Motor), Redis (Upstash) |
 | **File Storage** | Cloudflare R2 (S3-compatible) |
 | **Email** | Brevo (Sendinblue) transactional API |
 | **AI** | NVIDIA NIM (Llama 3.1 70B) |
-| **Auth** | JWT (access + refresh tokens), bcrypt |
-| **Frontend** | React 19, Vite, Chart.js, React Router |
+| **Auth** | JWT (access + refresh tokens), bcrypt, Google OAuth |
+| **Frontend** | React 19, Vite, Framer Motion, Chart.js, React Router |
 
 ## Setup
 
@@ -149,6 +162,17 @@ The backend is configured to serve the compiled frontend from `frontend-react/di
 | GET | `/auth/google` | Google OAuth redirect |
 | POST | `/auth/exchange-code` | Exchange Google code |
 
+### Admin (`/api/admin`)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/admin/stats` | Platform-wide statistics |
+| GET | `/admin/users` | List and manage users |
+| PATCH | `/admin/users/{id}` | Update user status/role |
+| POST | `/admin/broadcast` | Send global announcements |
+| GET | `/admin/sessions` | Monitor active automation |
+| PUT | `/admin/keys` | Manage NVIDIA NIM API keys |
+| GET | `/admin/audit-logs` | Security audit trail |
+
 ### Profile (`/api/profile`)
 | Method | Path | Description |
 |---|---|---|
@@ -196,6 +220,20 @@ The backend is configured to serve the compiled frontend from `frontend-react/di
 | POST | `/jobs/extension/heartbeat` | Heartbeat |
 | POST | `/jobs/extension/report-step` | Report step |
 | POST | `/jobs/extension/report-result` | Report result |
+
+### Extension Auth (`/api/extension-auth`)
+| Method | Path | Description |
+|---|---|---|
+| POST | `/extension-auth/login` | Native extension login |
+| POST | `/extension-auth/refresh` | Refresh extension token |
+| GET | `/extension-auth/me` | Get extension user context |
+
+### Monitoring (`/api/monitor`)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/monitor/health` | System health status |
+| GET | `/monitor/metrics` | Performance metrics |
+| GET | `/monitor/db-status` | Database connection status |
 
 ### Dashboard (`/api/dashboard`)
 | Method | Path | Description |

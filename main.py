@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=f"{settings.APP_NAME} API",
     description="AI-assisted job application automation platform",
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan,
     docs_url="/api/docs" if settings.DEBUG else None,
     redoc_url="/api/redoc" if settings.DEBUG else None,
