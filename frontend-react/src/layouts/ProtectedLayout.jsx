@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
+import JarvisChat from '../components/jarvis/JarvisChat';
 
 export default function ProtectedLayout() {
   const { authState, isAuthenticated, user } = useAuth();
@@ -55,6 +56,7 @@ export default function ProtectedLayout() {
           </div>
         )}
       </div>
+      <JarvisChat />
     </>
   );
 }
