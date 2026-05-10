@@ -278,3 +278,64 @@ async def extract_text_from_pdf(
 
     text = resume_service.redact_pii(text)
     return {"text": text}
+
+
+# ── JARVIS Chat ─────────────────────────────────────────────────────────────
+
+class JarvisChatMessage(BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
+
+class JarvisChatRequest(BaseModel):
+    messages: list[JarvisChatMessage]
+
+
+@router.post("/jarvis-chat")
+@limiter.limit("20/minute")
+async def jarvis_chat(
+    request: Request, body: JarvisChatRequest, user: dict = Depends(get_current_user)
+):
+    """JARVIS chatbot — proxies conversation through backend NVIDIA NIM keys."""
+    if not body.messages or not body.messages[-1].content.strip():
+        raise HTTPException(status_code=400, detail="Message is required")
+
+    system_prompt = (
+        "You are JARVIS — Just A Rather Very Intelligent System — the AI assistant "
+        "embedded inside SmartApply, a comprehensive career automation platform.\n\n"
+        "You can: explain any concept, solve problems, debug code, troubleshoot technical issues, "
+        "help with resumes, ATS scoring, LinkedIn optimization, interview prep, cover letters, "
+        "and guide users through the SmartApply platform.\n\n"
+        "SmartApply features: Dashboard, Resume Builder, ATS Analyzer, LinkedIn Optimizer, "
+        "Chrome Extension (auto-fill applications), Profile Page, Settings, Admin Panel.\n\n"
+        "Personality: articulate like Tony Stark's JARVIS, concise for simple questions, "
+        "detailed for complex ones. Use markdown formatting when helpful."
+    )
+
+    # Build conversation for NIM (keep last 10 messages to stay within context)
+    conversation = []
+    for msg in body.messages[-10:]:
+        role = msg.role if msg.role in ("user", "assistant") else "user"
+        conversation.append({"role": role, "content": msg.content})
+
+    # Use the last user message as the user_prompt, prior messages as context
+    if len(conversation) == 1:
+        user_prompt = conversation[0]["content"]
+    else:
+        # Build multi-turn context
+        context_lines = []
+        for m in conversation[:-1]:
+            prefix = "User" if m["role"] == "user" else "JARVIS"
+            context_lines.append(f"{prefix}: {m['content']}")
+        context = "\n".join(context_lines)
+        user_prompt = f"Previous conversation:\n{context}\n\nUser: {conversation[-1]['content']}"
+
+    try:
+        answer = await ai_service._call_nim(
+            system_prompt, user_prompt,
+            max_tokens=1024, temperature=0.6
+        )
+        return {"reply": answer}
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
