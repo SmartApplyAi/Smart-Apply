@@ -245,6 +245,35 @@ async function reportResult(resultData) {
   }
 }
 
+async function scrapeJobDescription(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        // Try multiple selectors for LinkedIn JD
+        const selectors = [
+          '.jobs-description-content__text',
+          '.jobs-description__content',
+          '.jobs-box__html-content',
+          '.jobs-description',
+          '#job-details',
+        ];
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el && el.innerText.trim().length > 50) {
+            return el.innerText.trim().substring(0, 5000);
+          }
+        }
+        return '';
+      },
+    });
+    return results?.[0]?.result || '';
+  } catch (e) {
+    console.warn('[SmartApply SW] JD scrape failed:', e.message);
+    return '';
+  }
+}
+
 // ── URL Builder ───────────────────────────────────────────────────────────
 
 function buildLinkedInSearchUrl(profile, termIndex = -1) {
@@ -896,6 +925,15 @@ async function handleMessage(message, sender) {
 
     case 'REPORT_RESULT': {
       const result = message.payload;
+      // Scrape job description from the active tab if not already present
+      if (!result.job_description && appState.runtime.activeAutomationTabId) {
+        try {
+          const jd = await scrapeJobDescription(appState.runtime.activeAutomationTabId);
+          if (jd) result.job_description = jd;
+        } catch (e) {
+          console.warn('[SmartApply SW] JD scrape on report failed:', e.message);
+        }
+      }
       await reportResult(result);
       chrome.runtime.sendMessage({ type: 'RESULT_UPDATE', payload: result }).catch(() => {});
       return { ok: true };

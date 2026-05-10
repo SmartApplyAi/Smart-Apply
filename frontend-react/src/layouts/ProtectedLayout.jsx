@@ -23,7 +23,7 @@ export default function ProtectedLayout() {
   }
 
   // Define which paths should use the dashboard (sidebar) layout
-  const isDashboardPath = ['/dashboard', '/admin', '/history', '/extension', '/ats', '/linkedin-optimizer', '/interview-prep', '/resume', '/settings', '/profile'].some(p => location.pathname.startsWith(p));
+  const isDashboardPath = ['/dashboard', '/admin', '/history', '/extension', '/ats', '/linkedin-optimizer', '/interview-prep', '/skill-gap', '/resume', '/settings', '/profile'].some(p => location.pathname.startsWith(p));
   
   // Get active tab from path
   const activeTab = location.pathname.split('/').filter(Boolean).pop() || 'overview';

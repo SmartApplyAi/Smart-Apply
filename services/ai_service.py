@@ -654,3 +654,153 @@ async def interview_chat(
 async def rank_jobs(user_profile: dict, jobs: list) -> dict:
     """Rank jobs by profile fit — alias for match_jobs."""
     return await match_jobs(user_profile, jobs)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  JOB MATCH SCORING & SKILL GAP DETECTION
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def compute_match_score(resume_text: str, job_description: str) -> dict:
+    """
+    Compute a match score (0-100) between a resume and job description.
+    Also detects skill gaps and provides actionable recommendations.
+    """
+    if not resume_text or not job_description:
+        return {
+            "match_score": 0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "skill_gap": {"has_gap": False, "gap_severity": "unknown", "learnable_skills": [], "estimated_learning_time": "", "recommendation": ""},
+            "summary": "Insufficient data to compute match score."
+        }
+
+    system_prompt = """You are an expert ATS and job matching analyst. Compare the candidate's resume against the job description and provide a precise match analysis.
+
+SCORING RUBRIC:
+  0-20:  Completely unrelated field/role
+  21-40: Same industry but very different role/skills
+  41-55: Some overlap but significant skill gaps
+  56-69: Moderate match, has core skills but missing several requirements
+  70-79: Good match, most required skills present, minor gaps
+  80-89: Strong match, nearly all requirements met
+  90-100: Perfect or near-perfect match
+
+Return ONLY valid JSON with this exact structure:
+{
+  "match_score": <integer 0-100>,
+  "matched_skills": ["skill1", "skill2", ...],
+  "missing_skills": ["skill1", "skill2", ...],
+  "skill_gap": {
+    "has_gap": true/false,
+    "gap_severity": "none|minor|moderate|major",
+    "learnable_skills": ["skills that can be learned quickly"],
+    "estimated_learning_time": "e.g. 2-4 weeks",
+    "recommendation": "1-2 sentence actionable advice"
+  },
+  "summary": "2-3 sentence match analysis"
+}"""
+
+    user_prompt = f"RESUME:\n{resume_text[:3500]}\n\nJOB DESCRIPTION:\n{job_description[:3000]}"
+
+    raw = await _call_nim(system_prompt, user_prompt, max_tokens=1500, temperature=0.15)
+    parsed = _parse_json_from_response(raw)
+
+    if not parsed or "match_score" not in parsed:
+        return {
+            "match_score": 0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "skill_gap": {"has_gap": False, "gap_severity": "unknown", "learnable_skills": [], "estimated_learning_time": "", "recommendation": ""},
+            "summary": "Could not parse match analysis.",
+            "raw": raw[:500] if raw else "",
+        }
+
+    # Clamp score
+    parsed["match_score"] = max(0, min(100, int(parsed.get("match_score", 0))))
+
+    # Ensure skill_gap structure
+    if "skill_gap" not in parsed:
+        missing = parsed.get("missing_skills", [])
+        parsed["skill_gap"] = {
+            "has_gap": len(missing) > 0,
+            "gap_severity": "minor" if len(missing) <= 2 else "moderate" if len(missing) <= 5 else "major",
+            "learnable_skills": missing[:5],
+            "estimated_learning_time": "",
+            "recommendation": "",
+        }
+
+    return parsed
+
+
+async def generate_skill_roadmap(current_skills: list, target_skills: list, target_role: str = "") -> dict:
+    """
+    Generate an interactive, phased learning roadmap to bridge a skill gap.
+    Returns a structured JSON with phases, milestones, and resources.
+    """
+    system_prompt = """You are a world-class career coach and technical learning architect. 
+Create a detailed, phased learning roadmap to help a professional bridge their skill gap.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "target_role": "Target role title",
+  "total_duration": "e.g. 6-8 weeks",
+  "roadmap": [
+    {
+      "phase": 1,
+      "title": "Phase title (e.g. Foundation)",
+      "duration": "1-2 weeks",
+      "description": "Brief phase description",
+      "color": "#hex color for this phase",
+      "skills": [
+        {
+          "name": "Skill name",
+          "priority": "high|medium|low",
+          "description": "What to learn",
+          "resources": [
+            {"title": "Resource name", "type": "course|tutorial|documentation|project", "url": "https://..."}
+          ],
+          "estimated_hours": 10
+        }
+      ]
+    }
+  ],
+  "milestones": [
+    {"title": "Milestone name", "description": "What you'll achieve", "phase": 1}
+  ],
+  "tips": ["Practical tip 1", "Practical tip 2", "..."]
+}
+
+RULES:
+- Create 3-5 phases ordered from foundational to advanced
+- Each phase should have 2-4 skills
+- Assign visually distinct hex colors to each phase (use vibrant, modern colors)
+- Include real, actual resource URLs when possible (freeCodeCamp, MDN, official docs, Coursera, YouTube)
+- Keep estimated_hours realistic
+- Return ONLY valid JSON"""
+
+    skills_have = ", ".join(current_skills[:20]) if current_skills else "Not specified"
+    skills_need = ", ".join(target_skills[:20]) if target_skills else "Not specified"
+    role_ctx = f" for the role of {target_role}" if target_role else ""
+
+    user_prompt = (
+        f"Create a learning roadmap{role_ctx}.\n\n"
+        f"CURRENT SKILLS: {skills_have}\n"
+        f"SKILLS TO LEARN: {skills_need}\n"
+    )
+
+    raw = await _call_nim(system_prompt, user_prompt, max_tokens=3000, temperature=0.4)
+    parsed = _parse_json_from_response(raw)
+
+    if not parsed or "roadmap" not in parsed:
+        return {
+            "roadmap": [],
+            "total_duration": "",
+            "milestones": [],
+            "tips": [],
+            "error": "Could not generate roadmap.",
+            "raw": raw[:500] if raw else "",
+        }
+
+    return parsed
+

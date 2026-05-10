@@ -148,6 +148,9 @@ async def get_history(
                 "notes": doc.get("notes", ""),
                 "source": doc.get("source", "automation"),
                 "resume_used": doc.get("resume_used", ""),
+                "match_score": doc.get("match_score"),
+                "matched_skills": doc.get("matched_skills", []),
+                "missing_skills": doc.get("missing_skills", []),
             }
         )
 
@@ -205,13 +208,18 @@ async def create_application(user_id: str, data: dict) -> dict:
         "resume_used": data.get("resume_used", ""),
         "cover_letter_used": data.get("cover_letter_used", ""),
         "is_auto_applied": data.get("is_auto_applied", True),
+        "job_description": data.get("job_description", ""),
+        "match_score": data.get("match_score"),
+        "matched_skills": data.get("matched_skills", []),
+        "missing_skills": data.get("missing_skills", []),
+        "skill_gap": data.get("skill_gap", {}),
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
         "applied_at": datetime.now(timezone.utc)
     }
 
     result = await db.job_applications.insert_one(doc)
-    logger.info(f"New job application recorded: {job_title} at {company}")
+    logger.info(f"New job application recorded: {job_title} at {company} (match: {doc.get('match_score', 'N/A')})")
     return {"message": "Application recorded", "id": str(result.inserted_id)}
 
 
@@ -299,6 +307,7 @@ async def get_recent_applications(user_id: str, limit: int = 10) -> list:
                 "company": doc.get("company", ""),
                 "platform": doc.get("platform", ""),
                 "result": doc.get("result", ""),
+                "match_score": doc.get("match_score"),
                 "applied_at": (
                     doc["applied_at"].isoformat() if doc.get("applied_at") else None
                 ),

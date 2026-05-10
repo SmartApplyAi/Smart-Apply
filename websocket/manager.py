@@ -38,6 +38,16 @@ class ConnectionManager:
             for dead in dead_connections:
                 self.disconnect(dead, user_id)
 
+    async def send_typed_event(self, user_id: str, event_type: str, payload: dict):
+        """Send a structured typed event to a specific user's connections."""
+        from datetime import datetime, timezone
+        message = json.dumps({
+            "type": event_type,
+            "payload": payload,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        await self.send_personal_message(message, user_id)
+
     async def broadcast(self, message: str):
         """Send message to all connected clients."""
         for user_id, connections in self.active_connections.items():

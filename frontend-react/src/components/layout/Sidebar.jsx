@@ -57,6 +57,13 @@ export default function Sidebar({ activeTab, isOpen, onClose, userName, userEmai
         >
           <span className="icon"><i className="fa-solid fa-file-lines"></i></span> Resumes
         </Link>
+        <Link 
+          to="/skill-gap" 
+          className={`sidebar-link${activeTab === 'skill-gap' ? ' active' : ''}`}
+          onClick={onClose}
+        >
+          <span className="icon"><i className="fa-solid fa-chart-gantt"></i></span> Skill Gap Analyzer
+        </Link>
 
         {user?.role === 'admin' && (
           <>

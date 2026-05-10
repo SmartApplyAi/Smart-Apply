@@ -272,3 +272,103 @@ async def send_weekly_digest(
     
     html_content = await wrap_template("Weekly Digest", body)
     return await send_email(email, name, "Weekly Digest — SmartApply", html_content)
+
+
+async def send_enhanced_automation_summary(
+    email: str, total: int, applied: int, failed: int, skipped: int,
+    top_matches: list = None, name: str = ""
+) -> bool:
+    """Send an enhanced automation summary with top 3 matched jobs."""
+    # Build top matches HTML
+    top_matches_html = ""
+    if top_matches:
+        rows = ""
+        for i, match in enumerate(top_matches[:3]):
+            score = match.get("match_score", 0)
+            score_color = "#22c55e" if score >= 80 else "#f59e0b" if score >= 50 else "#ef4444"
+            job_url = match.get("job_url", "#")
+            rows += f"""
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+              <td style="padding: 12px 8px; color: #f1f5f9; font-weight: 500;">{match.get('job_title', 'Unknown')}</td>
+              <td style="padding: 12px 8px; color: #94a3b8;">{match.get('company', 'Unknown')}</td>
+              <td style="padding: 12px 8px; text-align: center;">
+                <span style="display: inline-block; background: {score_color}20; color: {score_color}; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 14px;">{score}%</span>
+              </td>
+              <td style="padding: 12px 8px; text-align: center;">
+                <a href="{job_url}" style="color: #4f7cff; text-decoration: none; font-size: 13px;">View →</a>
+              </td>
+            </tr>"""
+        top_matches_html = f"""
+        <div style="margin: 24px 0;">
+          <div style="font-size: 16px; font-weight: 600; color: #f1f5f9; margin-bottom: 12px;">🏆 Top 3 Best Matches</div>
+          <table style="width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.02); border-radius: 12px; overflow: hidden;">
+            <thead><tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+              <th style="padding: 10px 8px; text-align: left; color: #64748b; font-size: 12px; font-weight: 500; text-transform: uppercase;">Role</th>
+              <th style="padding: 10px 8px; text-align: left; color: #64748b; font-size: 12px; font-weight: 500; text-transform: uppercase;">Company</th>
+              <th style="padding: 10px 8px; text-align: center; color: #64748b; font-size: 12px; font-weight: 500; text-transform: uppercase;">Match</th>
+              <th style="padding: 10px 8px; text-align: center; color: #64748b; font-size: 12px; font-weight: 500; text-transform: uppercase;">Link</th>
+            </tr></thead>
+            <tbody>{rows}</tbody>
+          </table>
+        </div>"""
+
+    default_body = f"""
+    <h2>Automation Run Complete</h2>
+    <p>Hi {{name}},</p>
+    <p>Your automation session has finished. Here's a summary:</p>
+    <div class="pin-box">
+      <div style="display: flex; justify-content: space-around; text-align: center;">
+        <div><div style="font-size: 28px; font-weight: 800; color: #f1f5f9;">{{total}}</div><div class="muted">Total</div></div>
+        <div><div style="font-size: 28px; font-weight: 800; color: #22c55e;">{{applied}}</div><div class="muted">Applied</div></div>
+        <div><div style="font-size: 28px; font-weight: 800; color: #ef4444;">{{failed}}</div><div class="muted">Failed</div></div>
+        <div><div style="font-size: 28px; font-weight: 800; color: #94a3b8;">{{skipped}}</div><div class="muted">Skipped</div></div>
+      </div>
+    </div>
+    {{top_matches_html}}
+    <p><a href="{settings.FRONTEND_URL}/dashboard" class="btn">View Details</a></p>
+    """
+    body_template = await get_template("enhanced_automation_summary", default_body)
+    display_name = name if name else 'User'
+    body = (body_template
+        .replace("{name}", display_name)
+        .replace("{total}", str(total))
+        .replace("{applied}", str(applied))
+        .replace("{failed}", str(failed))
+        .replace("{skipped}", str(skipped))
+        .replace("{top_matches_html}", top_matches_html)
+    )
+
+    html_content = await wrap_template("Automation Summary", body)
+    return await send_email(email, name, "🚀 Automation Summary — SmartApply", html_content)
+
+
+async def send_skill_gap_alert(
+    email: str, missing_skills: list, name: str = ""
+) -> bool:
+    """Send a skill gap alert email with actionable learning suggestions."""
+    skills_html = "".join([
+        f'<span style="display: inline-block; background: rgba(239,68,68,0.1); color: #f87171; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; margin: 4px;">{skill}</span>'
+        for skill in missing_skills[:10]
+    ])
+
+    default_body = f"""
+    <h2>Skill Gap Detected</h2>
+    <p>Hi {{name}},</p>
+    <p>Based on your recent applications, we noticed some skills that could boost your match scores. These are skills frequently requested in jobs you applied to but not found in your profile:</p>
+    <div class="pin-box" style="border-color: rgba(249, 158, 11, 0.3);">
+      <div style="font-size: 14px; color: #94a3b8; margin-bottom: 12px;">Missing Skills</div>
+      <div style="line-height: 2;">{{skills_html}}</div>
+    </div>
+    <p style="color: #94a3b8;">The good news? Most of these are learnable skills that can be picked up relatively quickly. Use our <strong>Skill Gap Analyzer</strong> to get a personalized learning roadmap.</p>
+    <p style="text-align: center;">
+      <a href="{settings.FRONTEND_URL}/skill-gap" class="btn" style="background: linear-gradient(135deg, #f59e0b, #f97316);">View Skill Gap Analyzer →</a>
+    </p>
+    <p class="muted">Bridging these gaps could significantly improve your match rate on future applications.</p>
+    """
+    body_template = await get_template("skill_gap_alert", default_body)
+    display_name = name if name else 'User'
+    body = body_template.replace("{name}", display_name).replace("{skills_html}", skills_html)
+
+    html_content = await wrap_template("Skill Gap Alert", body)
+    return await send_email(email, name, "📊 Skill Gap Alert — SmartApply", html_content)
+

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useWebSocket } from '../websocket/WebSocketProvider';
 import api from '../services/api';
 import { escHtml, timeAgo, formatDate } from '../services/utils';
 import StatCard from '../components/common/StatCard';
@@ -12,9 +13,21 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
 const PAGE_SIZE = 20;
 
+function MatchBadge({ score }) {
+  if (score == null) return <span className="result-pill" style={{ background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontSize: '11px' }}>N/A</span>;
+  const color = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+  const bg = score >= 80 ? 'rgba(34,197,94,0.12)' : score >= 50 ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)';
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: bg, color, padding: '3px 10px', borderRadius: '20px', fontWeight: 700, fontSize: '12px' }}>
+      {score}%
+    </span>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const wsCtx = useWebSocket();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('overview');
   const [summary, setSummary] = useState(null);
@@ -61,14 +74,24 @@ export default function DashboardPage() {
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
   useEffect(() => { if (activeTab === 'history') loadHistory(); }, [activeTab, loadHistory]);
 
-  // 5s polling
+  // WebSocket-driven reactive updates (replace polling when WS connected)
+  useEffect(() => {
+    if (!wsCtx?.subscribe) return;
+    const unsub = wsCtx.subscribe('JOB_APPLIED', () => {
+      loadDashboard();
+      if (activeTab === 'history') loadHistory();
+    });
+    return unsub;
+  }, [wsCtx, loadDashboard, loadHistory, activeTab]);
+
+  // Fallback polling (only when WS is not connected)
   useEffect(() => {
     const id = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadDashboard();
         if (activeTab === 'history') loadHistory();
       }
-    }, 5000);
+    }, 10000); // Slower polling since WS handles real-time
     return () => clearInterval(id);
   }, [loadDashboard, loadHistory, activeTab]);
 
@@ -101,6 +124,9 @@ export default function DashboardPage() {
 
   const totalPages = Math.ceil(history.total / PAGE_SIZE);
 
+  // Live feed from WebSocket
+  const liveFeed = wsCtx?.liveFeed || [];
+
     return (
       <>
           <div className="page-header">
@@ -122,6 +148,29 @@ export default function DashboardPage() {
                   <StatCard label="Automation Status" value={summary.automation_status === 'running' ? 'Active' : (summary.pending_tasks ?? 0)} sub={summary.automation_status === 'running' ? 'Bot is running' : summary.automation_status === 'paused' ? 'Paused' : 'No active sessions'} className="active" />
                 </div>
               )}
+
+              {/* Live Feed */}
+              {liveFeed.length > 0 && (
+                <div className="card" style={{ marginTop: '28px', border: '1px solid rgba(79,124,255,0.2)' }}>
+                  <h4 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
+                    <i className="fa-solid fa-bolt"></i> Live Feed
+                  </h4>
+                  <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+                    {liveFeed.slice(0, 10).map((item, i) => (
+                      <div key={i} className="reveal active" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: '8px', animation: `slideInUp 0.3s ease ${i * 0.05}s both` }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.job_title || 'Unknown'}</div>
+                          <div className="text-muted" style={{ fontSize: '12px' }}>{item.company || 'Unknown'}</div>
+                        </div>
+                        <MatchBadge score={item.match_score} />
+                        <span className={`result-pill result-${item.result || item.type}`} style={{ fontSize: '11px', textTransform: 'capitalize' }}>{item.result || item.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="overview-panels" style={{ marginTop: '28px' }}>
                 <div className="card">
                   <h4 style={{ marginBottom: '16px' }}><i className="fa-solid fa-clock-rotate-left"></i> Recent Applications</h4>
@@ -130,6 +179,7 @@ export default function DashboardPage() {
                   ) : summary.recent_applications.map((a, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '4px' }}>
                       <div style={{ minWidth: 0, flex: 1 }}><div style={{ fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.job_title}</div><div className="text-muted text-sm">{a.company} · {timeAgo(a.applied_at)}</div></div>
+                      <MatchBadge score={a.match_score} />
                       <span className={`result-pill result-${a.result}`}>{a.result}</span>
                     </div>
                   ))}
@@ -166,16 +216,24 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-              <div className="table-wrapper"><table><thead><tr><th>Job Title</th><th>Company</th><th>Platform</th><th>Status</th><th>Applied</th><th>Link</th></tr></thead>
+              <div className="table-wrapper"><table><thead><tr><th>Job Title</th><th>Company</th><th>Match</th><th>Platform</th><th>Status</th><th>Applied</th><th>Link</th></tr></thead>
                   <tbody>
                     {historyLoading ? (
-                      <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}><div className="loader-spin mx-auto"></div></td></tr>
+                      <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}><div className="loader-spin mx-auto"></div></td></tr>
                     ) : historyError ? (
-                      <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--danger)' }}><i className="fa-solid fa-triangle-exclamation"></i> {historyError}</td></tr>
+                      <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--danger)' }}><i className="fa-solid fa-triangle-exclamation"></i> {historyError}</td></tr>
                     ) : history.applications.length === 0 ? (
-                      <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>No applications found.</td></tr>
+                      <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>No applications found.</td></tr>
                     ) : history.applications.map((a, i) => (
-                  <tr key={i}><td><div style={{ fontWeight: 500 }}>{a.job_title}</div></td><td className="text-sm">{a.company}</td><td style={{ textTransform: 'capitalize' }}>{a.platform || 'unknown'}</td><td><span className={`result-pill result-${a.result}`}>{a.result}</span></td><td className="text-sm">{formatDate(a.applied_at)}</td><td><a href={a.job_link || a.job_url || '#'} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ padding: '4px' }}><i className="fa-solid fa-external-link"></i></a></td></tr>
+                  <tr key={i}>
+                    <td><div style={{ fontWeight: 500 }}>{a.job_title}</div></td>
+                    <td className="text-sm">{a.company}</td>
+                    <td><MatchBadge score={a.match_score} /></td>
+                    <td style={{ textTransform: 'capitalize' }}>{a.platform || 'unknown'}</td>
+                    <td><span className={`result-pill result-${a.result}`}>{a.result}</span></td>
+                    <td className="text-sm">{formatDate(a.applied_at)}</td>
+                    <td><a href={a.job_link || a.job_url || '#'} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm" style={{ padding: '4px' }}><i className="fa-solid fa-external-link"></i></a></td>
+                  </tr>
                 ))}
               </tbody></table></div>
               {totalPages > 1 && <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>

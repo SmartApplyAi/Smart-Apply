@@ -85,6 +85,11 @@ export const SELECTORS = {
     jobCard: '.job-card-container, .jobs-search-results__list-item',
     jobCardEasyApply: ".job-card-container__footer-item[aria-label*='Easy Apply'], .job-card-list__footer-wrapper",
   },
+  jobDescription: {
+    container: '.jobs-description, .jobs-description-content, .jobs-box__html-content',
+    text: '.jobs-description__content, .jobs-description-content__text, .jobs-box__html-content .jobs-description-content__text',
+    showMore: '.jobs-description__footer-button, button[aria-label="Show more"]',
+  },
 };
 
 export const DELAYS = {

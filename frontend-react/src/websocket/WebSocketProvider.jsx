@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
@@ -14,6 +14,24 @@ export function WebSocketProvider({ children }) {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
   const shouldReconnect = useRef(true);
+  const listenersRef = useRef({});
+  const [lastEvent, setLastEvent] = useState(null);
+  const [liveFeed, setLiveFeed] = useState([]);
+
+  // Subscribe to specific event types
+  const subscribe = useCallback((eventType, callback) => {
+    if (!listenersRef.current[eventType]) {
+      listenersRef.current[eventType] = [];
+    }
+    listenersRef.current[eventType].push(callback);
+
+    // Return unsubscribe function
+    return () => {
+      listenersRef.current[eventType] = listenersRef.current[eventType].filter(
+        (cb) => cb !== callback
+      );
+    };
+  }, []);
 
   const connect = async () => {
     if (ws.current?.readyState === WebSocket.OPEN) return;
@@ -42,28 +60,81 @@ export function WebSocketProvider({ children }) {
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          const eventType = data.type;
 
-          switch (data.type) {
+          // Update last event state
+          setLastEvent(data);
+
+          switch (eventType) {
             case 'PONG':
               // Heartbeat acknowledged
               break;
             case 'FORCE_REAUTH':
             case 'SESSION_REVOKED':
-              shouldReconnect.current = false; // Prevent raccoon behavior
+              shouldReconnect.current = false;
               socket.close();
               showToast('Your session was revoked.', 'error');
               logout();
               break;
+
+            // ── Real-time Job Events ────────────────────────────────
+            case 'JOB_APPLIED': {
+              const p = data.payload || {};
+              const scoreText = p.match_score != null ? ` (${p.match_score}% match)` : '';
+              showToast(`✅ Applied: ${p.job_title} at ${p.company}${scoreText}`, 'success');
+              setLiveFeed(prev => [{...p, type: 'applied', receivedAt: Date.now()}, ...prev].slice(0, 50));
+              break;
+            }
+            case 'JOB_FAILED': {
+              const p = data.payload || {};
+              setLiveFeed(prev => [{...p, type: 'failed', receivedAt: Date.now()}, ...prev].slice(0, 50));
+              break;
+            }
+            case 'JOB_SKIPPED': {
+              const p = data.payload || {};
+              setLiveFeed(prev => [{...p, type: 'skipped', receivedAt: Date.now()}, ...prev].slice(0, 50));
+              break;
+            }
+
+            // ── Skill Gap Alert ─────────────────────────────────────
+            case 'SKILL_GAP_ALERT': {
+              const p = data.payload || {};
+              const skills = (p.missing_skills || []).slice(0, 3).join(', ');
+              showToast(`📊 Skill gap detected for ${p.job_title}: ${skills}`, 'info');
+              break;
+            }
+
+            // ── Bot Run Summary ─────────────────────────────────────
+            case 'BOT_RUN_SUMMARY': {
+              const p = data.payload || {};
+              showToast(`🏁 Bot run complete: ${p.applied || 0} applied, ${p.failed || 0} failed`, 'success');
+              break;
+            }
+
             case 'NOTIFICATION':
             case 'USER_NOTIFICATION':
               if (data.payload?.message) {
                 showToast(data.payload.message, 'info');
               }
               break;
-            // Add other typed events here
+
             default:
               break;
           }
+
+          // Notify registered listeners
+          if (listenersRef.current[eventType]) {
+            listenersRef.current[eventType].forEach((cb) => {
+              try { cb(data); } catch (e) { /* listener error */ }
+            });
+          }
+          // Also notify wildcard listeners
+          if (listenersRef.current['*']) {
+            listenersRef.current['*'].forEach((cb) => {
+              try { cb(data); } catch (e) { /* listener error */ }
+            });
+          }
+
         } catch (err) {
           // parse error
         }
@@ -105,6 +176,7 @@ export function WebSocketProvider({ children }) {
       }
       clearTimeout(reconnectTimeout.current);
       clearInterval(pingInterval.current);
+      setLiveFeed([]);
     }
 
     return () => {
@@ -115,8 +187,15 @@ export function WebSocketProvider({ children }) {
     };
   }, [authState]);
 
+  const value = {
+    socket: ws.current,
+    lastEvent,
+    liveFeed,
+    subscribe,
+  };
+
   return (
-    <WebSocketContext.Provider value={ws.current}>
+    <WebSocketContext.Provider value={value}>
       {children}
     </WebSocketContext.Provider>
   );
