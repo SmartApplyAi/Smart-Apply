@@ -1575,6 +1575,9 @@ async function getAnswer(questionLabel, profile, aiAnswers = {}, fieldType = '',
     return raw;
   }
   if (label.includes('email') || label.includes('e-mail')) {
+    if (profile.platform_accounts && profile.platform_accounts.linkedin_email) {
+      return profile.platform_accounts.linkedin_email;
+    }
     return profile.email || '';
   }
   if (label.includes('city') || label.includes('location') || label.includes('current location')) {
