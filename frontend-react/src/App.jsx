@@ -24,6 +24,7 @@ import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
 import ATSPage from './pages/ATSPage';
 import LinkedInOptimizerPage from './pages/LinkedInOptimizerPage';
+import InterviewPrepPage from './pages/InterviewPrepPage';
 import AdminPage from './pages/AdminPage';
 
 import OrbLoader from './components/loader/OrbLoader';
@@ -143,6 +144,7 @@ function App() {
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/ats" element={<ATSPage />} />
                 <Route path="/linkedin-optimizer" element={<LinkedInOptimizerPage />} />
+                <Route path="/interview-prep" element={<InterviewPrepPage />} />
                 <Route path="/admin" element={<AdminPage />} />
               </Route>
 

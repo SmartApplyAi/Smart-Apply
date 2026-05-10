@@ -506,6 +506,151 @@ Return ONLY valid JSON."""
     return parsed
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  AI INTERVIEW PREP — REAL-TIME MOCK INTERVIEWER
+# ═══════════════════════════════════════════════════════════════════════════
+
+_INTERVIEW_SYSTEM_PROMPTS = {
+    "behavioral": (
+        "You are an expert behavioral interviewer at a top-tier company. "
+        "Ask ONE behavioral question at a time using the STAR method framework. "
+        "Focus on: leadership, teamwork, conflict resolution, problem-solving, and adaptability. "
+        "After the candidate answers, give brief constructive feedback (1-2 sentences) then ask the NEXT question. "
+        "Do NOT repeat questions. Vary the topics."
+    ),
+    "technical": (
+        "You are a senior technical interviewer at a FAANG-level company. "
+        "Ask ONE technical question at a time — covering system design, coding concepts, "
+        "data structures, algorithms, architecture, and debugging scenarios. "
+        "Adapt difficulty based on the candidate's answers. "
+        "After each answer, give brief feedback then ask the NEXT question."
+    ),
+    "hr": (
+        "You are an HR interviewer conducting a professional screening interview. "
+        "Ask ONE question at a time about: motivation, career goals, salary expectations, "
+        "work culture preferences, strengths/weaknesses, and situational judgment. "
+        "Be warm but professional. After each answer, give brief feedback then ask the NEXT question."
+    ),
+    "custom": (
+        "You are a professional interviewer conducting a mock interview for the specific role described. "
+        "Tailor your questions to the job description and role provided. "
+        "Ask ONE question at a time, mixing behavioral and role-specific technical questions. "
+        "After each answer, give brief feedback then ask the NEXT question."
+    ),
+}
+
+_INTERVIEW_BASE = (
+    "\n\nCRITICAL RULES:\n"
+    "1. Ask exactly ONE question per response. Never ask multiple questions.\n"
+    "2. Keep your responses concise — max 3 sentences for feedback + 1 question.\n"
+    "3. Be encouraging but honest. Point out weaknesses constructively.\n"
+    "4. Track the conversation flow — don't repeat topics already covered.\n"
+    "5. If this is the FIRST message, greet the candidate briefly and ask your first question.\n"
+    "6. Do NOT use markdown formatting — speak naturally as a real interviewer would.\n"
+    "7. Address the candidate directly using 'you'.\n"
+)
+
+_INTERVIEW_EVAL_PROMPT = (
+    "The mock interview is now complete. Based on the ENTIRE conversation, provide a detailed "
+    "performance evaluation. Return ONLY valid JSON with this exact structure:\n\n"
+    "{\n"
+    '  "overall_score": <integer 0-100>,\n'
+    '  "communication": <integer 0-100>,\n'
+    '  "confidence": <integer 0-100>,\n'
+    '  "content_quality": <integer 0-100>,\n'
+    '  "structure": <integer 0-100>,\n'
+    '  "strengths": ["strength1", "strength2", "strength3"],\n'
+    '  "weaknesses": ["area1", "area2"],\n'
+    '  "tips": ["actionable tip 1", "actionable tip 2", "actionable tip 3"],\n'
+    '  "summary": "2-3 sentence overall assessment"\n'
+    "}\n\n"
+    "Be STRICT and CALIBRATED — not everyone scores 80+. Average candidates score 50-65."
+)
+
+
+async def interview_chat(
+    messages: list,
+    interview_type: str = "behavioral",
+    job_description: str = "",
+    job_title: str = "",
+    end_interview: bool = False,
+) -> dict:
+    """
+    Conduct a mock interview conversation turn.
+    Returns the AI interviewer's next question/feedback.
+    If end_interview=True, returns a full performance evaluation.
+    """
+    itype = interview_type if interview_type in _INTERVIEW_SYSTEM_PROMPTS else "behavioral"
+    base_system = _INTERVIEW_SYSTEM_PROMPTS[itype] + _INTERVIEW_BASE
+
+    # Add job context if provided
+    if job_title:
+        base_system += f"\nThe candidate is interviewing for: {job_title}\n"
+    if job_description and itype == "custom":
+        base_system += f"\nJob Description:\n{job_description[:2000]}\n"
+
+    # Build conversation context from messages
+    context_lines = []
+    for msg in messages[-16:]:  # Keep last 16 messages for context
+        role = msg.get("role", "user")
+        prefix = "Candidate" if role == "user" else "Interviewer"
+        context_lines.append(f"{prefix}: {msg.get('content', '')}")
+    context = "\n".join(context_lines)
+
+    if end_interview:
+        # Generate final evaluation
+        eval_system = (
+            "You are an expert interview coach evaluating a mock interview performance. "
+            + _INTERVIEW_EVAL_PROMPT
+        )
+        eval_prompt = f"Full interview transcript:\n{context}"
+        raw = await _call_nim(eval_system, eval_prompt, max_tokens=1500, temperature=0.2)
+        parsed = _parse_json_from_response(raw)
+
+        if not parsed or "overall_score" not in parsed:
+            # Return a basic evaluation if parsing fails
+            return {
+                "reply": "Thank you for completing this interview. You did well overall.",
+                "is_complete": True,
+                "evaluation": {
+                    "overall_score": 60,
+                    "communication": 60,
+                    "confidence": 60,
+                    "content_quality": 60,
+                    "structure": 60,
+                    "strengths": ["Completed the full interview"],
+                    "weaknesses": ["Could not generate detailed evaluation"],
+                    "tips": ["Practice more mock interviews", "Use the STAR method"],
+                    "summary": raw[:300] if raw else "Interview completed.",
+                },
+            }
+
+        # Clamp scores
+        for key in ["overall_score", "communication", "confidence", "content_quality", "structure"]:
+            if key in parsed:
+                parsed[key] = max(0, min(100, int(parsed[key])))
+
+        return {
+            "reply": parsed.get("summary", "Interview complete. Review your scores below."),
+            "is_complete": True,
+            "evaluation": parsed,
+        }
+
+    # Normal conversation turn
+    if not context:
+        user_prompt = "Start the interview. Greet the candidate and ask your first question."
+    else:
+        last_msg = messages[-1].get("content", "") if messages else ""
+        user_prompt = f"Interview so far:\n{context}\n\nThe candidate just said: \"{last_msg}\"\n\nGive brief feedback on their answer and ask your next question."
+
+    reply = await _call_nim(base_system, user_prompt, max_tokens=300, temperature=0.6)
+
+    return {
+        "reply": reply,
+        "is_complete": False,
+    }
+
+
 async def rank_jobs(user_profile: dict, jobs: list) -> dict:
     """Rank jobs by profile fit — alias for match_jobs."""
     return await match_jobs(user_profile, jobs)

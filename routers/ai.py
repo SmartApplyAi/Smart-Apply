@@ -340,3 +340,41 @@ async def jarvis_chat(
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
+
+# ── AI Interview Prep ───────────────────────────────────────────────────────
+
+class InterviewMessage(BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
+
+class InterviewChatRequest(BaseModel):
+    messages: list[InterviewMessage] = []
+    interview_type: str = "behavioral"  # behavioral | technical | hr | custom
+    job_description: str = ""
+    job_title: str = ""
+    end_interview: bool = False
+
+
+@router.post("/interview-chat")
+@limiter.limit("20/minute")
+async def interview_chat(
+    request: Request, body: InterviewChatRequest, user: dict = Depends(get_current_user)
+):
+    """AI mock interviewer — real-time conversational interview practice."""
+    if not body.end_interview and body.messages and not body.messages[-1].content.strip():
+        raise HTTPException(status_code=400, detail="Message content is required")
+
+    try:
+        msgs = [{"role": m.role, "content": m.content} for m in body.messages]
+        result = await ai_service.interview_chat(
+            messages=msgs,
+            interview_type=body.interview_type,
+            job_description=body.job_description,
+            job_title=body.job_title,
+            end_interview=body.end_interview,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
