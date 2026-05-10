@@ -30,6 +30,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 const API_BASE = 'https://www.smartapplies.app/api';
 
+// Google OAuth Client ID (must match backend and shared/constants.js)
+const GOOGLE_CLIENT_ID = '778305675120-bicqh3g6ep9m1nh5gdp5mqahonddphim.apps.googleusercontent.com';
+
 const STATES = {
   IDLE: 'idle',
   MODAL_DETECTED: 'modal_detected',
@@ -2293,25 +2296,113 @@ class FormRunner {
       // Ensure interactable
       activateHiddenInput(fileInput);
 
-      // Secure injection
+      // --- Multi-strategy injection ---
+
+      // Strategy A: DataTransfer + comprehensive event dispatch
       const dataTransfer = new DataTransfer();
       dataTransfer.items.add(resumeFile);
       fileInput.files = dataTransfer.files;
 
-      // Trigger events
+      // Dispatch events that LinkedIn/React actually listens to
       fileInput.dispatchEvent(new Event('change', { bubbles: true }));
       fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-      
-      logger.info('[SmartApply] Resume injected');
-      await sleep(DELAYS.LONG);
 
-      // 5. Validation
-      if (fileInput.files && fileInput.files.length > 0) {
-        logger.success('[SmartApply] Upload validation success: ' + fileName);
-        chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `\u2705 Resume uploaded: ${fileName}` }).catch(() => {});
-        sendLog('resume', 'success', `Uploaded resume: ${fileName}`);
-      } else {
-        logger.error('[SmartApply] Upload validation failed — file not attached');
+      // React uses InputEvent internally
+      try {
+        fileInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+      } catch (_) {}
+
+      // Strategy B: Dispatch drop event on the upload container
+      // LinkedIn's upload zone listens for drag-and-drop
+      const uploadContainer = fileInput.closest(
+        '.jobs-document-upload, .jobs-resume-picker, ' +
+        '.artdeco-modal__content, [class*="upload"], [class*="document"]'
+      ) || fileInput.parentElement;
+
+      if (uploadContainer) {
+        try {
+          const dropEvent = new DragEvent('drop', {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: dataTransfer,
+          });
+          uploadContainer.dispatchEvent(dropEvent);
+
+          // Also try dragover (some listeners need this first)
+          const dragOverEvent = new DragEvent('dragover', {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: dataTransfer,
+          });
+          uploadContainer.dispatchEvent(dragOverEvent);
+        } catch (dropErr) {
+          logger.debug('[SmartApply] Drop event dispatch failed (non-fatal): ' + dropErr.message);
+        }
+      }
+
+      logger.info('[SmartApply] Resume injected — validating...');
+
+      // --- Retry validation loop ---
+      let uploadConfirmed = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await sleep(attempt === 1 ? DELAYS.LONG : DELAYS.MEDIUM);
+
+        // Check 1: fileInput still has files
+        const hasFiles = fileInput.files && fileInput.files.length > 0;
+
+        // Check 2: LinkedIn shows visual confirmation (file name, success badge, etc.)
+        const modalRoot = modal || document;
+        const hasVisualConfirm = !!(
+          modalRoot.querySelector('.jobs-document-upload__visible-container .t-14') ||
+          modalRoot.querySelector('.jobs-document-upload__file-name') ||
+          modalRoot.querySelector('.artdeco-inline-feedback--success') ||
+          modalRoot.querySelector('[class*="upload"][class*="success"]') ||
+          modalRoot.querySelector('.jobs-resume-picker__resume-btn--selected')
+        );
+
+        if (hasFiles || hasVisualConfirm) {
+          uploadConfirmed = true;
+          logger.success('[SmartApply] Upload validation success: ' + fileName);
+          chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `\u2705 Resume uploaded: ${fileName}` }).catch(() => {});
+          sendLog('resume', 'success', `Uploaded resume: ${fileName}`);
+          break;
+        }
+
+        if (attempt < 3) {
+          logger.info(`[SmartApply] Upload validation retry ${attempt}/3...`);
+          // Re-inject files on retry (LinkedIn may have cleared them)
+          try {
+            const retryDt = new DataTransfer();
+            retryDt.items.add(resumeFile);
+            fileInput.files = retryDt.files;
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+          } catch (_) {}
+        }
+      }
+
+      if (!uploadConfirmed) {
+        // Fallback: try clicking the upload label/button to prompt native file picker
+        logger.warn('[SmartApply] Programmatic upload not confirmed — attempting fallback click');
+        const uploadLabel = (modal || document).querySelector(
+          'label.jobs-document-upload__upload-button, ' +
+          'label[for="' + fileInput.id + '"], ' +
+          'button.jobs-document-upload__upload-button'
+        );
+        if (uploadLabel) {
+          uploadLabel.click();
+          logger.info('[SmartApply] Native file picker triggered — user may need to select file manually');
+          chrome.runtime.sendMessage({
+            type: 'POPUP_LOG',
+            text: '\u26a0\ufe0f Resume auto-upload failed — please select your resume file manually if prompted'
+          }).catch(() => {});
+        } else {
+          logger.error('[SmartApply] Upload validation failed — file not attached');
+          chrome.runtime.sendMessage({
+            type: 'POPUP_LOG',
+            text: '\u274c Resume upload failed — LinkedIn did not accept the file'
+          }).catch(() => {});
+        }
       }
     } catch (err) {
       logger.error('[SmartApply] Upload injection failed:', err.message);

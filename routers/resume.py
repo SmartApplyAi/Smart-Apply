@@ -5,7 +5,7 @@ Matches frontend expectations at /api/resume/*.
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
 from fastapi.responses import RedirectResponse, StreamingResponse
-from dependencies import get_current_user
+from dependencies import get_current_user, get_current_user_flexible
 from services import resume_service
 import io
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/resume", tags=["Resume"])
 
 
 @router.get("/stream-active")
-async def stream_active_resume(user: dict = Depends(get_current_user)):
+async def stream_active_resume(user: dict = Depends(get_current_user_flexible)):
     """Retrieve and stream the user's currently active resume directly."""
     try:
         from services.audit_service import log_action

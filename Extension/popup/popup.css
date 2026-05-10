@@ -249,3 +249,25 @@ body {
 /* ── Signup link ── */
 .signup-link { text-align: center; font-size: 11px; color: var(--text3); margin-top: 12px; }
 .signup-link a { color: var(--primary); text-decoration: none; }
+
+/* ── Divider ── */
+.divider-row {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0;
+}
+.divider-line { flex: 1; height: 1px; background: var(--border); }
+.divider-text { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* ── Google OAuth Button ── */
+.btn-google {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 9px 16px;
+  background: #fff; color: #1f1f1f;
+  border: 1.5px solid var(--border); border-radius: 20px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-google:hover:not(:disabled) { background: #f4f4f5; border-color: rgba(255,255,255,0.15); }
+.btn-google:active { transform: scale(0.96); }
+.btn-google:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-google svg { flex-shrink: 0; }

@@ -58,6 +58,10 @@ class ExchangeCodeRequest(BaseModel):
     redirect_uri: Optional[str] = None
 
 
+class VerifyTokenRequest(BaseModel):
+    access_token: str
+
+
 # ── Routes ──────────────────────────────────────────────────────────────────
 
 @router.post("/signup")
@@ -345,6 +349,33 @@ async def exchange_code(body: ExchangeCodeRequest, request: Request):
         user_response = await client.get(
             "https://www.googleapis.com/oauth2/v3/userinfo",
             headers={"Authorization": f"Bearer {access_token}"}
+        )
+        if user_response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to fetch Google profile")
+
+        user_info = user_response.json()
+        email = user_info.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Google account has no email")
+
+        # Use auth_service to handle the login/registration
+        return await auth_service.google_login_user(
+            email=email,
+            name=user_info.get("name", ""),
+            ip=_get_ip(request)
+        )
+
+
+@router.post("/verify-token")
+async def verify_token(body: VerifyTokenRequest, request: Request):
+    """Verify a Google access token (e.g., from Chrome Extension getAuthToken) and log in."""
+    import httpx
+
+    async with httpx.AsyncClient() as client:
+        # Get user profile info using the access token
+        user_response = await client.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {body.access_token}"}
         )
         if user_response.status_code != 200:
             raise HTTPException(status_code=400, detail="Failed to fetch Google profile")

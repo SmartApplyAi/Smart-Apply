@@ -199,7 +199,38 @@ $('btn-login').addEventListener('click', async () => {
   }
 });
 
-// ── Logout ────────────────────────────────────────────────────────────────
+// ── Google OAuth Login ────────────────────────────────────────────────
+
+function setGoogleLoading(on) {
+  const btn = $('btn-google-login');
+  btn.querySelector('.btn-text').classList.toggle('hidden', on);
+  btn.querySelector('.spinner').classList.toggle('hidden', !on);
+  btn.disabled = on;
+}
+
+$('btn-google-login').addEventListener('click', async () => {
+  const errEl = $('login-error');
+  errEl.classList.add('hidden');
+
+  setGoogleLoading(true);
+  try {
+    const res = await msg('GOOGLE_LOGIN', { apiBase: API_BASE });
+    if (res?.ok) {
+      showScreen('dashboard');
+      addLog(`Signed in with Google`, 'success');
+    } else {
+      errEl.textContent = res?.error || 'Google sign-in failed.';
+      errEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    errEl.textContent = e.message || 'Google sign-in failed.';
+    errEl.classList.remove('hidden');
+  } finally {
+    setGoogleLoading(false);
+  }
+});
+
+// ── Logout ────────────────────────────────────────────────────────────
 
 $('btn-logout').addEventListener('click', async () => {
   await msg('LOGOUT', {});

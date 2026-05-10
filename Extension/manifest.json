@@ -3,11 +3,13 @@
   "name": "SmartApply \u2014 Auto Apply Bot",
   "version": "1.1.0",
   "description": "AI-powered job auto-apply automation for LinkedIn.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqaAEzQ6EhRuFhBb4GzmvkK2jfcSODF8gZM7E9hSyc/w8hETMrRym3VLSTUUHCNGLF1XubTwUJnjVPM68RNTHv1GjxLvzQqEMv19itOnQYXFQauIZrw213udatfSfj7zQPvkO3nUMzoCbur79e6dcBYbQMleaiPZ9Rt+45ih09VIQkK+H0bslC8FjLshvAi05IUsa3wq0XpWZ8eNsqd0IdUCZJgu928g9WrDt9DHSs3SmmzohSFeES3nr4WhGBAgnzvL7Q+zsGpJ+pTMVzkG3h+VGG5B0/JpNgnYTE7IpkM1MX20HjGBfW0up+Jir40hMiXz2qdvstcTbfHy/BGMmVwIDAQAB",
   "permissions": [
     "storage",
     "tabs",
     "alarms",
-    "cookies"
+    "cookies",
+    "identity"
   ],
   "host_permissions": [
     "https://www.linkedin.com/*",
@@ -50,6 +52,14 @@
     "matches": [
       "https://www.smartapplies.app/*",
       "https://smartapplies.app/*"
+    ]
+  },
+  "oauth2": {
+    "client_id": "778305675120-bicqh3g6ep9m1nh5gdp5mqahonddphim.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
     ]
   },
   "web_accessible_resources": [

@@ -2,6 +2,10 @@
 
 export const API_BASE = 'https://www.smartapplies.app/api';
 
+// Google OAuth Client ID — replace with your own from Google Cloud Console
+// Must match the GOOGLE_CLIENT_ID in your backend .env
+export const GOOGLE_CLIENT_ID = '778305675120-bicqh3g6ep9m1nh5gdp5mqahonddphim.apps.googleusercontent.com';
+
 export const STATES = {
   IDLE: 'idle',
   MODAL_DETECTED: 'modal_detected',

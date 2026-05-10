@@ -1,7 +1,7 @@
 // ── SmartApply Background Service Worker ─────────────────────────────────
 
 import { createDefaultState } from '../shared/schemas.js';
-import { HEARTBEAT_INTERVAL, API_BASE } from '../shared/constants.js';
+import { HEARTBEAT_INTERVAL, API_BASE, GOOGLE_CLIENT_ID } from '../shared/constants.js';
 
 let appState = createDefaultState();
 let pendingConfirmation = null;
@@ -549,6 +549,75 @@ async function handleMessage(message, sender) {
       await saveState();
 
       return { ok: true, user: loginData.user, paired: !!appState.runtime.extensionToken };
+    }
+
+    case 'GOOGLE_LOGIN': {
+      try {
+        // Use native Chrome Identity API for Google Sign-in
+        const token = await new Promise((resolve, reject) => {
+          chrome.identity.getAuthToken({ interactive: true }, (token) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else if (!token) {
+              reject(new Error('Failed to retrieve auth token.'));
+            } else {
+              resolve(token);
+            }
+          });
+        });
+
+        // Send the Google access token to our new backend endpoint
+        const loginData = await apiPost('/auth/verify-token', { access_token: token });
+
+        if (!loginData.access_token) {
+          return { ok: false, error: 'Failed to authenticate with SmartApply backend.' };
+        }
+
+        // Store token
+        appState.runtime.token = loginData.access_token;
+        appState.runtime.userEmail = loginData.user?.email || '';
+
+        // Load profile (same as email/password login)
+        const profileData = await loadProfile(loginData.access_token);
+        const p  = profileData.profile || {};
+        const jp = profileData.job_preferences || {};
+
+        appState.profile = {
+          ...appState.profile,
+          ...p,
+          ...jp,
+          fullName:         `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+          firstName:        p.first_name || '',
+          lastName:         p.last_name  || '',
+          email:            loginData.user?.email || '',
+          phoneCountryCode: p.phone_country_code || '+91',
+          phoneNumber:      p.phone_number || '',
+          resumePath:       p.resumePath || '',
+          resumeUrl:        p.resumeUrl || '',
+          resumeFileName:   p.resumeFileName || '',
+          resumeMimeType:   p.resumeMimeType || '',
+          resumeUploadedAt: p.resumeUploadedAt || '',
+        };
+
+        // Pair extension (non-fatal)
+        try {
+          const extToken = await connectExtension(loginData.access_token);
+          appState.runtime.extensionToken = extToken;
+          startHeartbeat(extToken);
+        } catch (err) {
+          console.warn('[SmartApply] Extension pairing after Google login failed (non-fatal):', err.message);
+        }
+
+        await saveState();
+        return { ok: true, user: loginData.user, paired: !!appState.runtime.extensionToken };
+
+      } catch (err) {
+        console.error('[SmartApply SW] GOOGLE_LOGIN error:', err);
+        if (err.message?.includes('canceled') || err.message?.includes('cancelled') || err.message?.includes('closed')) {
+          return { ok: false, error: 'Google sign-in was cancelled.' };
+        }
+        return { ok: false, error: err.message || 'Google sign-in failed' };
+      }
     }
 
     case 'PAIR_EXTENSION': {
