@@ -60,19 +60,6 @@ export default function SkillGapPage() {
     roadmapLoadingRef.current = roadmapLoading;
   }, [roadmapLoading]);
 
-  // WebSocket listener for roadmap ready event
-  useEffect(() => {
-    if (!subscribe) return;
-    const unsub = subscribe('ROADMAP_READY', (event) => {
-      if (roadmapLoadingRef.current) {
-        showToast('Roadmap is ready!', 'success');
-        loadSavedRoadmap(event.payload.id);
-        setRoadmapLoading(false);
-        loadSavedRoadmaps();
-      }
-    });
-    return unsub;
-  }, [subscribe, loadSavedRoadmaps, showToast]);
 
   // ── Load Analysis ────────────────────────────────────────────────────
   const loadAnalysis = useCallback(async () => {
@@ -216,6 +203,20 @@ export default function SkillGapPage() {
       showToast('Failed to load roadmap', 'error');
     }
   };
+
+  // WebSocket listener for roadmap ready event
+  useEffect(() => {
+    if (!subscribe) return;
+    const unsub = subscribe('ROADMAP_READY', (event) => {
+      if (roadmapLoadingRef.current) {
+        showToast('Roadmap is ready!', 'success');
+        loadSavedRoadmap(event.payload.id);
+        setRoadmapLoading(false);
+        loadSavedRoadmaps();
+      }
+    });
+    return unsub;
+  }, [subscribe, loadSavedRoadmaps, showToast]);
 
   return (
     <>
