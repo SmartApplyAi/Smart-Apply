@@ -988,6 +988,12 @@ async function handleMessage(message, sender) {
       appState.runtime.isPaused  = false;
       await saveState();
       await broadcastToLinkedIn({ type: 'STOP_AUTOMATION' });
+
+      // Notify backend to trigger summary email
+      const token = appState.runtime.token;
+      if (token) {
+        apiPost('/automation/stop', {}, token).catch(e => console.warn('[SmartApply] Backend stop failed:', e.message));
+      }
       return { ok: true };
     }
 
@@ -1333,6 +1339,12 @@ Rules:
       appState.runtime.isRunning = false;
       await saveState();
       chrome.runtime.sendMessage({ type: 'AUTOMATION_FINISHED', payload: message.payload }).catch(() => {});
+
+      // Notify backend to trigger summary email
+      const token = appState.runtime.token;
+      if (token) {
+        apiPost('/automation/stop', {}, token).catch(e => console.warn('[SmartApply] Backend finish notification failed:', e.message));
+      }
       return { ok: true };
     }
 

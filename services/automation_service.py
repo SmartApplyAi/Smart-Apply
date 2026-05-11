@@ -117,15 +117,18 @@ async def resume_session(user_id: str) -> dict:
 async def stop_session(user_id: str, background_tasks = None) -> dict:
     """Stop the active automation session."""
     db = get_db()
+    logger.info(f"Stopping automation session for user {user_id}")
 
     # Fetch session to get stats for email
     session = await db.automation_sessions.find_one(
         {"user_id": user_id, "status": {"$in": ["running", "paused"]}}
     )
     if not session:
+        logger.warning(f"Stop session failed: No active session found for user {user_id}")
         raise ValueError("No active session found")
 
     session_id = str(session["_id"])
+    logger.info(f"Active session found: {session_id}. Updating status to completed.")
 
     result = await db.automation_sessions.update_one(
         {"_id": session["_id"]},
@@ -146,6 +149,8 @@ async def stop_session(user_id: str, background_tasks = None) -> dict:
             failed = session.get("total_failed", 0) or 0
             skipped = session.get("total_skipped", 0) or 0
             total = applied + failed + skipped
+            
+            logger.info(f"Session stats for email: Total={total}, Applied={applied}, Failed={failed}, Skipped={skipped}")
 
             # Fetch top 3 highest-scoring applications from this session's time window
             top_matches = []
@@ -167,29 +172,33 @@ async def stop_session(user_id: str, background_tasks = None) -> dict:
                         for skill in doc.get("missing_skills", []):
                             if skill not in all_missing_skills:
                                 all_missing_skills.append(skill)
+                    logger.info(f"Fetched {len(top_matches)} top matches for summary email.")
                 except Exception as e:
                     logger.warning(f"Failed to fetch top matches: {e}")
 
-            # Compute totals
-            total = applied + failed + skipped
             # Basic summary email (for compatibility with existing tests)
             try:
                 from services.email_service import send_automation_summary
+                logger.info(f"Sending basic automation summary to {user['email']}")
                 await send_automation_summary(user["email"], total, applied, failed, skipped, user.get("name", ""))
             except Exception as e:
                 logger.warning(f"Failed to send basic automation summary email: {e}")
+
             # Enhanced summary email with top matches (if available)
             if total > 0:
                 from services.email_service import send_enhanced_automation_summary, send_skill_gap_alert
                 email_func = send_enhanced_automation_summary
                 email_args = (user["email"], total, applied, failed, skipped, top_matches, user.get("name", ""))
+                logger.info(f"Queueing enhanced automation summary email to {user['email']}")
                 if background_tasks:
                     background_tasks.add_task(email_func, *email_args)
                 else:
                     await email_func(*email_args)
+            
             # Skill gap alert email if any missing skills
             if all_missing_skills:
                 gap_args = (user["email"], all_missing_skills[:10], user.get("name", ""))
+                logger.info(f"Queueing skill gap alert email to {user['email']}")
                 if background_tasks:
                     background_tasks.add_task(send_skill_gap_alert, *gap_args)
                 else:
@@ -206,9 +215,11 @@ async def stop_session(user_id: str, background_tasks = None) -> dict:
                 })
             except Exception as e:
                 logger.warning(f"Failed to broadcast bot run summary: {e}")
+        else:
+            logger.warning(f"No email found for user {user_id}. Skipping summary emails.")
 
     except Exception as e:
-        logger.error(f"Failed to send automation summary email: {e}")
+        logger.error(f"Failed in stop_session email logic for user {user_id}: {e}")
 
     return {"message": "Session stopped", "status": "completed"}
 
