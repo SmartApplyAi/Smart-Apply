@@ -1,18 +1,21 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request
 from dependencies import require_admin
 from services import admin_service
 from config import settings
+from limiter import limiter
 
 router = APIRouter(tags=["Admin"])
 
 @router.get("/admin/stats")
-async def get_admin_stats(admin: dict = Depends(require_admin)):
+@limiter.limit("20/minute")
+async def get_admin_stats(request: Request, admin: dict = Depends(require_admin)):
     """Get global platform stats for the admin dashboard."""
     return await admin_service.get_admin_stats()
 
 @router.get("/admin/keys")
-async def get_admin_keys(admin: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def get_admin_keys(request: Request, admin: dict = Depends(require_admin)):
     """Get the current NVIDIA NIM API keys."""
     keys = await settings.get_nim_api_key_list()
     return {"keys": keys}
@@ -23,7 +26,9 @@ class KeysBody(BaseModel):
     keys: list[str]
 
 @router.put("/admin/keys")
+@limiter.limit("5/minute")
 async def update_admin_keys(
+    request: Request,
     body: KeysBody,
     admin: dict = Depends(require_admin)
 ):
@@ -33,7 +38,9 @@ async def update_admin_keys(
     return {"message": "API keys updated successfully"}
 
 @router.get("/admin/users")
+@limiter.limit("20/minute")
 async def get_users(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     admin: dict = Depends(require_admin)
@@ -43,7 +50,9 @@ async def get_users(
     return {"users": users, "total": total}
 
 @router.patch("/admin/users/{user_id}")
+@limiter.limit("30/minute")
 async def patch_user(
+    request: Request,
     user_id: str,
     payload: dict = Body(...),
     admin: dict = Depends(require_admin)
@@ -62,7 +71,8 @@ async def patch_user(
     return {"message": "User updated successfully"}
 
 @router.delete("/admin/users/{user_id}/hard-delete")
-async def hard_delete_user(user_id: str, admin: dict = Depends(require_admin)):
+@limiter.limit("5/minute")
+async def hard_delete_user(request: Request, user_id: str, admin: dict = Depends(require_admin)):
     """Hard delete a user and all associated data."""
     success = await admin_service.hard_delete_user(user_id)
     if not success:
@@ -86,7 +96,9 @@ async def get_audit_logs(
     return {"logs": logs}
 
 @router.post("/admin/broadcast")
+@limiter.limit("2/minute")
 async def broadcast_announcement(
+    request: Request,
     payload: dict = Body(...),
     admin: dict = Depends(require_admin)
 ):
@@ -100,7 +112,9 @@ async def broadcast_announcement(
     return {"message": f"Broadcast sent to {result['sent_count']} users"}
 
 @router.get("/admin/nim-test")
+@limiter.limit("5/minute")
 async def test_nim_key(
+    request: Request,
     key: str = Query(...),
     admin: dict = Depends(require_admin)
 ):

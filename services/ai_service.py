@@ -727,7 +727,7 @@ Return ONLY valid JSON with this exact structure:
 }
 
 RULES:
-- Create 3-5 phases ordered from foundational to advanced
+- Structure the roadmap into EXACTLY 3 phases: "Phase 1 (Days 1-30)", "Phase 2 (Days 31-60)", and "Phase 3 (Days 61-90)".
 - Each phase should have 2-4 skills
 - Assign visually distinct hex colors to each phase (use vibrant, modern colors)
 - Include real, actual resource URLs when possible (freeCodeCamp, MDN, official docs, Coursera, YouTube)

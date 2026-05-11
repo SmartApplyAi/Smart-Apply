@@ -9,6 +9,7 @@ from dependencies import get_current_user
 from services import automation_service
 from pydantic import BaseModel
 from typing import Optional
+from limiter import limiter
 import asyncio
 
 router = APIRouter(prefix="/automation", tags=["Automation"])
@@ -19,7 +20,9 @@ class StartSessionRequest(BaseModel):
 
 
 @router.post("/start")
+@limiter.limit("5/minute")
 async def start_session(
+    request: Request,
     body: StartSessionRequest, user: dict = Depends(get_current_user)
 ):
     """Start a new automation session."""
@@ -30,7 +33,8 @@ async def start_session(
 
 
 @router.post("/pause")
-async def pause_session(user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def pause_session(request: Request, user: dict = Depends(get_current_user)):
     """Pause the active automation session."""
     try:
         return await automation_service.pause_session(user["id"])
@@ -39,7 +43,8 @@ async def pause_session(user: dict = Depends(get_current_user)):
 
 
 @router.post("/resume")
-async def resume_session(user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def resume_session(request: Request, user: dict = Depends(get_current_user)):
     """Resume a paused session."""
     try:
         return await automation_service.resume_session(user["id"])
@@ -48,7 +53,9 @@ async def resume_session(user: dict = Depends(get_current_user)):
 
 
 @router.post("/stop")
+@limiter.limit("5/minute")
 async def stop_session(
+    request: Request,
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user)
 ):
@@ -60,13 +67,16 @@ async def stop_session(
 
 
 @router.get("/status")
-async def get_status(user: dict = Depends(get_current_user)):
+@limiter.limit("60/minute")
+async def get_status(request: Request, user: dict = Depends(get_current_user)):
     """Get the current automation session status."""
     return await automation_service.get_session_status(user["id"])
 
 
 @router.get("/logs")
+@limiter.limit("30/minute")
 async def get_logs(
+    request: Request,
     session_id: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     user: dict = Depends(get_current_user),
@@ -76,7 +86,9 @@ async def get_logs(
 
 
 @router.get("/extension/tokens")
+@limiter.limit("20/minute")
 async def list_extension_tokens(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     user: dict = Depends(get_current_user)
@@ -86,7 +98,9 @@ async def list_extension_tokens(
 
 
 @router.delete("/extension/tokens/{token_id}")
+@limiter.limit("10/minute")
 async def revoke_extension_token(
+    request: Request,
     token_id: str, user: dict = Depends(get_current_user)
 ):
     """Revoke a specific extension token."""
@@ -94,8 +108,10 @@ async def revoke_extension_token(
         return await automation_service.revoke_extension_token(user["id"], token_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
 @router.get("/stream")
-async def stream_automation_updates(user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def stream_automation_updates(request: Request, user: dict = Depends(get_current_user)):
     """Stream real-time automation updates via SSE."""
     async def event_generator():
         queue = await automation_service.subscribe_to_updates(user["id"])
