@@ -1132,6 +1132,29 @@ async function handleMessage(message, sender) {
       break;
     }
 
+    case 'HIGH_MATCH_FAILED': {
+      // A high-match job (>= 75%) failed to apply — notify user via backend
+      const stored = await chrome.storage.session.get('userToken');
+      const token = stored.userToken || appState.runtime.token;
+      if (!token) break;
+
+      (async () => {
+        try {
+          await apiPost('/ai/high-match-failed', {
+            job_title: message.job_title || '',
+            company: message.company || '',
+            job_url: message.job_url || '',
+            match_score: message.match_score || 0,
+            error_detail: message.error_detail || '',
+          }, token);
+          console.log('[SmartApply] HIGH_MATCH_FAILED notification sent');
+        } catch (e) {
+          console.warn('[SmartApply] HIGH_MATCH_FAILED notify failed:', e.message);
+        }
+      })();
+      break;
+    }
+
     case 'ASK_AI_QUESTION': {
       const stored = await chrome.storage.session.get('userToken');
       const token = stored.userToken || appState.runtime.token;

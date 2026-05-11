@@ -3500,6 +3500,80 @@ async function clickEasyApplyAndProcess(state) {
     return false;
   }
 
+  // ── Pre-Apply Score Gate ────────────────────────────────────────────────
+  // Check job-fit score BEFORE clicking Easy Apply. Skip low-scoring jobs.
+  const jd = automation.currentJobDescription || '';
+  if (jd && jd.length >= 80) {
+    try {
+      logger.info(`Checking match score for: ${jobTitle} at ${company}…`);
+      chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `🎯 Scoring: "${jobTitle}" at ${company}…` }).catch(() => {});
+
+      const scoreResult = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('PRE_APPLY_SCORE timeout')), 45000);
+        chrome.runtime.sendMessage({
+          type: 'PRE_APPLY_SCORE',
+          job_description: jd,
+          job_title: jobTitle,
+          company: company,
+        }, (response) => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response || {});
+          }
+        });
+      });
+
+      if (scoreResult.ok && typeof scoreResult.score === 'number') {
+        const scorePercent = scoreResult.score;
+        automation.lastMatchScore = scorePercent; // Store for failure notification
+        logger.info(`Match score: ${scorePercent}% (eligible: ${scoreResult.eligible})`);
+        chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `📊 Score: ${scorePercent}% — ${scoreResult.eligible ? '✅ Eligible' : '❌ Below threshold'}` }).catch(() => {});
+
+        if (!scoreResult.eligible) {
+          logger.info(`Skipping job: score ${scorePercent}% is below threshold`);
+          chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `⏭️ Skipped "${jobTitle}" — ${scorePercent}% match (below 65%)` }).catch(() => {});
+
+          // ── Mark job as processed to prevent infinite re-scoring loop ──
+          if (state.job.jobId) {
+            automation.appliedJobIds.add(state.job.jobId);
+            const idsArray = Array.from(automation.appliedJobIds).slice(-5000);
+            chrome.storage.local.set({ appliedJobIds: idsArray }).catch(() => {});
+          }
+
+          reportResult({
+            result: 'Skipped',
+            reason: 'low_match_score',
+            match_score: scorePercent,
+            matched_skills: scoreResult.matched_skills || [],
+            missing_skills: scoreResult.missing_skills || [],
+            job_title: jobTitle,
+            company: company,
+            job_url: window.location.href,
+            job_link: window.location.href,
+            job_description: jd,
+            platform: 'linkedin',
+            session_id: automation.sessionId,
+            token: state.runtime?.token || '',
+          });
+
+          return false;
+        }
+      } else {
+        // Score call returned but wasn't OK — fail closed
+        logger.warn(`Pre-apply score returned non-ok: ${scoreResult.reason || 'unknown'}`);
+      }
+    } catch (scoreErr) {
+      // Network/timeout error — fail open (allow applying) to not block automation
+      logger.warn(`Pre-apply score failed (non-fatal): ${scoreErr.message}`);
+      chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `⚠️ Score check failed — proceeding with apply` }).catch(() => {});
+    }
+  } else {
+    logger.warn('No JD extracted — skipping pre-apply score check');
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   logger.info(`Applying to: ${jobTitle} at ${company}`);
   sendLog('apply', 'started', `Applying to ${jobTitle} at ${company}`, state.job);
 
@@ -3563,8 +3637,30 @@ async function processOneApplication(state) {
       chrome.storage.local.set({ appliedJobIds: idsArray }).catch(() => {});
     }
   }
-  else if (result.result === 'Failed') automation.totalFailed++;
+  else if (result.result === 'Failed') {
+    automation.totalFailed++;
+
+    // ── High-Match Failure Alert ──────────────────────────────────────────
+    // If this job scored >= 75% but failed to apply, alert the user so they
+    // can apply manually. The backend will send email + in-app notification.
+    const matchScore = automation.lastMatchScore || 0;
+    if (matchScore >= 75) {
+      logger.info(`⚠️ High-match job failed! ${state.job?.title} (${matchScore}%) — notifying user`);
+      chrome.runtime.sendMessage({ type: 'POPUP_LOG', text: `🚨 High-match job failed (${matchScore}%): "${state.job?.title}" — you'll be notified!` }).catch(() => {});
+      chrome.runtime.sendMessage({
+        type: 'HIGH_MATCH_FAILED',
+        job_title: state.job?.title || '',
+        company: state.job?.company || '',
+        job_url: state.job?.jobUrl || window.location.href,
+        match_score: matchScore,
+        error_detail: result.reason || result.error || 'Unknown error',
+      }).catch(() => {});
+    }
+  }
   else automation.totalSkipped++;
+
+  // Reset lastMatchScore for next job
+  automation.lastMatchScore = 0;
 
   sendProgress();
   reportResult(resultData);

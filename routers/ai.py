@@ -336,6 +336,93 @@ async def pre_apply_score(
     }
 
 
+class HighMatchFailedRequest(BaseModel):
+    job_title: str = ""
+    company: str = ""
+    job_url: str = ""
+    match_score: float = 0
+    error_detail: str = ""
+
+
+@router.post("/high-match-failed")
+@limiter.limit("30/minute")
+async def high_match_failed(
+    request: Request, body: HighMatchFailedRequest, user: dict = Depends(get_current_user)
+):
+    """Notify user when a highly-matched job fails to apply automatically."""
+    import asyncio
+    from services.notification_service import create_notification
+    from services.email_service import send_email, wrap_template
+    from config import settings
+
+    user_id = user["id"]
+    score = int(body.match_score)
+
+    # 1. Create in-app notification
+    try:
+        await create_notification(
+            user_id=user_id,
+            type="high_match_failed",
+            title=f"🎯 {score}% Match — Apply Manually!",
+            message=f'"{body.job_title}" at {body.company} scored {score}% but failed to auto-apply. Click to apply manually.',
+            data={
+                "job_title": body.job_title,
+                "company": body.company,
+                "job_url": body.job_url,
+                "match_score": score,
+                "error_detail": body.error_detail,
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create high-match notification: {e}")
+
+    # 2. Push WebSocket event for real-time dashboard update
+    try:
+        from websocket.pubsub import publish_job_event
+        await publish_job_event(user_id, "HIGH_MATCH_FAILED", {
+            "job_title": body.job_title,
+            "company": body.company,
+            "job_url": body.job_url,
+            "match_score": score,
+            "error_detail": body.error_detail,
+        })
+    except Exception as e:
+        logger.warning(f"HIGH_MATCH_FAILED WS push failed: {e}")
+
+    # 3. Send email alert (fire-and-forget)
+    async def _send_alert():
+        try:
+            body_html = f"""
+            <h2>🎯 High-Match Job Needs Your Attention</h2>
+            <p>Hi {user.get('name', 'there')},</p>
+            <p>SmartApply found a <strong>{score}% match</strong> but couldn't complete the application automatically.</p>
+            <div class="pin-box" style="border-color: rgba(79, 124, 255, 0.5);">
+              <div style="font-size: 14px; color: #94a3b8; margin-bottom: 4px;">{body.company}</div>
+              <div style="font-size: 20px; font-weight: 700; color: #f1f5f9;">{body.job_title}</div>
+              <div style="margin-top: 8px;">
+                <span style="display: inline-block; background: rgba(34, 197, 94, 0.15); color: #22c55e; padding: 6px 16px; border-radius: 20px; font-weight: 700; font-size: 16px;">{score}% Match</span>
+              </div>
+            </div>
+            <p style="text-align: center;">
+              <a href="{body.job_url}" class="btn">Apply Manually →</a>
+            </p>
+            <p class="muted">Error: {body.error_detail or 'Form automation failed'}</p>
+            """
+            html = await wrap_template("High-Match Job Alert", body_html)
+            await send_email(
+                user.get("email", ""),
+                user.get("name", ""),
+                f"🎯 {score}% Match: {body.job_title} at {body.company} — Apply Now!",
+                html,
+            )
+        except Exception as e:
+            logger.warning(f"High-match email failed: {e}")
+
+    asyncio.create_task(_send_alert())
+
+    return {"message": "High-match failure notification sent", "score": score}
+
+
 @router.post("/resume-suggestions")
 @limiter.limit("5/minute")
 async def resume_suggestions(

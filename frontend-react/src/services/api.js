@@ -5,6 +5,7 @@ import { refreshManager } from '../auth/refreshManager';
 // We create an axios instance to easily apply interceptors
 const api = axios.create({
   baseURL: '/api',
+  withCredentials: true,
 });
 
 // Request interceptor: add auth token from volatile memory
