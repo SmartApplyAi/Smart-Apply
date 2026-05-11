@@ -110,6 +110,23 @@ export function WebSocketProvider({ children }) {
               setLiveFeed(prev => [{...p, type: 'skipped', receivedAt: Date.now()}, ...prev].slice(0, 50));
               break;
             }
+            case 'MATCH_SCORE': {
+              const p = data.payload || {};
+              // Add to live feed with score metadata
+              setLiveFeed(prev => [{
+                ...p,
+                type: 'match_score',
+                receivedAt: Date.now(),
+              }, ...prev].slice(0, 50));
+              // Show toast only for high matches to avoid noise
+              if ((p.score || 0) >= 75) {
+                showToast(
+                  `🎯 ${p.score}% match — ${p.job_title || 'Job'} at ${p.company || 'Company'}`,
+                  'success'
+                );
+              }
+              break;
+            }
 
             // ── Skill Gap Alert ─────────────────────────────────────
             case 'SKILL_GAP_ALERT': {

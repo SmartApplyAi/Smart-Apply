@@ -146,6 +146,96 @@ async function apiPost(endpoint, body, token) {
   });
 }
 
+// ── Extension WebSocket Manager ───────────────────────────────────────────
+
+let _extWs = null;
+let _extWsReady = false;
+let _extWsPingTimer = null;
+let _extWsReconnectTimer = null;
+let _lastScoredJdHash = '';
+
+async function connectExtensionWebSocket() {
+  if (_extWs && (_extWs.readyState === WebSocket.OPEN || _extWs.readyState === WebSocket.CONNECTING)) return;
+  const stored = await chrome.storage.session.get('userToken');
+  const token = stored.userToken || appState.runtime.token;
+  if (!token) return;
+
+  try {
+    // Get one-time ticket
+    const ticketData = await fetchWithRetry(
+      `${API_BASE}/ws-ticket`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      },
+      2
+    );
+    const ticket = ticketData?.ticket;
+    if (!ticket) throw new Error('No ticket returned');
+
+    // Build WSS URL from API_BASE (e.g. https://www.smartapplies.app/api → wss://www.smartapplies.app/ws/realtime)
+    const wsBase = API_BASE.replace(/\/api$/, '').replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
+    const wsUrl = `${wsBase}/ws/realtime?ticket=${ticket}`;
+
+    _extWs = new WebSocket(wsUrl);
+
+    _extWs.onopen = () => {
+      _extWsReady = true;
+      console.log('[SmartApply WS] Extension WebSocket connected');
+      // Ping every 25s (server heartbeat window is 30s)
+      _extWsPingTimer = setInterval(() => {
+        if (_extWs?.readyState === WebSocket.OPEN) {
+          _extWs.send(JSON.stringify({ type: 'PING' }));
+        }
+      }, 25000);
+    };
+
+    _extWs.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        // Forward server-push events to popup UI
+        if (['MATCH_SCORE', 'JOB_APPLIED', 'JOB_FAILED', 'JOB_SKIPPED', 'NOTIFICATION', 'BOT_RUN_SUMMARY'].includes(msg.type)) {
+          chrome.runtime.sendMessage({ type: 'WS_EVENT', event: msg }).catch(() => {});
+        }
+        if (msg.type === 'FORCE_REAUTH' || msg.type === 'SESSION_REVOKED') {
+          _extWsReady = false;
+          _extWs = null;
+        }
+      } catch (_) {}
+    };
+
+    _extWs.onclose = (evt) => {
+      _extWsReady = false;
+      _extWs = null;
+      clearInterval(_extWsPingTimer);
+      console.log(`[SmartApply WS] Disconnected (code=${evt.code}). Reconnecting in 5s…`);
+      _extWsReconnectTimer = setTimeout(async () => {
+        const s = await chrome.storage.session.get('userToken');
+        if (s.userToken || appState.runtime.token) connectExtensionWebSocket();
+      }, 5000);
+    };
+
+    _extWs.onerror = (e) => {
+      console.warn('[SmartApply WS] WebSocket error:', e?.message || e);
+    };
+
+  } catch (e) {
+    console.warn('[SmartApply WS] Failed to connect:', e.message);
+    _extWsReconnectTimer = setTimeout(connectExtensionWebSocket, 15000);
+  }
+}
+
+function disconnectExtensionWebSocket() {
+  clearInterval(_extWsPingTimer);
+  clearTimeout(_extWsReconnectTimer);
+  if (_extWs) {
+    _extWs.onclose = null; // prevent auto-reconnect on manual disconnect
+    _extWs.close();
+    _extWs = null;
+  }
+  _extWsReady = false;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────
 
 async function login(email, password) {
@@ -581,6 +671,7 @@ async function handleMessage(message, sender) {
         // Login still succeeds — heartbeat simply won't run until re-paired
       }
       await saveState();
+      connectExtensionWebSocket().catch(() => {});
 
       return { ok: true, user: loginData.user, paired: !!appState.runtime.extensionToken };
     }
@@ -643,6 +734,7 @@ async function handleMessage(message, sender) {
         }
 
         await saveState();
+        connectExtensionWebSocket().catch(() => {});
         return { ok: true, user: loginData.user, paired: !!appState.runtime.extensionToken };
 
       } catch (err) {
@@ -672,6 +764,7 @@ async function handleMessage(message, sender) {
     }
 
     case 'LOGOUT': {
+      disconnectExtensionWebSocket();
       stopHeartbeat();
       appState = createDefaultState();
       await saveState();
@@ -985,6 +1078,60 @@ async function handleMessage(message, sender) {
       }
     }
 
+    case 'SCORE_JOB': {
+      // Triggered by content script when user views a job. Debounced by JD hash.
+      const stored = await chrome.storage.session.get('userToken');
+      const token = stored.userToken || appState.runtime.token;
+      if (!token) break;
+
+      const jd = (message.job_description || '').trim();
+      if (!jd || jd.length < 80) break;
+
+      // Debounce: skip if same JD scored within last 60s
+      const jdHash = jd.slice(0, 120);
+      if (_lastScoredJdHash === jdHash) break;
+      _lastScoredJdHash = jdHash;
+      setTimeout(() => { _lastScoredJdHash = ''; }, 60000);
+
+      // Fire-and-forget background scoring
+      (async () => {
+        try {
+          const result = await apiPost(
+            '/ai/pre-apply-score',
+            {
+              job_description: jd,
+              job_title: message.job_title || '',
+              company: message.company || '',
+            },
+            token
+          );
+
+          // Forward score to popup immediately (popup listens for WS_EVENT)
+          chrome.runtime.sendMessage({
+            type: 'WS_EVENT',
+            event: {
+              type: 'MATCH_SCORE',
+              payload: {
+                score: result.score || 0,
+                eligible: !!result.eligible,
+                matched_skills: result.matched_skills || [],
+                missing_skills: result.missing_skills || [],
+                job_title: message.job_title || '',
+                company: message.company || '',
+                source: 'live_browse',
+              },
+              timestamp: new Date().toISOString(),
+            },
+          }).catch(() => {});
+          // Note: backend already pushes MATCH_SCORE via WebSocket to the website dashboard
+          // inside /api/ai/pre-apply-score after CHANGE 3 is applied.
+        } catch (e) {
+          console.warn('[SmartApply] SCORE_JOB failed:', e.message);
+        }
+      })();
+      break;
+    }
+
     case 'ASK_AI_QUESTION': {
       const stored = await chrome.storage.session.get('userToken');
       const token = stored.userToken || appState.runtime.token;
@@ -1264,5 +1411,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 (async () => {
   await loadState();
   if (appState.runtime.extensionToken) startHeartbeat(appState.runtime.extensionToken);
+  // Reconnect WebSocket if already logged in
+  if (appState.runtime.token) {
+    connectExtensionWebSocket().catch(() => {});
+  }
   console.log('[SmartApply SW] Initialized');
 })();

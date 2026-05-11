@@ -3821,5 +3821,81 @@ initFloatingLogger();
 logger.info(`SmartApply content script loaded on ${window.location.hostname}`);
 chrome.runtime.sendMessage({ type: 'CONTENT_READY', url: window.location.href }).catch(() => {});
 
+// ── Live JD Match Scoring ─────────────────────────────────────────────────
+// Fires SCORE_JOB to service-worker whenever user navigates to a job on LinkedIn.
+
+(function initLiveScoring() {
+  const JD_SELECTORS = [
+    '#job-details',
+    'article.jobs-description__container',
+    '.jobs-description-content__text',
+    '.jobs-description__content',
+    '.jobs-box__html-content',
+    '.jobs-description',
+  ];
+
+  const TITLE_SELECTORS = [
+    '.jobs-unified-top-card__job-title h1',
+    '.job-details-jobs-unified-top-card__job-title h1',
+    'h1.t-24',
+    '.jobs-unified-top-card__job-title',
+  ];
+
+  const COMPANY_SELECTORS = [
+    '.jobs-unified-top-card__company-name a',
+    '.jobs-unified-top-card__subtitle-primary-grouping a',
+    '.job-details-jobs-unified-top-card__company-name a',
+  ];
+
+  function extractText(selectors) {
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el?.innerText?.trim()) return el.innerText.trim();
+    }
+    return '';
+  }
+
+  function tryScoreCurrentJob() {
+    const jd = extractText(JD_SELECTORS);
+    if (!jd || jd.length < 80) return;
+
+    const jobTitle = extractText(TITLE_SELECTORS);
+    const company  = extractText(COMPANY_SELECTORS);
+
+    chrome.runtime.sendMessage({
+      type: 'SCORE_JOB',
+      job_description: jd.substring(0, 5000),
+      job_title: jobTitle,
+      company: company,
+    }).catch(() => {});
+  }
+
+  // SPA navigation detection via URL polling
+  let _lastHref = location.href;
+  let _scoreTimer = null;
+
+  function onUrlChange() {
+    // Only score on /jobs/view/ pages
+    if (!location.href.includes('/jobs/')) return;
+    clearTimeout(_scoreTimer);
+    // Wait for DOM to settle after navigation
+    _scoreTimer = setTimeout(tryScoreCurrentJob, 2200);
+  }
+
+  // MutationObserver catches LinkedIn's SPA pushState navigations
+  const _navObserver = new MutationObserver(() => {
+    if (location.href !== _lastHref) {
+      _lastHref = location.href;
+      onUrlChange();
+    }
+  });
+  _navObserver.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Initial page load
+  if (location.href.includes('/jobs/')) {
+    _scoreTimer = setTimeout(tryScoreCurrentJob, 2500);
+  }
+})();
+
 
 })();

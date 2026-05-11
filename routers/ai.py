@@ -292,6 +292,26 @@ async def pre_apply_score(
             "reason": "scoring_error",
         }
 
+    # ── Push live score to user's dashboard via WebSocket ──────────────
+    try:
+        from websocket.pubsub import publish_job_event
+        await publish_job_event(
+            user_id=str(user["id"]),
+            event_type="MATCH_SCORE",
+            payload={
+                "score": match_result.get("match_score", 0),
+                "eligible": bool((match_result.get("match_score") or 0) >= 65),
+                "matched_skills": match_result.get("matched_skills", []),
+                "missing_skills": match_result.get("missing_skills", []),
+                "job_title": body.job_title,
+                "company": body.company,
+                "source": "live_browse",
+            },
+        )
+    except Exception as _ws_err:
+        logger.warning(f"MATCH_SCORE WS push failed (non-fatal): {_ws_err}")
+    # ───────────────────────────────────────────────────────────────────
+
     # Fail closed: parse failure
     score = match_result.get("match_score")
     if score is None or not isinstance(score, (int, float)):

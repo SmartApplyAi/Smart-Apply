@@ -15,6 +15,7 @@
     "https://www.linkedin.com/*",
     "https://linkedin.com/*",
     "https://www.smartapplies.app/*",
+    "wss://www.smartapplies.app/*",
     "https://*.r2.dev/*",
     "https://*.r2.cloudflarestorage.com/*"
   ],
