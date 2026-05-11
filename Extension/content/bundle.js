@@ -3307,12 +3307,14 @@ async function clickJobCard(card) {
     'article.jobs-description__container',
     '.jobs-description-content__text',
     '.jobs-description__content',
+    '.job-details-module__content',
+    'div[class*="jobs-description-content"]',
     '.jobs-box__html-content',
     '.jobs-description'
   ];
   
-  // Wait up to 3s for JD to load after top card appears
-  await waitFor('#job-details, article.jobs-description__container, .jobs-description-content__text', 3000).catch(() => {});
+  // Wait up to 5s for JD to load after top card appears
+  await waitFor('#job-details, article.jobs-description__container, .jobs-description-content__text, .jobs-description__content, .job-details-module__content', 5000).catch(() => {});
   // Give it a tiny moment to hydrate
   await sleep(500);
 

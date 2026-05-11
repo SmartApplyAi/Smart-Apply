@@ -424,7 +424,7 @@ async def refresh_access_token(refresh_token: str) -> dict:
     if not stored:
         raise ValueError("Invalid or revoked refresh token")
 
-    if stored["expires_at"] < datetime.now(timezone.utc):
+    if stored["expires_at"].replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         raise ValueError("Refresh token expired")
 
     # Decode to get user data
