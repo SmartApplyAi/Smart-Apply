@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 from bson import ObjectId
 from database import get_db
-from utils import generate_extension_token, create_access_token
 from config import settings
 from loguru import logger
 
@@ -283,14 +282,7 @@ async def get_session_logs(user_id: str, session_id: Optional[str] = None, limit
 
 # ── Extension Auth ──────────────────────────────────────────────────────────
 
-# Deprecated: use new pairing flow instead.
-async def extension_connect(
-    user_id: str,
-    device_name: str = "",
-    ip_address: str = "",
-    user_agent: str = "",
-) -> dict:
-    raise ValueError("Deprecated: use the new pairing flow endpoint /api/extension/pairing-code")
+
 
 
 async def extension_heartbeat(token: str, ip_address: str = "") -> dict:

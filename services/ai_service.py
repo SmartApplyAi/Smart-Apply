@@ -383,49 +383,6 @@ Return ONLY valid JSON, no markdown fences:
 
 
 
-async def analyze_resume_standalone(resume_text: str) -> dict:
-    """
-    Analyze a resume without a job description.
-    Provides general ATS readiness assessment.
-    """
-    system_prompt = """You are an expert resume reviewer and ATS specialist.
-Analyze this resume for general ATS readiness and return a STRICT JSON object:
-
-{
-  "ats_readiness_score": <integer 0-100>,
-  "verdict": "<excellent|good|needs_work|poor>",
-  "detected_role": "Detected target role/title from resume",
-  "detected_skills": ["skill1", "skill2", ...],
-  "detected_experience_years": <integer or null>,
-  "section_analysis": {
-    "contact_info": {"present": true/false, "score": 0-100, "notes": "..."},
-    "summary": {"present": true/false, "score": 0-100, "notes": "..."},
-    "experience": {"present": true/false, "score": 0-100, "notes": "..."},
-    "education": {"present": true/false, "score": 0-100, "notes": "..."},
-    "skills": {"present": true/false, "score": 0-100, "notes": "..."},
-    "projects": {"present": true/false, "score": 0-100, "notes": "..."}
-  },
-  "formatting_issues": ["issue1", ...],
-  "improvement_suggestions": [
-    {"priority": "high|medium|low", "suggestion": "..."},
-    ...
-  ],
-  "keyword_recommendations": ["keyword1", "keyword2", ...],
-  "overall_feedback": "2-3 sentence summary"
-}
-
-Return ONLY valid JSON."""
-
-    user_prompt = f"RESUME:\n{resume_text[:4000]}"
-    raw = await _call_nim(system_prompt, user_prompt, max_tokens=2000, temperature=0.3)
-    parsed = _parse_json_from_response(raw)
-
-    if not parsed:
-        return {"analysis": raw, "error": "Could not parse structured analysis"}
-
-    return parsed
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -642,9 +599,6 @@ async def interview_chat(
     }
 
 
-async def rank_jobs(user_profile: dict, jobs: list) -> dict:
-    """Rank jobs by profile fit — alias for match_jobs."""
-    return await match_jobs(user_profile, jobs)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

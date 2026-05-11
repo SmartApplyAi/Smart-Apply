@@ -3,13 +3,8 @@
 let _extensionId = null;
 const SCRAPE_TIMEOUT_MS = 30000;
 
-/** Set the extension ID (call once at app init) */
-export function setExtensionId(id) {
-  _extensionId = id;
-}
-
 /** Get the configured extension ID */
-export function getExtensionId() {
+function getExtensionId() {
   return _extensionId || window.SMARTAPPLY_EXTENSION_ID || localStorage.getItem('sa_ext_id') || '';
 }
 
@@ -69,18 +64,5 @@ const LinkedInBridge = {
 
 };
 
-/** Fetch the extension ID from the backend config endpoint */
-export async function initExtensionId() {
-  try {
-    const resp = await fetch('/api/config/extension');
-    const data = await resp.json();
-    if (data.extension_id) {
-      _extensionId = data.extension_id;
-      window.SMARTAPPLY_EXTENSION_ID = data.extension_id;
-    }
-  } catch (err) {
-    console.warn('Could not fetch extension config:', err);
-  }
-}
-
 export default LinkedInBridge;
+

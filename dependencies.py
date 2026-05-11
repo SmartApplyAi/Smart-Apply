@@ -177,24 +177,8 @@ async def get_current_user_flexible(
     return user
 
 
-async def get_current_active_user(user: dict = Depends(get_current_user)) -> dict:
-    """Alias that also confirms the user is active."""
-    return user
-
-
 async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     """Require admin role."""
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
-
-
-async def get_optional_user(
-    request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
-) -> Optional[dict]:
-    """Dependency for routes that work with or without auth."""
-    try:
-        return await get_current_user(request, credentials)
-    except HTTPException:
-        return None

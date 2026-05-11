@@ -66,10 +66,3 @@ async def handle_bot_run_summary(user_id: str, summary_data: dict):
     """
     await manager.send_typed_event(user_id, events.BOT_RUN_SUMMARY, summary_data)
     logger.info(f"Bot run summary sent to user {user_id}")
-
-
-async def handle_automation_progress(user_id: str, progress_data: dict):
-    """
-    Broadcast automation progress update (counters).
-    """
-    await manager.send_typed_event(user_id, events.AUTOMATION_PROGRESS, progress_data)

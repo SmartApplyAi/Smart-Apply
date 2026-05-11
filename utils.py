@@ -1,5 +1,5 @@
 """
-Utility helpers: JWT creation, password hashing, crypto, pagination.
+Utility helpers: JWT creation, password hashing, crypto.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -11,7 +11,6 @@ from config import settings
 import hashlib
 import secrets
 import random
-import math
 import re
 
 # Fix for passlib + bcrypt 4.x incompatibility
@@ -110,11 +109,6 @@ def generate_reset_token() -> str:
     return secrets.token_urlsafe(48)
 
 
-# ── Extension tokens ────────────────────────────────────────────────────────
-def generate_extension_token() -> str:
-    return secrets.token_urlsafe(64)
-
-
 from cryptography.fernet import Fernet
 import base64
 
@@ -140,40 +134,6 @@ def decrypt_value(enc: str) -> str:
     except Exception:
         # Fallback for old XOR-encrypted values or invalid data
         return ""
-
-
-# ── Pagination ──────────────────────────────────────────────────────────────
-def paginate_params(skip: int = 0, limit: int = 20) -> dict:
-    limit = min(max(limit, 1), 100)
-    skip = max(skip, 0)
-    return {"skip": skip, "limit": limit}
-
-
-def paginate_response(items: list, total: int, skip: int, limit: int) -> dict:
-    return {
-        "items": items,
-        "total": total,
-        "page": (skip // limit) + 1 if limit else 1,
-        "pages": math.ceil(total / limit) if limit else 1,
-        "has_next": (skip + limit) < total,
-        "has_prev": skip > 0,
-    }
-
-
-# ── MongoDB ObjectId serialiser ──────────────────────────────────────────────
-def serialise_doc(doc: dict) -> dict:
-    """Convert MongoDB document for JSON serialisation."""
-    if doc is None:
-        return {}
-    result = {}
-    for key, value in doc.items():
-        if key == "_id":
-            result["id"] = str(value)
-        elif hasattr(value, "isoformat"):
-            result[key] = value.isoformat()
-        else:
-            result[key] = value
-    return result
 
 
 def redact_pii(text: str) -> str:

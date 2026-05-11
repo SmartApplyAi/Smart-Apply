@@ -13,15 +13,13 @@ async def get_admin_stats() -> dict:
     # Global stats in parallel
     results = await asyncio.gather(
         db.users.count_documents({}),
-        db.users.count_documents({"is_active": True, "email_verified": True}),
         db.job_applications.count_documents({}),
         db.job_applications.count_documents({"result": "Applied"})
     )
     
     total_users = results[0]
-    active_users = results[1]
-    total_apps = results[2]
-    applied = results[3]
+    total_apps = results[1]
+    applied = results[2]
     
     success_rate = round((applied / total_apps * 100), 1) if total_apps > 0 else 0
     

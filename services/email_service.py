@@ -183,27 +183,6 @@ async def send_password_reset_email(email: str, reset_url: str, name: str = "") 
     return await send_email(email, name, "Reset your password — SmartApply", html_content)
 
 
-async def send_application_alert(email: str, job_title: str, company: str, status: str, name: str = "") -> bool:
-    """Send a job application status alert."""
-    default_body = f"""
-    <h2>Application Update</h2>
-    <p>Hi {{name}},</p>
-    <p>Your application status has been updated:</p>
-    <div class="pin-box" style="border-color: {{color}};">
-      <div style="font-size: 14px; color: #94a3b8; margin-bottom: 4px;">{{company}}</div>
-      <div style="font-size: 18px; font-weight: 700; color: #f1f5f9;">{{job_title}}</div>
-      <div style="font-size: 16px; font-weight: 600; color: {{color}}; margin-top: 8px;">Status: {{status}}</div>
-    </div>
-    <p><a href="{settings.FRONTEND_URL}/dashboard" class="btn">View Dashboard</a></p>
-    """
-    body_template = await get_template("application_alert", default_body)
-    display_name = name if name else 'User'
-    color = "#22c55e" if status in ("Applied", "submitted") else "#ef4444" if status in ("Failed", "failed") else "#94a3b8"
-    body = body_template.replace("{name}", display_name).replace("{company}", company).replace("{job_title}", job_title).replace("{status}", status).replace("{color}", color)
-    
-    html_content = await wrap_template("Application Alert", body)
-    return await send_email(email, name, f"Application Update: {job_title} — SmartApply", html_content)
-
 
 async def send_automation_summary(
     email: str, total: int, applied: int, failed: int, skipped: int, name: str = ""

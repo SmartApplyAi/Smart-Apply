@@ -299,9 +299,6 @@ def _extract_text(file_bytes: bytes) -> str:
     return text
 
 
-    return text
-
-
 def _extract_fields(text: str) -> dict:
     """Use regex patterns to extract structured fields from resume text."""
     # Redact the raw text so that AI won't receive the unredacted PII

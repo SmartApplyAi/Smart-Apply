@@ -48,18 +48,6 @@ class ConnectionManager:
         })
         await self.send_personal_message(message, user_id)
 
-    async def broadcast(self, message: str):
-        """Send message to all connected clients."""
-        for user_id, connections in self.active_connections.items():
-            dead_connections = []
-            for connection in connections:
-                try:
-                    await connection.send_text(message)
-                except Exception:
-                    dead_connections.append(connection)
-
-            for dead in dead_connections:
-                self.disconnect(dead, user_id)
 
     async def force_disconnect_user(self, user_id: str, code: int = status.WS_1008_POLICY_VIOLATION, reason: str = "Session Revoked"):
         """Forcefully disconnect all sockets for a given user."""
