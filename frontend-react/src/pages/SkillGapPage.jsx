@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
+import { useWebSocket } from '../websocket/WebSocketProvider';
 import '../styles/SkillGapPage.css';
 
 const CIRCUMFERENCE = 2 * Math.PI * 72; // radius 72
@@ -51,6 +52,27 @@ export default function SkillGapPage() {
 
   const [pdfExporting, setPdfExporting] = useState(false);
   const roadmapRef = useRef(null);
+  const { subscribe } = useWebSocket();
+  const roadmapLoadingRef = useRef(false);
+
+  // Sync ref with state for use in listener
+  useEffect(() => {
+    roadmapLoadingRef.current = roadmapLoading;
+  }, [roadmapLoading]);
+
+  // WebSocket listener for roadmap ready event
+  useEffect(() => {
+    if (!subscribe) return;
+    const unsub = subscribe('ROADMAP_READY', (event) => {
+      if (roadmapLoadingRef.current) {
+        showToast('Roadmap is ready!', 'success');
+        loadSavedRoadmap(event.payload.id);
+        setRoadmapLoading(false);
+        loadSavedRoadmaps();
+      }
+    });
+    return unsub;
+  }, [subscribe, loadSavedRoadmaps, showToast]);
 
   // ── Load Analysis ────────────────────────────────────────────────────
   const loadAnalysis = useCallback(async () => {
@@ -99,10 +121,19 @@ export default function SkillGapPage() {
       setRoadmap(data);
       setExpandedPhases({});
       showToast('Roadmap generated successfully!', 'success');
+      loadSavedRoadmaps(); // Refresh the list
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to generate roadmap', 'error');
+      // If it's a timeout (status 0 or no response), we don't clear loading
+      // because the WebSocket listener will catch it when it finishes on the backend.
+      if (err.code === 'ECONNABORTED' || !err.response) {
+        showToast('Generation is taking a while. We will notify you when it is ready.', 'info');
+      } else {
+        showToast(err?.response?.data?.detail || 'Failed to generate roadmap', 'error');
+        setRoadmapLoading(false);
+      }
     } finally {
-      setRoadmapLoading(false);
+      // We only stop loading if we got a response or a real error.
+      // If it's still running on the backend, we let the WS listener handle it.
     }
   };
 

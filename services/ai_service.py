@@ -8,6 +8,7 @@ import json
 import re
 import httpx
 import random
+import time
 from config import settings
 from loguru import logger
 from utils import redact_pii
@@ -21,28 +22,46 @@ import asyncio
 
 _keys_cycle = None
 _keys_lock = None
+_bad_keys = {}  # key -> expiry_timestamp
 
 
 async def _get_api_key() -> str:
-    """Round-robin through available NIM API keys (thread-safe cycle)."""
-    global _keys_cycle, _keys_lock
+    """Round-robin through available NIM API keys, skipping blacklisted ones."""
+    global _keys_cycle, _keys_lock, _bad_keys
     
     if _keys_lock is None:
         _keys_lock = asyncio.Lock()
 
     async with _keys_lock:
-        if _keys_cycle is None:
-            keys = await settings.get_nim_api_key_list()
-            if not keys:
-                raise ValueError("No NVIDIA NIM API keys configured. Add NIM_API_KEYS to .env")
-            _keys_cycle = itertools.cycle(keys)
+        keys = await settings.get_nim_api_key_list()
+        if not keys:
+            raise ValueError("No NVIDIA NIM API keys configured. Add NIM_API_KEYS to .env")
         
-        return next(_keys_cycle)
+        # Filter out bad keys
+        now = time.time()
+        valid_keys = [k for k in keys if k not in _bad_keys or _bad_keys[k] < now]
+        
+        if not valid_keys:
+            # If all keys are bad, try them all again (maybe it was a temp outage)
+            _bad_keys = {}
+            valid_keys = keys
+            logger.warning("All NIM API keys were blacklisted. Resetting blacklist.")
+
+        if _keys_cycle is None:
+            _keys_cycle = itertools.cycle(valid_keys)
+        
+        # Ensure we get a valid key from the cycle
+        for _ in range(len(valid_keys)):
+            key = next(_keys_cycle)
+            if key in valid_keys:
+                return key
+                
+        return valid_keys[0]
 
 
 async def reset_keys_cycle():
-    """Reset the API key cycle (useful when keys are updated in settings)."""
-    global _keys_cycle, _keys_lock
+    """Reset the API key cycle and clear the blacklist."""
+    global _keys_cycle, _keys_lock, _bad_keys
     # 1. Clear the cached list in settings first (async)
     await settings.reset_nim_cache()
 
@@ -52,7 +71,8 @@ async def reset_keys_cycle():
     async with _keys_lock:
         # 2. Null out the cycle so it's recreated on next call
         _keys_cycle = None
-    logger.info("NVIDIA NIM API key cycle reset.")
+        _bad_keys = {}
+    logger.info("NVIDIA NIM API key cycle and blacklist reset.")
 
 
 async def _call_nim(
@@ -61,7 +81,8 @@ async def _call_nim(
     max_tokens: int = 1024,
     temperature: float = 0.7,
 ) -> str:
-    """Call the NVIDIA NIM API with multiple keys and exponential backoff."""
+    """Call the NVIDIA NIM API with multiple keys, blacklist support, and exponential backoff."""
+    global _bad_keys
     import asyncio
     
     # 1. Get number of keys to determine retries (thread-safe setup)
@@ -69,7 +90,7 @@ async def _call_nim(
         keys = await settings.get_nim_api_key_list()
         num_keys = len(keys)
         
-    max_retries = max(num_keys * 2, 5) # Try each key twice or at least 5 times
+    max_retries = max(num_keys * 2, 6) # Try each key twice or at least 6 times
     
     for attempt in range(max_retries):
         api_key = await _get_api_key()
@@ -90,7 +111,8 @@ async def _call_nim(
         }
 
         try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
+            # Increased timeout to 120s for complex roadmap/analysis tasks
+            async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
                     f"{NIM_BASE_URL}/chat/completions",
                     json=payload,
@@ -104,10 +126,17 @@ async def _call_nim(
                         return data["choices"][0]["message"]["content"].strip()
                     return ""
                 
-                # Rate limit or Auth error
-                if response.status_code in (401, 403, 429):
+                # Auth/Forbidden errors — Blacklist this key for 1 hour
+                if response.status_code in (401, 403):
+                    async with _keys_lock:
+                        _bad_keys[api_key] = time.time() + 3600
+                    logger.error(f"NIM API {response.status_code} error. Key blacklisted. (Attempt {attempt+1}/{max_retries})")
+                    continue
+                
+                # Rate limit — Exponential backoff
+                if response.status_code == 429:
                     wait_time = min(2**attempt + (random.randint(0, 1000) / 1000), 10)
-                    logger.warning(f"NIM API error {response.status_code} (attempt {attempt+1}/{max_retries}). Retrying in {wait_time:.2f}s with next key…")
+                    logger.warning(f"NIM API 429 Rate Limit (attempt {attempt+1}/{max_retries}). Retrying in {wait_time:.2f}s…")
                     await asyncio.sleep(wait_time)
                     continue
                 
@@ -124,7 +153,7 @@ async def _call_nim(
             logger.error(f"Unexpected NIM API error: {e}")
             raise ValueError("AI service unavailable")
 
-    raise ValueError("AI service failed after multiple retries.")
+    raise ValueError("AI service failed after multiple retries. Check your API keys and quotas.")
 
 
 def _parse_json_from_response(text: str) -> dict:
