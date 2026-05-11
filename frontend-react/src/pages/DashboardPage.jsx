@@ -116,23 +116,41 @@ export default function DashboardPage() {
   // WebSocket-driven reactive updates (replace polling when WS connected)
   useEffect(() => {
     if (!wsCtx?.subscribe) return;
-    const unsub = wsCtx.subscribe('JOB_APPLIED', () => {
+    const unsub1 = wsCtx.subscribe('JOB_APPLIED', () => {
       loadDashboard();
       if (activeTab === 'history') loadHistory();
     });
-    return unsub;
+    const unsub2 = wsCtx.subscribe('JOB_FAILED', () => {
+      loadDashboard();
+      if (activeTab === 'history') loadHistory();
+    });
+    const unsub3 = wsCtx.subscribe('JOB_SKIPPED', () => {
+      loadDashboard();
+      if (activeTab === 'history') loadHistory();
+    });
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+    };
   }, [wsCtx, loadDashboard, loadHistory, activeTab]);
 
-  // Fallback polling (only when WS is not connected)
+  // Fallback polling (only when WS is not connected or as a safety net)
   useEffect(() => {
+    const POLL_INTERVAL = 5000; // 5 seconds per spec
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      // If WebSocket is connected, we rely on JOB_APPLIED events for real-time updates.
+      // However, we still poll much slower (every 60s) just in case or for stats that don't have events.
+      const isWsConnected = wsCtx?.isConnected;
+      const shouldPoll = !isWsConnected || (Date.now() % 60000 < POLL_INTERVAL);
+
+      if (document.visibilityState === 'visible' && shouldPoll) {
         loadDashboard();
         if (activeTab === 'history') loadHistory();
       }
-    }, 10000); // Slower polling since WS handles real-time
+    }, POLL_INTERVAL);
     return () => clearInterval(id);
-  }, [loadDashboard, loadHistory, activeTab]);
+  }, [loadDashboard, loadHistory, activeTab, wsCtx?.isConnected]);
 
   const handleSearch = (val) => {
     setSearchQuery(val);
@@ -237,13 +255,14 @@ export default function DashboardPage() {
 
               {summary === null ? (
                 <div className="stats-overview stagger">
-                  {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: '100px', borderRadius: 'var(--radius)' }}></div>)}
+                  {[1, 2, 3, 4, 5].map(i => <div key={i} className="skeleton" style={{ height: '100px', borderRadius: 'var(--radius)' }}></div>)}
                 </div>
               ) : (
-                <div className="stats-overview stagger" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-                  <StatCard label="Total Applications" value={summary.total ?? 0} sub="All time" className="active" />
-                  <StatCard label="Successfully Applied" value={summary.applied ?? 0} sub={`${summary.success_rate ?? 0}% success rate`} className="active" />
-                  <StatCard label="Automation Status" value={summary.automation_status === 'running' ? 'Active' : (summary.pending_tasks ?? 0)} sub={summary.automation_status === 'running' ? 'Bot is running' : summary.automation_status === 'paused' ? 'Paused' : 'No active sessions'} className="active" />
+                <div className="stats-overview stagger" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                  <StatCard label="Applied" value={summary.applied ?? 0} sub="Base applications" className="active" />
+                  <StatCard label="Viewed" value={summary.viewed ?? 0} sub="Seen by recruiters" className="active" style={{ borderLeft: '4px solid #a855f7' }} />
+                  <StatCard label="Interviews" value={summary.interview ?? 0} sub="Stage reached" className="active" style={{ borderLeft: '4px solid #f97316' }} />
+                  <StatCard label="Offers" value={summary.offer ?? 0} sub="Final offers" className="active" style={{ borderLeft: '4px solid #22c55e' }} />
                   {/* ── Streak Card ── */}
                   {streak && (
                     <div className="stat-card active streak-card">
@@ -343,7 +362,7 @@ export default function DashboardPage() {
                     <input type="text" className="input" placeholder="Search jobs or companies..." style={{ paddingLeft: '36px', height: '38px', fontSize: '14px' }} value={searchQuery} onChange={(e) => handleSearch(e.target.value)} />
                   </div>
                   <div className="filter-bar" style={{ marginBottom: 0 }}>
-                    {['All', 'Applied', 'Failed', 'Skipped'].map(f => (
+                    {['All', 'Applied', 'Viewed', 'Interview', 'Offer', 'Failed', 'Skipped'].map(f => (
                       <button key={f} className={`filter-btn ${historyFilter === (f === 'All' ? null : f) ? 'active' : ''}`} onClick={() => { setHistoryFilter(f === 'All' ? null : f); setHistoryPage(0); }}>{f}</button>
                     ))}
                   </div>

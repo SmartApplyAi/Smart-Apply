@@ -23,6 +23,9 @@ async def get_summary(user_id: str) -> dict:
                             "_id": None,
                             "total": {"$sum": 1},
                             "applied": {"$sum": {"$cond": [{"$eq": ["$result", "Applied"]}, 1, 0]}},
+                            "viewed": {"$sum": {"$cond": [{"$eq": ["$result", "Viewed"]}, 1, 0]}},
+                            "interview": {"$sum": {"$cond": [{"$or": [{"$eq": ["$result", "Interview"]}, {"$eq": ["$status", "interviewed"]}]}, 1, 0]}},
+                            "offer": {"$sum": {"$cond": [{"$eq": ["$result", "Offer"]}, 1, 0]}},
                             "failed": {"$sum": {"$cond": [{"$eq": ["$result", "Failed"]}, 1, 0]}},
                             "skipped": {"$sum": {"$cond": [{"$eq": ["$result", "Skipped"]}, 1, 0]}},
                             "pending": {"$sum": {"$cond": [{"$in": ["$status", ["queued", "in_progress"]]}, 1, 0]}},
@@ -59,10 +62,13 @@ async def get_summary(user_id: str) -> dict:
     result = await db.job_applications.aggregate(stats_pipeline).to_list(length=1)
     stats_data = result[0] if result else {"counts": [], "platforms": [], "recent": []}
     
-    counts = stats_data["counts"][0] if stats_data["counts"] else {"applied": 0, "failed": 0, "skipped": 0, "pending": 0, "total": 0}
+    counts = stats_data["counts"][0] if stats_data["counts"] else {}
     
     total = counts.get("total", 0)
     applied = counts.get("applied", 0)
+    viewed = counts.get("viewed", 0)
+    interview = counts.get("interview", 0)
+    offer = counts.get("offer", 0)
     failed = counts.get("failed", 0)
     skipped = counts.get("skipped", 0)
     pending = counts.get("pending", 0)
@@ -93,6 +99,9 @@ async def get_summary(user_id: str) -> dict:
     return {
         "total": total,
         "applied": applied,
+        "viewed": viewed,
+        "interview": interview,
+        "offer": offer,
         "failed": failed,
         "skipped": skipped,
         "by_platform": platforms,

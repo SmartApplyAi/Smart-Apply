@@ -26,11 +26,14 @@ async def get_stats(user_id: str) -> dict:
                     {
                         "$group": {
                             "_id": None,
-                            "total": {"$sum": 1},
-                            "applied": {"$sum": {"$cond": [{"$eq": ["$result", "Applied"]}, 1, 0]}},
-                            "failed": {"$sum": {"$cond": [{"$eq": ["$result", "Failed"]}, 1, 0]}},
-                            "skipped": {"$sum": {"$cond": [{"$eq": ["$result", "Skipped"]}, 1, 0]}},
-                        }
+                             "total": {"$sum": 1},
+                             "applied": {"$sum": {"$cond": [{"$eq": ["$result", "Applied"]}, 1, 0]}},
+                             "viewed": {"$sum": {"$cond": [{"$eq": ["$result", "Viewed"]}, 1, 0]}},
+                             "interview": {"$sum": {"$cond": [{"$or": [{"$eq": ["$result", "Interview"]}, {"$eq": ["$status", "interviewed"]}]}, 1, 0]}},
+                             "offer": {"$sum": {"$cond": [{"$eq": ["$result", "Offer"]}, 1, 0]}},
+                             "failed": {"$sum": {"$cond": [{"$eq": ["$result", "Failed"]}, 1, 0]}},
+                             "skipped": {"$sum": {"$cond": [{"$eq": ["$result", "Skipped"]}, 1, 0]}},
+                         }
                     }
                 ],
                 "interviews": [
@@ -65,9 +68,11 @@ async def get_stats(user_id: str) -> dict:
     return {
         "total": counts.get("total", 0),
         "applied": counts.get("applied", 0),
+        "viewed": counts.get("viewed", 0),
+        "interview": counts.get("interview", 0),
+        "offer": counts.get("offer", 0),
         "failed": counts.get("failed", 0),
         "skipped": counts.get("skipped", 0),
-        "interviews": interviews,
         "applied_today": applied_today,
         "by_platform": platforms,
     }

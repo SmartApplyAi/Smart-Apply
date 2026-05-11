@@ -45,6 +45,7 @@ async def _get_api_key() -> str:
             # If all keys are bad, try them all again (maybe it was a temp outage)
             _bad_keys = {}
             valid_keys = keys
+            _keys_cycle = None # Force rebuild
             logger.warning("All NIM API keys were blacklisted. Resetting blacklist.")
 
         if _keys_cycle is None:
@@ -130,6 +131,7 @@ async def _call_nim(
                 if response.status_code in (401, 403):
                     async with _keys_lock:
                         _bad_keys[api_key] = time.time() + 3600
+                        _keys_cycle = None # Rebuild cycle to exclude bad key
                     logger.error(f"NIM API {response.status_code} error. Key blacklisted. (Attempt {attempt+1}/{max_retries})")
                     continue
                 
