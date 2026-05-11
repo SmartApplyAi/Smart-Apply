@@ -1,10 +1,9 @@
-// ── SmartApply Extension Constants ────────────────────────────────────────
-
+// SmartApply Extension Constants
+// Note: API_BASE is ideally managed via build-time environment variables or a config fetch.
 export const API_BASE = 'https://www.smartapplies.app/api';
 
-// Google OAuth Client ID — replace with your own from Google Cloud Console
-// Must match the GOOGLE_CLIENT_ID in your backend .env
-export const GOOGLE_CLIENT_ID = '778305675120-bicqh3g6ep9m1nh5gdp5mqahonddphim.apps.googleusercontent.com';
+// Google OAuth Client ID — dynamically fetched from manifest.json to avoid hardcoding in source.
+export const GOOGLE_CLIENT_ID = typeof chrome !== 'undefined' && chrome.runtime?.getManifest()?.oauth2?.client_id || '';
 
 export const STATES = {
   IDLE: 'idle',
