@@ -138,6 +138,8 @@ input.input, textarea.input {
 .btn-ghost:hover { background: var(--surface-2); color: var(--text) }
 .btn-danger { background: var(--danger); color: #fff }
 .btn-danger:hover { background: #ff2d20; box-shadow: 0 4px 16px rgba(255, 59, 48, 0.3); transform: translateY(-1px) }
+.btn-success { background: var(--accent-4); color: #fff }
+.btn-success:hover { background: #2dd864; box-shadow: 0 4px 16px rgba(52, 199, 89, 0.3); transform: translateY(-1px) }
 .btn-lg { padding: 15px 34px; font-size: 16px }
 .btn-sm { padding: 9px 18px; font-size: 13px; min-height: 38px }
 .btn-block { width: 100%; justify-content: center }

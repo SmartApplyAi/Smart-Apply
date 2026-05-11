@@ -49,6 +49,10 @@ export default function AdminPage() {
   
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [keyTestResults, setKeyTestResults] = useState({});
+  const [mailConfig, setMailConfig] = useState({ api_key: '', sender_email: '' });
+  const [mailConfigForm, setMailConfigForm] = useState({ api_key: '', sender_email: '' });
+  const [mailSaving, setMailSaving] = useState(false);
   
   // Question Modal State
   const [showQuestionModal, setShowQuestionModal] = useState(false);
@@ -97,6 +101,10 @@ export default function AdminPage() {
       } else if (tab === 'templates') {
         const data = await api.get('/admin/email-templates');
         setTemplates(data.templates || []);
+      } else if (tab === 'mail') {
+        const data = await api.get('/admin/mail-config');
+        setMailConfig(data);
+        setMailConfigForm({ api_key: '', sender_email: data.sender_email || '' });
       }
     } catch (err) {
       showToast('Failed to load data', 'error');
@@ -172,6 +180,34 @@ export default function AdminPage() {
     } catch (err) { showToast(err.detail, 'error'); }
   };
 
+  const testKey = async (key, idx) => {
+    setKeyTestResults(prev => ({ ...prev, [idx]: 'testing' }));
+    try {
+      const data = await api.get(`/admin/nim-test?key=${encodeURIComponent(key)}`);
+      setKeyTestResults(prev => ({ ...prev, [idx]: data.valid ? 'valid' : 'invalid' }));
+      showToast(data.valid ? 'Key is valid ✓' : `Key invalid: ${data.error || 'unknown error'}`, data.valid ? 'success' : 'error');
+    } catch (err) {
+      setKeyTestResults(prev => ({ ...prev, [idx]: 'invalid' }));
+      showToast('Key test failed', 'error');
+    }
+  };
+
+  const saveMailConfig = async () => {
+    setMailSaving(true);
+    try {
+      const payload = {};
+      if (mailConfigForm.api_key) payload.api_key = mailConfigForm.api_key;
+      if (mailConfigForm.sender_email) payload.sender_email = mailConfigForm.sender_email;
+      await api.put('/admin/mail-config', payload);
+      showToast('Mail configuration updated', 'success');
+      fetchData('mail');
+    } catch (err) {
+      showToast(err.detail || 'Failed to update mail config', 'error');
+    } finally {
+      setMailSaving(false);
+    }
+  };
+
   // Question Actions
   const openQuestionModal = (q = null) => {
     if (q) {
@@ -243,7 +279,7 @@ export default function AdminPage() {
         <div className="page-header">
           <div><h3>Admin Dashboard</h3><p className="text-muted text-sm">Platform management and insights</p></div>
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
-            {['overview', 'users', 'keys', 'sessions', 'audit', 'broadcast', 'questions', 'templates'].map(t => (
+            {['overview', 'users', 'keys', 'sessions', 'audit', 'broadcast', 'questions', 'templates', 'mail'].map(t => (
               <button key={t} className={`btn btn-sm ${activeTab === t ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setActiveTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -324,6 +360,14 @@ export default function AdminPage() {
               {keys.map((k, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'var(--bg-3)', borderRadius: '8px' }}>
                   <div style={{ flex: 1, fontFamily: 'monospace', fontSize: '13px' }}>{k.slice(0, 16)}••••••••{k.slice(-8)}</div>
+                  <button
+                    className={`btn btn-sm ${keyTestResults[i] === 'valid' ? 'btn-success' : keyTestResults[i] === 'invalid' ? 'btn-danger' : 'btn-ghost'}`}
+                    onClick={() => testKey(k, i)}
+                    disabled={keyTestResults[i] === 'testing'}
+                    style={{ minWidth: '72px', fontSize: '12px' }}
+                  >
+                    {keyTestResults[i] === 'testing' ? <><div className="loader-spin" style={{ width: '12px', height: '12px', borderWidth: '2px' }}></div></> : keyTestResults[i] === 'valid' ? <><i className="fa-solid fa-check"></i> Valid</> : keyTestResults[i] === 'invalid' ? <><i className="fa-solid fa-xmark"></i> Failed</> : <><i className="fa-solid fa-vial"></i> Test</>}
+                  </button>
                   <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeKey(i)}><i className="fa-solid fa-xmark"></i></button>
                 </div>
               ))}
@@ -491,6 +535,36 @@ export default function AdminPage() {
                 <button className="btn btn-primary w-full" style={{ marginTop: '16px' }} onClick={saveTemplate}>Save Template</button>
               </>
             )}
+          </div>
+        )}
+
+        {activeTab === 'mail' && (
+          <div className="card">
+            <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-envelope-circle-check"></i> Mail Configuration (Brevo)</h4>
+            <div style={{ marginBottom: '24px', padding: '16px', background: 'var(--bg-3)', borderRadius: '12px' }}>
+              <div className="text-muted text-xs uppercase font-bold" style={{ marginBottom: '8px' }}>Current Config</div>
+              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+                <div>
+                  <div className="text-muted text-sm">API Key</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>{mailConfig.api_key || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted text-sm">Sender Email</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>{mailConfig.sender_email || '—'}</div>
+                </div>
+              </div>
+            </div>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label>New API Key <span className="text-muted text-xs">(leave blank to keep current)</span></label>
+              <input type="password" className="input" placeholder="xkeysib-..." value={mailConfigForm.api_key} onChange={e => setMailConfigForm({ ...mailConfigForm, api_key: e.target.value })} />
+            </div>
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label>Sender Email</label>
+              <input type="email" className="input" placeholder="noreply@smartapply.com" value={mailConfigForm.sender_email} onChange={e => setMailConfigForm({ ...mailConfigForm, sender_email: e.target.value })} />
+            </div>
+            <button className="btn btn-primary w-full" onClick={saveMailConfig} disabled={mailSaving}>
+              {mailSaving ? <><div className="loader-spin" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></div> Saving...</> : <><i className="fa-solid fa-floppy-disk"></i> Update Mail Config</>}
+            </button>
           </div>
         )}
     </>
