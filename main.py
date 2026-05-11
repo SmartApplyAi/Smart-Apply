@@ -98,8 +98,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.FRONTEND_URL,
-        "chrome-extension://" + settings.CHROME_EXTENSION_ID if settings.CHROME_EXTENSION_ID else "chrome-extension://*",
-    ] + (["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"] if not settings.is_production else []),
+    ] + ([f"chrome-extension://{settings.CHROME_EXTENSION_ID}"] if settings.CHROME_EXTENSION_ID else []) + (["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"] if not settings.is_production else []),
+    allow_origin_regex=r"^chrome-extension://[a-z]+$" if not settings.CHROME_EXTENSION_ID else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -8,6 +8,7 @@ from services import skillgap_service
 from pydantic import BaseModel
 from typing import List, Optional
 from limiter import limiter
+from loguru import logger
 
 router = APIRouter(prefix="/skillgap", tags=["Skill Gap"])
 
@@ -26,7 +27,26 @@ async def get_skill_gap_analysis(
     user: dict = Depends(get_current_user),
 ):
     """Get aggregate skill gap analysis from recent applications."""
-    return await skillgap_service.aggregate_skill_gaps(user["id"], days)
+    result = await skillgap_service.aggregate_skill_gaps(user["id"], days)
+
+    # Push live skill gap alert if meaningful missing skills found
+    top_missing = [s["skill"] for s in result.get("missing_skills", [])[:5]]
+    if top_missing:
+        try:
+            from websocket.pubsub import publish_skill_gap_event
+            await publish_skill_gap_event(
+                user_id=str(user["id"]),
+                payload={
+                    "missing_skills": top_missing,
+                    "average_score": result.get("average_match_score", 0),
+                    "total_analyzed": result.get("total_analyzed", 0),
+                    "source": "on_demand_analysis",
+                },
+            )
+        except Exception as _ws_err:
+            logger.warning(f"SKILL_GAP_ALERT WS push failed (non-fatal): {_ws_err}")
+
+    return result
 
 
 # ── Roadmap ─────────────────────────────────────────────────────────────────
@@ -61,6 +81,22 @@ async def generate_roadmap(
 
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])
+
+    # ── Push roadmap-ready event to user's dashboard ────────────────────
+    try:
+        from websocket.pubsub import publish_roadmap_event
+        await publish_roadmap_event(
+            user_id=str(user["id"]),
+            payload={
+                "id": result.get("id", ""),
+                "target_role": body.target_role,
+                "total_duration": result.get("total_duration", ""),
+                "phase_count": len(result.get("roadmap", [])),
+            },
+        )
+    except Exception as _ws_err:
+        logger.warning(f"ROADMAP_READY WS push failed (non-fatal): {_ws_err}")
+    # ────────────────────────────────────────────────────────────────────
 
     return result
 

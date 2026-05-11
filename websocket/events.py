@@ -30,3 +30,6 @@ CONNECTION_ACK = "CONNECTION_ACK"
 # ── Heartbeat ───────────────────────────────────────────────────────────────
 PING = "PING"
 PONG = "PONG"
+
+# ── Skill Gap / Roadmap Events ──────────────────────────────────────────────
+ROADMAP_READY = "ROADMAP_READY"

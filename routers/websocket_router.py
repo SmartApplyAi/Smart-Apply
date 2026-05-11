@@ -27,10 +27,16 @@ async def websocket_realtime_endpoint(websocket: WebSocket, ticket: str = None):
     from config import settings
     origin = websocket.headers.get("origin")
     if settings.is_production and origin:
-        allowed = [settings.FRONTEND_URL]
-        if settings.CHROME_EXTENSION_ID:
-            allowed.append(f"chrome-extension://{settings.CHROME_EXTENSION_ID}")
-        if origin not in allowed:
+        is_allowed = False
+        if origin == settings.FRONTEND_URL:
+            is_allowed = True
+        elif settings.CHROME_EXTENSION_ID and origin == f"chrome-extension://{settings.CHROME_EXTENSION_ID}":
+            is_allowed = True
+        elif not settings.CHROME_EXTENSION_ID and origin.startswith("chrome-extension://"):
+            is_allowed = True
+            
+        if not is_allowed:
+            logger.warning(f"WebSocket rejected: Origin {origin} not allowed.")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origin not allowed")
             return
 

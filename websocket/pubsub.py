@@ -77,6 +77,12 @@ async def handle_event(data: dict, channel: str = ""):
         if user_id:
             await manager.send_typed_event(user_id, event_type, payload)
 
+    elif event_type == "ROADMAP_READY":
+        user_id = data.get("user_id")
+        payload = data.get("payload", {})
+        if user_id:
+            await manager.send_typed_event(user_id, "ROADMAP_READY", payload)
+
 
 async def publish_job_event(user_id: str, event_type: str, payload: dict):
     """Publish a job event to Redis for cross-worker broadcast."""
@@ -103,3 +109,16 @@ async def publish_skill_gap_event(user_id: str, payload: dict):
         }))
     else:
         await manager.send_typed_event(user_id, "SKILL_GAP_ALERT", payload)
+
+
+async def publish_roadmap_event(user_id: str, payload: dict):
+    """Publish a roadmap-ready event to Redis for cross-worker broadcast."""
+    redis_client = get_redis()
+    if redis_client:
+        await redis_client.publish("skill_gap_events", json.dumps({
+            "type": "ROADMAP_READY",
+            "user_id": user_id,
+            "payload": payload,
+        }))
+    else:
+        await manager.send_typed_event(user_id, "ROADMAP_READY", payload)
