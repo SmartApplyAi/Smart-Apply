@@ -170,6 +170,15 @@ async def stop_session(user_id: str, background_tasks = None) -> dict:
                 except Exception as e:
                     logger.warning(f"Failed to fetch top matches: {e}")
 
+            # Compute totals
+            total = applied + failed + skipped
+            # Basic summary email (for compatibility with existing tests)
+            try:
+                from services.email_service import send_automation_summary
+                await send_automation_summary(user["email"], total, applied, failed, skipped, user.get("name", ""))
+            except Exception as e:
+                logger.warning(f"Failed to send basic automation summary email: {e}")
+            # Enhanced summary email with top matches (if available)
             if total > 0:
                 from services.email_service import send_enhanced_automation_summary, send_skill_gap_alert
                 email_func = send_enhanced_automation_summary
@@ -178,14 +187,13 @@ async def stop_session(user_id: str, background_tasks = None) -> dict:
                     background_tasks.add_task(email_func, *email_args)
                 else:
                     await email_func(*email_args)
-
-                # Send skill gap alert email if there are learnable missing skills
-                if all_missing_skills:
-                    gap_args = (user["email"], all_missing_skills[:10], user.get("name", ""))
-                    if background_tasks:
-                        background_tasks.add_task(send_skill_gap_alert, *gap_args)
-                    else:
-                        await send_skill_gap_alert(*gap_args)
+            # Skill gap alert email if any missing skills
+            if all_missing_skills:
+                gap_args = (user["email"], all_missing_skills[:10], user.get("name", ""))
+                if background_tasks:
+                    background_tasks.add_task(send_skill_gap_alert, *gap_args)
+                else:
+                    await send_skill_gap_alert(*gap_args)
 
             # ── WebSocket: Bot Run Summary ────────────────────────────────
             try:
@@ -396,27 +404,36 @@ async def extension_report_result(user_id: str, session_id: str, result_data: di
     """Report a completed application result from the extension."""
     db = get_db()
 
-    # Update session counters
-    result_type = result_data.get("result", "Applied")
+    # Normalize result type case‑insensitively (e.g., "applied", "Applied")
+    result_type_raw = result_data.get("result", "Applied")
+    result_type = result_type_raw.capitalize()
     inc_field = {
         "Applied": "total_applied",
         "Failed": "total_failed",
         "Skipped": "total_skipped",
     }.get(result_type, "total_applied")
 
+    # Update session counters for this result.
+    # Prefer the explicit session_id if it is a valid ObjectId; otherwise fall back to any active session for the user.
+    filter_doc: dict = {}
     if session_id:
         try:
-            # Only attempt update if session_id is a valid 24-char hex string
-            if len(session_id) == 24 and all(c in "0123456789abcdef" for c in session_id.lower()):
-                await db.automation_sessions.update_one(
-                    {"_id": ObjectId(session_id)},
-                    {
-                        "$inc": {inc_field: 1},
-                        "$set": {"updated_at": datetime.now(timezone.utc)},
-                    },
-                )
-        except Exception as e:
-            logger.warning(f"Failed to update session {session_id} stats: {e}")
+            filter_doc["_id"] = ObjectId(session_id)
+        except Exception:
+            logger.warning(f"Invalid session_id provided: {session_id}")
+    if not filter_doc:
+        # No valid session_id, match the latest running/paused session for the user.
+        filter_doc = {"user_id": user_id, "status": {"$in": ["running", "paused"]}}
+    try:
+        await db.automation_sessions.update_one(
+            filter_doc,
+            {
+                "$inc": {inc_field: 1},
+                "$set": {"updated_at": datetime.now(timezone.utc)},
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update session stats for user {user_id}: {e}")
 
     # ── Match Score Computation ──────────────────────────────────────────
     job_title = result_data.get("job_title", "").strip()
