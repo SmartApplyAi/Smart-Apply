@@ -15,7 +15,8 @@ venv/
 .venv/
 env/
 ENV/
-.env.example
+# .env.example - Usually committed as a template
+# .env.example
 # ── IDE ──────────────────────────────────────────────
 .vscode/
 .idea/
@@ -41,4 +42,10 @@ logs/
 uploads/
 temp/
 tmp/
-.txt
+# .pytest_cache and other test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node modules (root safety)
+node_modules/
