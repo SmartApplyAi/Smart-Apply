@@ -1,7 +1,7 @@
 // ── SmartApply Background Service Worker ─────────────────────────────────
 
 import { createDefaultState } from '../shared/schemas.js';
-import { HEARTBEAT_INTERVAL, API_BASE, GOOGLE_CLIENT_ID } from '../shared/constants.js';
+import { HEARTBEAT_INTERVAL, API_BASE_DEFAULT, getApiBase, GOOGLE_CLIENT_ID } from '../shared/constants.js';
 
 let appState = createDefaultState();
 let pendingConfirmation = null;
@@ -129,13 +129,15 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 }
 
 async function apiGet(endpoint, token) {
-  return fetchWithRetry(`${API_BASE}${endpoint}`, {
+  const base = await getApiBase();
+  return fetchWithRetry(`${base}${endpoint}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 async function apiPost(endpoint, body, token) {
-  return fetchWithRetry(`${API_BASE}${endpoint}`, {
+  const base = await getApiBase();
+  return fetchWithRetry(`${base}${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -173,8 +175,9 @@ async function connectExtensionWebSocket() {
     const ticket = ticketData?.ticket;
     if (!ticket) throw new Error('No ticket returned');
 
-    // Build WSS URL from API_BASE (e.g. https://www.smartapplies.app/api → wss://www.smartapplies.app/ws/realtime)
-    const wsBase = API_BASE.replace(/\/api$/, '').replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
+    // Build WSS URL from API base (e.g. https://www.smartapplies.app/api → wss://www.smartapplies.app/ws/realtime)
+    const apiBase = await getApiBase();
+    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
     const wsUrl = `${wsBase}/ws/realtime?ticket=${ticket}`;
 
     _extWs = new WebSocket(wsUrl);
@@ -239,7 +242,8 @@ function disconnectExtensionWebSocket() {
 // ── Auth ──────────────────────────────────────────────────────────────────
 
 async function login(email, password) {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+  const base = await getApiBase();
+  const res = await fetch(`${base}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),

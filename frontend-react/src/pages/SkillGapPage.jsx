@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
@@ -34,8 +35,12 @@ function ScoreRing({ score, label }) {
 export default function SkillGapPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const location = useLocation();
 
-  const [activeSection, setActiveSection] = useState('analyzer');
+  // Auto-select the roadmap tab when navigated from /roadmap
+  const [activeSection, setActiveSection] = useState(
+    location.pathname === '/roadmap' ? 'roadmap' : 'analyzer'
+  );
   const [analysis, setAnalysis] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [days, setDays] = useState(30);

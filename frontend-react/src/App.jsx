@@ -147,6 +147,7 @@ function App() {
 
                 <Route path="/interview-prep" element={<InterviewPrepPage />} />
                 <Route path="/skill-gap" element={<SkillGapPage />} />
+                <Route path="/roadmap" element={<SkillGapPage />} />
                 <Route path="/admin" element={<AdminPage />} />
               </Route>
 

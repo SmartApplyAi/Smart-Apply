@@ -1,6 +1,38 @@
 // SmartApply Extension Constants
-// Note: API_BASE is ideally managed via build-time environment variables or a config fetch.
-export const API_BASE = 'https://www.smartapplies.app/api';
+// API_BASE defaults to production. Override via chrome.storage.local for development.
+export const API_BASE_DEFAULT = 'https://www.smartapplies.app/api';
+
+/**
+ * Get the API base URL. Reads from chrome.storage.local if a dev override is set,
+ * otherwise falls back to the production URL.
+ * @returns {Promise<string>} The resolved API base URL.
+ */
+export async function getApiBase() {
+  try {
+    const result = await chrome.storage.local.get('apiBaseOverride');
+    if (result.apiBaseOverride && typeof result.apiBaseOverride === 'string') {
+      return result.apiBaseOverride;
+    }
+  } catch (_) {
+    // storage unavailable (e.g. during tests) — use default
+  }
+  return API_BASE_DEFAULT;
+}
+
+/**
+ * Set a custom API base URL for local development.
+ * Call this from the browser console or a dev settings panel:
+ *   chrome.storage.local.set({ apiBaseOverride: 'http://localhost:8000/api' })
+ * To reset back to production:
+ *   chrome.storage.local.remove('apiBaseOverride')
+ */
+export async function setApiBase(url) {
+  if (!url || url === API_BASE_DEFAULT) {
+    await chrome.storage.local.remove('apiBaseOverride');
+  } else {
+    await chrome.storage.local.set({ apiBaseOverride: url });
+  }
+}
 
 // Google OAuth Client ID — dynamically fetched from manifest.json to avoid hardcoding in source.
 export const GOOGLE_CLIENT_ID = typeof chrome !== 'undefined' && chrome.runtime?.getManifest()?.oauth2?.client_id || '';

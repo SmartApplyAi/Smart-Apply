@@ -1,9 +1,21 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  SmartApply — Render Deployment Configuration
+#  Supports horizontal scaling with multiple instances, health checks,
+#  and autoscaling. Redis is used for distributed locking & Pub/Sub.
+# ═══════════════════════════════════════════════════════════════════════════
+
 services:
+  # ── Primary Web Service (scalable) ──────────────────────────────────────
   - type: web
     name: smartapply-backend
     env: python
     buildCommand: pip install -r requirements.txt && cd frontend-react && npm install && npm run build
     startCommand: gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    # Horizontal scaling: set numInstances > 1 for failover & load balancing.
+    # The scheduler uses Redis distributed locks to avoid duplicate job runs.
+    numInstances: 1
+    healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.3
@@ -21,3 +33,23 @@ services:
         value: smartapply
       - key: FRONTEND_URL
         sync: false # Set this to your Render URL
+      - key: REDIS_URL
+        fromService:
+          name: smartapply-redis
+          type: redis
+          property: connectionString
+
+    # ── Autoscaling (Render Pro plans) ─────────────────────────────────────
+    # Uncomment below for auto-scaling on Pro plan:
+    # scaling:
+    #   minInstances: 1
+    #   maxInstances: 3
+    #   targetMemoryPercent: 80
+    #   targetCPUPercent: 70
+
+  # ── Redis Service (session store, Pub/Sub, distributed locks) ───────────
+  - type: redis
+    name: smartapply-redis
+    plan: free # Upgrade to 'starter' or 'standard' for production
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # Only allow internal Render network access

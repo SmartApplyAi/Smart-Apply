@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request, Body
 from fastapi.responses import FileResponse, Response
 from dependencies import get_current_user
 from services import jobs_service, automation_service, profile_service
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from limiter import limiter
 
@@ -18,35 +18,35 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 # ── Request Models ──────────────────────────────────────────────────────────
 
 class CreateApplicationRequest(BaseModel):
-    job_title: str = ""
-    company: str = ""
-    platform: str = "linkedin"
-    job_url: str = ""
-    job_link: str = ""
-    result: str = "Applied"
-    status: str = "submitted"
-    error_detail: str = ""
-    notes: str = ""
-    source: str = "manual"
-    resume_used: str = ""
-    cover_letter_used: str = ""
+    job_title: str = Field("", max_length=500)
+    company: str = Field("", max_length=500)
+    platform: str = Field("linkedin", max_length=50)
+    job_url: str = Field("", max_length=2000)
+    job_link: str = Field("", max_length=2000)
+    result: str = Field("Applied", max_length=50)
+    status: str = Field("submitted", max_length=50)
+    error_detail: str = Field("", max_length=1000)
+    notes: str = Field("", max_length=2000)
+    source: str = Field("manual", max_length=50)
+    resume_used: str = Field("", max_length=500)
+    cover_letter_used: str = Field("", max_length=500)
     is_auto_applied: bool = False
 
 
 class UpdateApplicationRequest(BaseModel):
-    job_title: Optional[str] = None
-    company: Optional[str] = None
-    platform: Optional[str] = None
-    job_url: Optional[str] = None
-    job_link: Optional[str] = None
-    result: Optional[str] = None
-    status: Optional[str] = None
-    error_detail: Optional[str] = None
-    notes: Optional[str] = None
+    job_title: Optional[str] = Field(None, max_length=500)
+    company: Optional[str] = Field(None, max_length=500)
+    platform: Optional[str] = Field(None, max_length=50)
+    job_url: Optional[str] = Field(None, max_length=2000)
+    job_link: Optional[str] = Field(None, max_length=2000)
+    result: Optional[str] = Field(None, max_length=50)
+    status: Optional[str] = Field(None, max_length=50)
+    error_detail: Optional[str] = Field(None, max_length=1000)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class BatchApplicationRequest(BaseModel):
-    applications: List[dict]
+    applications: List[dict] = Field(default_factory=list, max_length=100)
 
 
 # ── Stats & History (Dashboard-facing) ──────────────────────────────────────

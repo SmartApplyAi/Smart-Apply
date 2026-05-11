@@ -1,6 +1,12 @@
 """
 APScheduler setup for SmartApply.
 Schedules automated background jobs like the weekly digest email.
+
+DRY: Reuses streak_service.get_weekly_review_stats() for weekly stats computation
+     instead of duplicating the aggregation pipeline.
+
+Distributed Lock: Uses Redis SETNX to ensure only one instance runs the digest job
+                   in a multi-instance deployment (horizontal scaling).
 """
 
 import asyncio
@@ -10,15 +16,57 @@ from loguru import logger
 
 scheduler = AsyncIOScheduler()
 
+# ── Distributed Lock via Redis ──────────────────────────────────────────────
+
+async def _acquire_lock(lock_name: str, ttl_seconds: int = 600) -> bool:
+    """
+    Acquire a distributed lock via Redis SETNX.
+    Returns True if lock was acquired, False if another instance holds it.
+    Gracefully returns True (proceed) if Redis is unavailable.
+    """
+    try:
+        from redis_client import get_redis
+        redis = get_redis()
+        if redis is None:
+            return True  # No Redis → single-instance mode, proceed
+
+        acquired = await redis.set(lock_name, "1", nx=True, ex=ttl_seconds)
+        return bool(acquired)
+    except Exception as e:
+        logger.warning(f"Redis lock acquisition failed (proceeding anyway): {e}")
+        return True  # Fail open — better to run twice than never
+
+
+async def _release_lock(lock_name: str):
+    """Release a distributed lock."""
+    try:
+        from redis_client import get_redis
+        redis = get_redis()
+        if redis:
+            await redis.delete(lock_name)
+    except Exception:
+        pass
+
+
+# ── Weekly Digest Job ───────────────────────────────────────────────────────
 
 async def _send_weekly_digests():
     """
     Weekly job: iterate all verified users, compute weekly stats, and send digest emails.
     Runs every Monday at 9:00 AM UTC.
+
+    Uses streak_service.get_weekly_review_stats() to avoid duplicating
+    the aggregation pipeline (DRY fix).
     """
+    lock_name = "smartapply:lock:weekly_digest"
+
+    if not await _acquire_lock(lock_name, ttl_seconds=1800):
+        logger.info("📧 Weekly digest: another instance holds the lock. Skipping.")
+        return
+
     from database import get_db
     from services.email_service import send_weekly_digest
-    from services.streak_service import get_user_streak
+    from services.streak_service import get_weekly_review_stats
 
     logger.info("📧 Weekly digest job started")
 
@@ -30,11 +78,6 @@ async def _send_weekly_digests():
             {"email_verified": True, "is_active": {"$ne": False}},
             {"_id": 1, "email": 1, "name": 1},
         )
-
-        from datetime import datetime, timedelta, timezone
-
-        now = datetime.now(timezone.utc)
-        week_ago = now - timedelta(days=7)
 
         sent_count = 0
         error_count = 0
@@ -48,107 +91,26 @@ async def _send_weekly_digests():
                 continue
 
             try:
-                # Compute weekly stats
-                pipeline = [
-                    {
-                        "$match": {
-                            "user_id": user_id,
-                            "applied_at": {"$gte": week_ago},
-                        }
-                    },
-                    {
-                        "$facet": {
-                            "counts": [
-                                {
-                                    "$group": {
-                                        "_id": None,
-                                        "total": {"$sum": 1},
-                                        "applied": {
-                                            "$sum": {
-                                                "$cond": [
-                                                    {
-                                                        "$eq": [
-                                                            "$result",
-                                                            "Applied",
-                                                        ]
-                                                    },
-                                                    1,
-                                                    0,
-                                                ]
-                                            }
-                                        },
-                                        "failed": {
-                                            "$sum": {
-                                                "$cond": [
-                                                    {
-                                                        "$eq": [
-                                                            "$result",
-                                                            "Failed",
-                                                        ]
-                                                    },
-                                                    1,
-                                                    0,
-                                                ]
-                                            }
-                                        },
-                                    }
-                                }
-                            ],
-                            "missing_skills": [
-                                {
-                                    "$unwind": {
-                                        "path": "$missing_skills",
-                                        "preserveNullAndEmptyArrays": False,
-                                    }
-                                },
-                                {
-                                    "$group": {
-                                        "_id": "$missing_skills",
-                                        "count": {"$sum": 1},
-                                    }
-                                },
-                                {"$sort": {"count": -1}},
-                                {"$limit": 5},
-                            ],
-                        }
-                    },
-                ]
+                # Reuse the existing weekly review stats function (DRY)
+                review = await get_weekly_review_stats(user_id)
 
-                result = await db.job_applications.aggregate(pipeline).to_list(
-                    length=1
-                )
-                data = result[0] if result else {"counts": [], "missing_skills": []}
-                counts = (
-                    data["counts"][0]
-                    if data["counts"]
-                    else {"total": 0, "applied": 0, "failed": 0}
-                )
-
-                total = counts.get("total", 0)
-                applied = counts.get("applied", 0)
-                success_rate = (
-                    round((applied / total * 100), 1) if total > 0 else 0
-                )
-
-                # Get streak
-                streak_data = await get_user_streak(user_id)
-
-                # Top missing skills
-                top_gaps = [s["_id"] for s in data.get("missing_skills", [])]
+                total = review.get("total", 0)
+                if total == 0:
+                    continue  # Skip users with no activity this week
 
                 stats = {
                     "total": total,
-                    "applied": applied,
-                    "failed": counts.get("failed", 0),
-                    "success_rate": success_rate,
-                    "current_streak": streak_data.get("current_streak", 0),
-                    "top_skill_gaps": top_gaps,
+                    "applied": review.get("applied", 0),
+                    "failed": review.get("failed", 0),
+                    "success_rate": review.get("success_rate", 0),
+                    "current_streak": review.get("current_streak", 0),
+                    "top_skill_gaps": [
+                        s["skill"] for s in review.get("top_missing_skills", [])
+                    ],
                 }
 
-                # Only send if user had any activity this week
-                if total > 0:
-                    await send_weekly_digest(email, stats, name)
-                    sent_count += 1
+                await send_weekly_digest(email, stats, name)
+                sent_count += 1
 
             except Exception as e:
                 error_count += 1
@@ -162,6 +124,8 @@ async def _send_weekly_digests():
 
     except Exception as e:
         logger.error(f"Weekly digest job failed: {e}")
+    finally:
+        await _release_lock(lock_name)
 
 
 def start_scheduler():

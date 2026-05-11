@@ -7,8 +7,8 @@ Includes full ATS analyzer and resume parser.
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Request
 from dependencies import get_current_user
 from services import ai_service, resume_service
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, List
 import logging
 from limiter import limiter
 from utils import redact_pii
@@ -21,43 +21,43 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 # ── Request Models ──────────────────────────────────────────────────────────
 
 class AnswerQuestionRequest(BaseModel):
-    question: str
-    user_info: str = ""
+    question: str = Field(..., max_length=2000)
+    user_info: str = Field("", max_length=10000)
 
 
 class ScreeningQuestionRequest(BaseModel):
-    question: str
-    user_info: str = ""
-    job_description: str = ""
-    field_type: str = ""
-    available_options: list = []
+    question: str = Field(..., max_length=2000)
+    user_info: str = Field("", max_length=10000)
+    job_description: str = Field("", max_length=10000)
+    field_type: str = Field("", max_length=50)
+    available_options: list = Field(default_factory=list)
 
 
 class CoverLetterRequest(BaseModel):
-    user_info: str = ""
-    job_title: str = ""
-    company: str = ""
+    user_info: str = Field("", max_length=10000)
+    job_title: str = Field("", max_length=300)
+    company: str = Field("", max_length=300)
 
 
 class ATSAnalysisRequest(BaseModel):
-    resume_text: str = ""
-    job_description: str = ""
-    job_title: str = ""
-    object_key: Optional[str] = None
+    resume_text: str = Field("", max_length=20000)
+    job_description: str = Field("", max_length=10000)
+    job_title: str = Field("", max_length=300)
+    object_key: Optional[str] = Field(None, max_length=500)
 
 
 
 
 
 class JobMatchRequest(BaseModel):
-    user_profile: dict = {}
-    jobs: list = []
+    user_profile: dict = Field(default_factory=dict)
+    jobs: list = Field(default_factory=list)
 
 
 class PreApplyScoreRequest(BaseModel):
-    job_description: str = ""
-    job_title: str = ""
-    company: str = ""
+    job_description: str = Field("", max_length=10000)
+    job_title: str = Field("", max_length=300)
+    company: str = Field("", max_length=300)
 
 
 # ── Routes ──────────────────────────────────────────────────────────────────
@@ -98,9 +98,9 @@ async def answer_screening_question(
 
 
 class BatchScreeningRequest(BaseModel):
-    questions: list = []  # List of {question, field_type, available_options}
-    user_info: str = ""
-    job_description: str = ""
+    questions: list = Field(default_factory=list)  # List of {question, field_type, available_options}
+    user_info: str = Field("", max_length=10000)
+    job_description: str = Field("", max_length=10000)
 
 
 @router.post("/answer-screening-batch")
@@ -337,11 +337,11 @@ async def pre_apply_score(
 
 
 class HighMatchFailedRequest(BaseModel):
-    job_title: str = ""
-    company: str = ""
-    job_url: str = ""
+    job_title: str = Field("", max_length=300)
+    company: str = Field("", max_length=300)
+    job_url: str = Field("", max_length=2000)
     match_score: float = 0
-    error_detail: str = ""
+    error_detail: str = Field("", max_length=1000)
 
 
 @router.post("/high-match-failed")
@@ -463,12 +463,12 @@ async def extract_text_from_pdf(
 # ── JARVIS Chat ─────────────────────────────────────────────────────────────
 
 class JarvisChatMessage(BaseModel):
-    role: str  # 'user' or 'assistant'
-    content: str
+    role: str = Field(..., max_length=20)  # 'user' or 'assistant'
+    content: str = Field(..., max_length=5000)
 
 
 class JarvisChatRequest(BaseModel):
-    messages: list[JarvisChatMessage]
+    messages: List[JarvisChatMessage] = Field(..., max_length=20)
 
 
 @router.post("/jarvis-chat")
@@ -524,15 +524,15 @@ async def jarvis_chat(
 # ── AI Interview Prep ───────────────────────────────────────────────────────
 
 class InterviewMessage(BaseModel):
-    role: str  # 'user' or 'assistant'
-    content: str
+    role: str = Field(..., max_length=20)  # 'user' or 'assistant'
+    content: str = Field(..., max_length=5000)
 
 
 class InterviewChatRequest(BaseModel):
-    messages: list[InterviewMessage] = []
-    interview_type: str = "behavioral"  # behavioral | technical | hr | custom
-    job_description: str = ""
-    job_title: str = ""
+    messages: List[InterviewMessage] = Field(default_factory=list)
+    interview_type: str = Field("behavioral", max_length=20)  # behavioral | technical | hr | custom
+    job_description: str = Field("", max_length=10000)
+    job_title: str = Field("", max_length=300)
     end_interview: bool = False
 
 
@@ -555,6 +555,53 @@ async def interview_chat(
             end_interview=body.end_interview,
         )
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+# ── LinkedIn Profile Optimizer ──────────────────────────────────────────────
+
+class LinkedInOptimizeRequest(BaseModel):
+    linkedin_headline: str = Field("", max_length=500)
+    linkedin_summary: str = Field("", max_length=5000)
+    skills_summary: str = Field("", max_length=2000)
+    experience_text: str = Field("", max_length=5000)
+    education_text: str = Field("", max_length=2000)
+    years_of_experience: Optional[str] = Field(None, max_length=10)
+
+
+@router.post("/linkedin-optimize")
+@limiter.limit("5/minute")
+async def linkedin_optimize(
+    request: Request, body: LinkedInOptimizeRequest, user: dict = Depends(get_current_user)
+):
+    """AI-powered LinkedIn profile optimization suggestions."""
+    profile_data = body.model_dump()
+
+    # If no data provided in request, try to load from user's saved profile
+    has_data = any(v for v in profile_data.values() if v)
+    if not has_data:
+        try:
+            from database import get_db
+            db = get_db()
+            saved_profile = await db.user_profiles.find_one(
+                {"user_id": user["id"]},
+                {
+                    "linkedin_headline": 1, "linkedin_summary": 1,
+                    "skills_summary": 1, "experience_text": 1,
+                    "education_text": 1, "years_of_experience": 1,
+                },
+            )
+            if saved_profile:
+                profile_data = {
+                    k: v for k, v in saved_profile.items()
+                    if k not in ("_id", "user_id")
+                }
+        except Exception as e:
+            logger.warning(f"Failed to load profile for linkedin-optimize: {e}")
+
+    try:
+        return await ai_service.optimize_linkedin_profile(profile_data)
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
 

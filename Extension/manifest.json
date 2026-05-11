@@ -17,7 +17,9 @@
     "https://www.smartapplies.app/*",
     "wss://www.smartapplies.app/*",
     "https://*.r2.dev/*",
-    "https://*.r2.cloudflarestorage.com/*"
+    "https://*.r2.cloudflarestorage.com/*",
+    "http://localhost:8000/*",
+    "ws://localhost:8000/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",

@@ -28,7 +28,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // ── SmartApply Extension Constants ────────────────────────────────────────
 
-const API_BASE = 'https://www.smartapplies.app/api';
+// Default API base — can be overridden via chrome.storage.local for development
+const API_BASE_DEFAULT = 'https://www.smartapplies.app/api';
+let API_BASE = API_BASE_DEFAULT;
+
+// Resolve configurable API base at startup
+(async function resolveApiBase() {
+  try {
+    const result = await chrome.storage.local.get('apiBaseOverride');
+    if (result.apiBaseOverride && typeof result.apiBaseOverride === 'string') {
+      API_BASE = result.apiBaseOverride;
+    }
+  } catch (_) {}
+})();
 
 // Google OAuth Client ID (must match backend and shared/constants.js)
 const GOOGLE_CLIENT_ID = '778305675120-bicqh3g6ep9m1nh5gdp5mqahonddphim.apps.googleusercontent.com';

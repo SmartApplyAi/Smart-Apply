@@ -5,7 +5,7 @@ Skill Gap API routes at /api/skillgap/*.
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from dependencies import get_current_user
 from services import skillgap_service
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from limiter import limiter
 from loguru import logger
@@ -14,9 +14,9 @@ router = APIRouter(prefix="/skillgap", tags=["Skill Gap"])
 
 
 class RoadmapRequest(BaseModel):
-    target_role: str = ""
-    current_skills: List[str] = []
-    target_skills: List[str] = []
+    target_role: str = Field("", max_length=200)
+    current_skills: List[str] = Field(default_factory=list, max_length=30)
+    target_skills: List[str] = Field(default_factory=list, max_length=30)
 
 
 # ── Analysis ────────────────────────────────────────────────────────────────

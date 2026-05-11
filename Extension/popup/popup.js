@@ -1,7 +1,19 @@
 // ── SmartApply Popup Script ───────────────────────────────────────────────
-// Server URL is fixed — users cannot change it.
+// Server URL defaults to production. Override via chrome.storage.local for dev:
+//   chrome.storage.local.set({ apiBaseOverride: 'http://localhost:8000/api' })
 
-const API_BASE = 'https://www.smartapplies.app/api';
+const API_BASE_DEFAULT = 'https://www.smartapplies.app/api';
+let API_BASE = API_BASE_DEFAULT;
+
+// Resolve API base URL from storage (called once at init)
+async function resolveApiBase() {
+  try {
+    const result = await chrome.storage.local.get('apiBaseOverride');
+    if (result.apiBaseOverride && typeof result.apiBaseOverride === 'string') {
+      API_BASE = result.apiBaseOverride;
+    }
+  } catch (_) {}
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -135,6 +147,7 @@ function updateSearchTerm(term, index, total) {
 // ── Init ──────────────────────────────────────────────────────────────────
 
 async function init() {
+  await resolveApiBase();
   const response = await msg('GET_STATE', {});
   const sessionData = await chrome.storage.session.get(['popupLogs']);
   if (sessionData.popupLogs) restoreLogsFromSession(sessionData.popupLogs);

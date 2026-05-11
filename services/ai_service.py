@@ -182,12 +182,13 @@ def _parse_json_from_response(text: str) -> dict:
 
 async def answer_question(question: str, user_info: str) -> dict:
     """Answer a general question using the user's context."""
+    safe_info = redact_pii(str(user_info)) if user_info else ""
     system_prompt = (
         "You are SmartApply AI, a professional career assistant. "
         "Answer the user's request concisely and accurately based on their profile information. "
         "Do not add disclaimers or meta-commentary. Return only the requested content."
     )
-    user_prompt = f"User Profile Context:\n{user_info}\n\nRequest:\n{question}"
+    user_prompt = f"User Profile Context:\n{safe_info}\n\nRequest:\n{question}"
     answer = await _call_nim(system_prompt, user_prompt)
     return {"answer": answer}
 
@@ -228,9 +229,9 @@ async def answer_screening_question(
         f"{field_constraints}"
     )
     
-    # Safely truncate inputs to prevent context window overflow
-    user_info_clean = user_info[:3000]
-    job_desc_clean = job_description[:3000] if job_description else "No job description provided."
+    # PII redaction + safely truncate inputs to prevent context window overflow
+    user_info_clean = redact_pii(user_info[:3000])
+    job_desc_clean = redact_pii(job_description[:3000]) if job_description else "No job description provided."
     
     user_prompt = f"User Profile:\n{user_info_clean}\n\nJob Description:\n{job_desc_clean}\n\nScreening Question:\n{question}"
     if field_type:
@@ -281,6 +282,7 @@ async def generate_cover_letter(user_info: str, job_title: str, company: str) ->
     if not user_info or user_info.strip() == "":
         return {"error": "User profile information is required to generate a cover letter."}
     
+    safe_info = redact_pii(user_info)
     system_prompt = (
         "You are SmartApply AI, an expert career coach and cover letter writer. "
         "Write a professional, compelling cover letter. "
@@ -290,7 +292,7 @@ async def generate_cover_letter(user_info: str, job_title: str, company: str) ->
     )
     user_prompt = (
         f"Write a cover letter for applying to the position of '{job_title}' at '{company}'.\n\n"
-        f"Candidate Profile:\n{user_info}"
+        f"Candidate Profile:\n{safe_info}"
     )
     cover_letter = await _call_nim(system_prompt, user_prompt, max_tokens=1500)
     return {"cover_letter": cover_letter}
@@ -357,10 +359,12 @@ Return ONLY valid JSON, no markdown fences:
   "summary": "2-3 sentences: honest strengths AND weaknesses, explain score rationale"
 }}"""
 
+    safe_resume = redact_pii(resume_text[:4000])
+    safe_jd = redact_pii(job_description[:3000])
     user_prompt = (
-        f"RESUME TEXT:\n{resume_text[:4000]}\n\nJOB DESCRIPTION:\n{job_description[:3000]}"
+        f"RESUME TEXT:\n{safe_resume}\n\nJOB DESCRIPTION:\n{safe_jd}"
         if has_jd else
-        f"RESUME TEXT:\n{resume_text[:4000]}"
+        f"RESUME TEXT:\n{safe_resume}"
     )
 
     raw = await _call_nim(system_prompt, user_prompt, max_tokens=2500, temperature=0.1)
@@ -444,7 +448,8 @@ specific, actionable improvements. Return a JSON object:
 
 Return ONLY valid JSON."""
 
-    user_prompt = f"RESUME:\n{resume_text[:4000]}"
+    safe_resume = redact_pii(resume_text[:4000])
+    user_prompt = f"RESUME:\n{safe_resume}"
     raw = await _call_nim(system_prompt, user_prompt, max_tokens=2000, temperature=0.4)
     parsed = _parse_json_from_response(raw)
 
@@ -535,7 +540,8 @@ async def interview_chat(
     if job_title:
         base_system += f"\nThe candidate is interviewing for: {job_title}\n"
     if job_description and itype == "custom":
-        base_system += f"\nJob Description:\n{job_description[:2000]}\n"
+        safe_jd = redact_pii(job_description[:2000])
+        base_system += f"\nJob Description:\n{safe_jd}\n"
 
     # Build conversation context from messages
     context_lines = []
@@ -646,7 +652,9 @@ Return ONLY valid JSON with this exact structure:
   "summary": "2-3 sentence match analysis"
 }"""
 
-    user_prompt = f"RESUME:\n{resume_text[:3500]}\n\nJOB DESCRIPTION:\n{job_description[:3000]}"
+    safe_resume = redact_pii(resume_text[:3500])
+    safe_jd = redact_pii(job_description[:3000])
+    user_prompt = f"RESUME:\n{safe_resume}\n\nJOB DESCRIPTION:\n{safe_jd}"
 
     raw = await _call_nim(system_prompt, user_prompt, max_tokens=1500, temperature=0.15)
     parsed = _parse_json_from_response(raw)
@@ -749,3 +757,98 @@ RULES:
 
     return parsed
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LINKEDIN PROFILE OPTIMIZER
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def optimize_linkedin_profile(profile_data: dict) -> dict:
+    """
+    Analyze a user's LinkedIn profile and return actionable optimization suggestions.
+    Covers headline, summary, experience, skills, and overall profile strength.
+    """
+    if not profile_data:
+        return {"error": "Profile data is required for optimization."}
+
+    # Build a safe text representation of the profile
+    parts = []
+    if profile_data.get("linkedin_headline"):
+        parts.append(f"Headline: {profile_data['linkedin_headline']}")
+    if profile_data.get("linkedin_summary"):
+        parts.append(f"Summary: {profile_data['linkedin_summary'][:1500]}")
+    if profile_data.get("skills_summary"):
+        parts.append(f"Skills: {profile_data['skills_summary'][:500]}")
+    if profile_data.get("experience_text"):
+        parts.append(f"Experience: {profile_data['experience_text'][:1500]}")
+    if profile_data.get("education_text"):
+        parts.append(f"Education: {profile_data['education_text'][:500]}")
+    if profile_data.get("years_of_experience"):
+        parts.append(f"Years of Experience: {profile_data['years_of_experience']}")
+
+    profile_text = "\n".join(parts)
+    if not profile_text.strip():
+        return {"error": "Not enough profile information to analyze. Fill in your profile first."}
+
+    safe_text = redact_pii(profile_text)
+
+    system_prompt = """You are an expert LinkedIn profile optimizer and personal branding strategist.
+Analyze the user's LinkedIn profile and provide specific, actionable improvements.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "profile_score": <integer 0-100>,
+  "headline": {
+    "current": "their current headline or empty",
+    "suggested": "an optimized headline (max 120 chars)",
+    "tips": ["tip1", "tip2"]
+  },
+  "summary": {
+    "score": <0-100>,
+    "suggestions": ["suggestion1", "suggestion2"],
+    "sample_opening": "A compelling opening line"
+  },
+  "experience": {
+    "score": <0-100>,
+    "suggestions": ["Add metrics to achievements", ...]
+  },
+  "skills": {
+    "score": <0-100>,
+    "missing_keywords": ["keyword1", "keyword2"],
+    "suggestions": ["tip1"]
+  },
+  "overall_tips": ["tip1", "tip2", "tip3", "tip4", "tip5"],
+  "strengths": ["strength1", "strength2"],
+  "weaknesses": ["weakness1", "weakness2"]
+}
+
+SCORING:
+  0-30: Minimal profile, missing most sections
+  31-50: Basic profile, needs significant work
+  51-70: Decent profile, some optimization needed
+  71-85: Strong profile, minor tweaks
+  86-100: Exceptional, well-optimized profile"""
+
+    user_prompt = f"LINKEDIN PROFILE:\n{safe_text}"
+
+    raw = await _call_nim(system_prompt, user_prompt, max_tokens=2000, temperature=0.3)
+    parsed = _parse_json_from_response(raw)
+
+    if not parsed or "profile_score" not in parsed:
+        return {
+            "profile_score": 0,
+            "headline": {"current": "", "suggested": "", "tips": []},
+            "summary": {"score": 0, "suggestions": [], "sample_opening": ""},
+            "experience": {"score": 0, "suggestions": []},
+            "skills": {"score": 0, "missing_keywords": [], "suggestions": []},
+            "overall_tips": [],
+            "strengths": [],
+            "weaknesses": [],
+            "error": "Could not parse optimization analysis.",
+            "raw": raw[:500] if raw else "",
+        }
+
+    # Clamp score
+    parsed["profile_score"] = max(0, min(100, int(parsed.get("profile_score", 0))))
+
+    return parsed

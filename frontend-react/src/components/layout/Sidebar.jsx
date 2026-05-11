@@ -58,6 +58,13 @@ export default function Sidebar({ activeTab, isOpen, onClose, userName, userEmai
         >
           <span className="icon"><i className="fa-solid fa-chart-gantt"></i></span> Skill Gap Analyzer
         </Link>
+        <Link 
+          to="/roadmap" 
+          className={`sidebar-link${activeTab === 'roadmap' ? ' active' : ''}`}
+          onClick={onClose}
+        >
+          <span className="icon"><i className="fa-solid fa-route"></i></span> AI Roadmap
+        </Link>
 
         {user?.role === 'admin' && (
           <>
