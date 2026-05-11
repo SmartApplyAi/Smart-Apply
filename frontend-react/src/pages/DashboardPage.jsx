@@ -41,6 +41,13 @@ export default function DashboardPage() {
   const [pastRecommendations, setPastRecommendations] = useState([]);
   const searchTimer = useRef(null);
 
+  // ── Streak, Daily Tip, Weekly Review state ──
+  const [streak, setStreak] = useState(null);
+  const [dailyTip, setDailyTip] = useState(null);
+  const [tipDismissed, setTipDismissed] = useState(false);
+  const [weeklyReview, setWeeklyReview] = useState(null);
+  const [showWeeklyReview, setShowWeeklyReview] = useState(false);
+
   useEffect(() => {
     const path = location.pathname.split('/').filter(Boolean).pop();
     if (path === 'history') setActiveTab('history');
@@ -79,7 +86,31 @@ export default function DashboardPage() {
     } catch { /* silently fail */ }
   }, []);
 
-  useEffect(() => { loadDashboard(); loadRecommendations(); }, [loadDashboard, loadRecommendations]);
+  // Load streak, daily tip, weekly review
+  const loadStreak = useCallback(async () => {
+    try { const data = await api.get('/dashboard/streak'); setStreak(data); } catch { /* silent */ }
+  }, []);
+
+  const loadDailyTip = useCallback(async () => {
+    try { const data = await api.get('/dashboard/daily-tip'); setDailyTip(data); } catch { /* silent */ }
+  }, []);
+
+  const loadWeeklyReview = useCallback(async () => {
+    try {
+      const data = await api.get('/dashboard/weekly-review');
+      setWeeklyReview(data);
+      if (data && !data.already_seen && data.total > 0) setShowWeeklyReview(true);
+    } catch { /* silent */ }
+  }, []);
+
+  const dismissWeeklyReview = async () => {
+    setShowWeeklyReview(false);
+    if (weeklyReview?.week_key) {
+      try { await api.post('/dashboard/weekly-review/seen', { week_key: weeklyReview.week_key }); } catch { /* silent */ }
+    }
+  };
+
+  useEffect(() => { loadDashboard(); loadRecommendations(); loadStreak(); loadDailyTip(); loadWeeklyReview(); }, [loadDashboard, loadRecommendations, loadStreak, loadDailyTip, loadWeeklyReview]);
   useEffect(() => { if (activeTab === 'history') loadHistory(); }, [activeTab, loadHistory]);
 
   // WebSocket-driven reactive updates (replace polling when WS connected)
@@ -145,6 +176,45 @@ export default function DashboardPage() {
 
     return (
       <>
+          {/* ── Weekly Review Modal ── */}
+          {showWeeklyReview && weeklyReview && (
+            <div className="weekly-review-overlay" onClick={dismissWeeklyReview}>
+              <div className="weekly-review-modal" onClick={e => e.stopPropagation()}>
+                <button className="weekly-review-close" onClick={dismissWeeklyReview}><i className="fa-solid fa-xmark"></i></button>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <div style={{ fontSize: '40px', marginBottom: '8px' }}>📊</div>
+                  <h3 style={{ fontSize: '22px' }}>Your Weekly Review</h3>
+                  <p className="text-muted text-sm">{weeklyReview.period}</p>
+                </div>
+                <div className="weekly-review-stats">
+                  <div className="weekly-review-stat">
+                    <div className="weekly-review-stat-value" style={{ color: 'var(--primary)' }}>{weeklyReview.total}</div>
+                    <div className="weekly-review-stat-label">Applications</div>
+                  </div>
+                  <div className="weekly-review-stat">
+                    <div className="weekly-review-stat-value" style={{ color: '#22c55e' }}>{weeklyReview.success_rate}%</div>
+                    <div className="weekly-review-stat-label">Success Rate</div>
+                  </div>
+                  <div className="weekly-review-stat">
+                    <div className="weekly-review-stat-value" style={{ color: '#f59e0b' }}>🔥 {weeklyReview.current_streak}</div>
+                    <div className="weekly-review-stat-label">Day Streak</div>
+                  </div>
+                </div>
+                {weeklyReview.top_missing_skills?.length > 0 && (
+                  <div style={{ marginTop: '20px' }}>
+                    <div className="text-muted text-sm" style={{ marginBottom: '8px' }}>Top Skill Gaps</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {weeklyReview.top_missing_skills.map((s, i) => (
+                        <span key={i} style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 500 }}>{s.skill}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <button className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} onClick={dismissWeeklyReview}>Got it!</button>
+              </div>
+            </div>
+          )}
+
           <div className="page-header">
             <div><h3>Welcome back{summary?.user_profile?.first_name ? `, ${summary.user_profile.first_name}` : ''}!</h3><p className="text-muted text-sm">Here is your job application overview</p></div>
             <div className="page-header-actions"><button onClick={downloadExtension} className="btn btn-primary btn-sm"><i className="fa-brands fa-chrome"></i> Extension</button></div>
@@ -153,15 +223,38 @@ export default function DashboardPage() {
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div>
+              {/* ── Daily AI Career Tip ── */}
+              {dailyTip && !tipDismissed && (
+                <div className="daily-tip-card">
+                  <div className="daily-tip-icon">💡</div>
+                  <div className="daily-tip-content">
+                    <div className="daily-tip-label">Daily Career Tip <span className="daily-tip-category">{dailyTip.category}</span></div>
+                    <div className="daily-tip-text">{dailyTip.tip}</div>
+                  </div>
+                  <button className="daily-tip-dismiss" onClick={() => setTipDismissed(true)}><i className="fa-solid fa-xmark"></i></button>
+                </div>
+              )}
+
               {summary === null ? (
                 <div className="stats-overview stagger">
-                  {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: '100px', borderRadius: 'var(--radius)' }}></div>)}
+                  {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: '100px', borderRadius: 'var(--radius)' }}></div>)}
                 </div>
               ) : (
-                <div className="stats-overview stagger">
+                <div className="stats-overview stagger" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                   <StatCard label="Total Applications" value={summary.total ?? 0} sub="All time" className="active" />
                   <StatCard label="Successfully Applied" value={summary.applied ?? 0} sub={`${summary.success_rate ?? 0}% success rate`} className="active" />
                   <StatCard label="Automation Status" value={summary.automation_status === 'running' ? 'Active' : (summary.pending_tasks ?? 0)} sub={summary.automation_status === 'running' ? 'Bot is running' : summary.automation_status === 'paused' ? 'Paused' : 'No active sessions'} className="active" />
+                  {/* ── Streak Card ── */}
+                  {streak && (
+                    <div className="stat-card active streak-card">
+                      <div className="streak-flame">{streak.current_streak >= 3 ? '🔥' : streak.current_streak > 0 ? '✨' : '💤'}</div>
+                      <div className="stat-value streak-value">{streak.current_streak}</div>
+                      <div className="stat-label">Day Streak</div>
+                      <div className="text-muted text-xs" style={{ marginTop: '4px' }}>
+                        Best: {streak.longest_streak}d · {streak.active_today ? <span style={{ color: '#22c55e' }}>Active today ✓</span> : <span style={{ color: '#f59e0b' }}>Not yet today</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

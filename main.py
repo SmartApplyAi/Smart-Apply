@@ -66,12 +66,25 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Redis is not available, skipping Pub/Sub listener startup.")
 
+    # Start APScheduler for weekly digest and other recurring jobs
+    try:
+        from scheduler import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        logger.warning(f"APScheduler startup failed (non-fatal): {e}")
+
     # Verify R2 Credentials
     if not settings.R2_ACCOUNT_ID or not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY:
         logger.warning("Cloudflare R2 credentials missing. File uploads will fail.")
     
     logger.info("All systems ready ✓")
     yield
+    # Shutdown APScheduler
+    try:
+        from scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception:
+        pass
     await close_redis()
     await close_db()
     logger.info("Shutdown complete.")

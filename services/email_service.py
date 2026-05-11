@@ -255,23 +255,84 @@ async def send_security_alert(email: str, event: str, ip: str = "", name: str = 
 async def send_weekly_digest(
     email: str, stats: dict, name: str = ""
 ) -> bool:
-    """Send a weekly digest email with application stats."""
+    """Send a weekly digest email with applications sent, success rate, streak, top skill gap."""
+    total = stats.get('total', 0)
+    applied = stats.get('applied', 0)
+    failed = stats.get('failed', 0)
+    success_rate = stats.get('success_rate', 0)
+    current_streak = stats.get('current_streak', 0)
+    top_skill_gaps = stats.get('top_skill_gaps', [])
+
+    # Build streak display
+    streak_emoji = "🔥" if current_streak >= 3 else "📊"
+    streak_color = "#f59e0b" if current_streak >= 3 else "#94a3b8"
+
+    # Build skill gap pills
+    skill_gap_html = ""
+    if top_skill_gaps:
+        pills = "".join([
+            f'<span style="display: inline-block; background: rgba(239,68,68,0.1); color: #f87171; '
+            f'padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; margin: 3px;">'
+            f'{skill}</span>'
+            for skill in top_skill_gaps[:5]
+        ])
+        skill_gap_html = f"""
+        <div style="margin-top: 20px;">
+          <div style="font-size: 14px; color: #94a3b8; margin-bottom: 8px;">Top Skill Gaps This Week</div>
+          <div style="line-height: 2;">{pills}</div>
+        </div>
+        """
+
     default_body = f"""
     <h2>Your Weekly Summary</h2>
     <p>Hi {{name}},</p>
-    <p>Here's what happened with your applications this week:</p>
+    <p>Here's what happened with your job search this week:</p>
     <div class="pin-box">
-      <div style="font-size: 14px; color: #94a3b8;">Applications this week</div>
-      <div style="font-size: 36px; font-weight: 800; color: #4f7cff;">{{total}}</div>
+      <div style="display: flex; justify-content: space-around; text-align: center; flex-wrap: wrap;">
+        <div style="min-width: 80px; margin: 8px;">
+          <div style="font-size: 32px; font-weight: 800; color: #4f7cff;">{{total}}</div>
+          <div class="muted" style="font-size: 13px;">Applications</div>
+        </div>
+        <div style="min-width: 80px; margin: 8px;">
+          <div style="font-size: 32px; font-weight: 800; color: #22c55e;">{{success_rate}}%</div>
+          <div class="muted" style="font-size: 13px;">Success Rate</div>
+        </div>
+        <div style="min-width: 80px; margin: 8px;">
+          <div style="font-size: 32px; font-weight: 800; color: {streak_color};">{streak_emoji} {{streak}}</div>
+          <div class="muted" style="font-size: 13px;">Day Streak</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-around; text-align: center;">
+        <div>
+          <div style="font-size: 20px; font-weight: 700; color: #22c55e;">{{applied}}</div>
+          <div class="muted" style="font-size: 12px;">Applied</div>
+        </div>
+        <div>
+          <div style="font-size: 20px; font-weight: 700; color: #ef4444;">{{failed}}</div>
+          <div class="muted" style="font-size: 12px;">Failed</div>
+        </div>
+      </div>
+      {{skill_gap_html}}
     </div>
-    <p><a href="{settings.FRONTEND_URL}/dashboard" class="btn">View Full Dashboard</a></p>
+    <p style="text-align: center;">
+      <a href="{settings.FRONTEND_URL}/dashboard" class="btn">View Full Dashboard</a>
+    </p>
+    <p class="muted" style="text-align: center;">Keep the momentum going! Every application brings you closer to your dream job.</p>
     """
     body_template = await get_template("weekly_digest", default_body)
     display_name = name if name else 'User'
-    body = body_template.replace("{name}", display_name).replace("{total}", str(stats.get('total', 0)))
-    
+    body = (body_template
+        .replace("{name}", display_name)
+        .replace("{total}", str(total))
+        .replace("{applied}", str(applied))
+        .replace("{failed}", str(failed))
+        .replace("{success_rate}", str(success_rate))
+        .replace("{streak}", str(current_streak))
+        .replace("{skill_gap_html}", skill_gap_html)
+    )
+
     html_content = await wrap_template("Weekly Digest", body)
-    return await send_email(email, name, "Weekly Digest — SmartApply", html_content)
+    return await send_email(email, name, "📊 Weekly Digest — SmartApply", html_content)
 
 
 async def send_enhanced_automation_summary(

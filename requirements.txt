@@ -52,3 +52,6 @@ psutil==5.9.8
 redis>=5.2.0
 argon2-cffi>=23.1.0
 websockets>=12.0
+
+# ── Scheduling ───────────────────────────────────────
+apscheduler>=3.10.0
