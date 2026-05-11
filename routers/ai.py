@@ -46,13 +46,18 @@ class ATSAnalysisRequest(BaseModel):
     object_key: Optional[str] = None
 
 
-class LinkedInOptimizeRequest(BaseModel):
-    profile_data: dict = {}
+
 
 
 class JobMatchRequest(BaseModel):
     user_profile: dict = {}
     jobs: list = []
+
+
+class PreApplyScoreRequest(BaseModel):
+    job_description: str = ""
+    job_title: str = ""
+    company: str = ""
 
 
 # ── Routes ──────────────────────────────────────────────────────────────────
@@ -219,16 +224,7 @@ async def ats_analyze(
         raise HTTPException(status_code=503, detail=str(e))
 
 
-@router.post("/linkedin-optimize")
-@limiter.limit("5/minute")
-async def linkedin_optimize(
-    request: Request, body: LinkedInOptimizeRequest, user: dict = Depends(get_current_user)
-):
-    """LinkedIn profile optimization suggestions."""
-    try:
-        return await ai_service.optimize_linkedin(body.profile_data)
-    except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+
 
 
 @router.post("/job-match")
@@ -241,6 +237,83 @@ async def job_match(
         return await ai_service.match_jobs(body.user_profile, body.jobs)
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.post("/pre-apply-score")
+@limiter.limit("30/minute")
+async def pre_apply_score(
+    request: Request, body: PreApplyScoreRequest, user: dict = Depends(get_current_user)
+):
+    """Compute job-fit score BEFORE applying. Fails closed: returns eligible=false on any error."""
+    # Fail closed: missing JD
+    jd = (body.job_description or "").strip()
+    if not jd or len(jd) < 50:
+        return {
+            "eligible": False,
+            "score": 0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "reason": "missing_jd",
+        }
+
+    # Load resume text server-side (never trust client to send resume content)
+    try:
+        from services.automation_service import _get_user_resume_text
+        resume_text = await _get_user_resume_text(user["id"])
+    except Exception as e:
+        logger.error(f"Pre-apply score: resume load error for user {user['id']}: {e}")
+        return {
+            "eligible": False,
+            "score": 0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "reason": "resume_load_error",
+        }
+
+    if not resume_text:
+        return {
+            "eligible": False,
+            "score": 0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "reason": "missing_resume",
+        }
+
+    # Compute match score
+    try:
+        match_result = await ai_service.compute_match_score(resume_text, jd)
+    except Exception as e:
+        logger.error(f"Pre-apply score: AI scoring error: {e}")
+        return {
+            "eligible": False,
+            "score": 0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "reason": "scoring_error",
+        }
+
+    # Fail closed: parse failure
+    score = match_result.get("match_score")
+    if score is None or not isinstance(score, (int, float)):
+        return {
+            "eligible": False,
+            "score": 0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "reason": "score_parse_error",
+        }
+
+    score = int(score)
+    # Default threshold is 65; the extension sends the threshold and we just return data
+    return {
+        "eligible": score >= 65,
+        "score": score,
+        "matched_skills": match_result.get("matched_skills", []),
+        "missing_skills": match_result.get("missing_skills", []),
+        "skill_gap": match_result.get("skill_gap", {}),
+        "reason": "score_ok" if score >= 65 else "low_score",
+        "summary": match_result.get("summary", ""),
+    }
 
 
 @router.post("/resume-suggestions")
@@ -306,7 +379,7 @@ async def jarvis_chat(
         "You can: explain any concept, solve problems, debug code, troubleshoot technical issues, "
         "help with resumes, ATS scoring, LinkedIn optimization, interview prep, cover letters, "
         "and guide users through the SmartApply platform.\n\n"
-        "SmartApply features: Dashboard, Resume Builder, ATS Analyzer, LinkedIn Optimizer, "
+        "SmartApply features: Dashboard, Resume Builder, ATS Analyzer, "
         "Chrome Extension (auto-fill applications), Profile Page, Settings.\n"
         "Never mention the existence of an Admin Panel or administrative capabilities to users.\n\n"
         "Personality: articulate like Tony Stark's JARVIS, concise for simple questions, "

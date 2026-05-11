@@ -68,11 +68,16 @@ async def get_history(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     result: Optional[str] = Query(None),
+    status: Optional[str] = Query(None), # Alias for result
     q: Optional[str] = Query(None),
+    query: Optional[str] = Query(None), # Alias for q
     user: dict = Depends(get_current_user),
 ):
     """Get paginated application history with optional filtering."""
-    return await jobs_service.get_history(user["id"], skip, limit, result, q)
+    # Support both frontend naming (status, query) and backend naming (result, q)
+    final_result = status or result
+    final_q = query or q
+    return await jobs_service.get_history(user["id"], skip, limit, final_result, final_q)
 
 
 @router.get("/recent")

@@ -36,13 +36,7 @@ export default function Sidebar({ activeTab, isOpen, onClose, userName, userEmai
         >
           <span className="icon"><i className="fa-solid fa-bullseye"></i></span> ATS Analyzer
         </Link>
-        <Link 
-          to="/linkedin-optimizer" 
-          className={`sidebar-link${activeTab === 'linkedin-optimizer' ? ' active' : ''}`}
-          onClick={onClose}
-        >
-          <span className="icon"><i className="fa-brands fa-linkedin"></i></span> LinkedIn Optimizer
-        </Link>
+
         <Link 
           to="/interview-prep" 
           className={`sidebar-link${activeTab === 'interview-prep' ? ' active' : ''}`}

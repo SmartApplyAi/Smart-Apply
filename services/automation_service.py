@@ -20,29 +20,35 @@ async def _get_user_resume_text(user_id: str) -> Optional[str]:
     """Fetch the user's resume text from their profile for match scoring."""
     try:
         db = get_db()
-        user = await db.users.find_one({"_id": ObjectId(user_id)}, {"resume_text": 1, "parsed_resume": 1})
-        if not user:
-            return None
-        # Try parsed resume text first, then raw resume_text field
-        text = user.get("resume_text") or ""
-        if not text and user.get("parsed_resume"):
-            parsed = user["parsed_resume"]
+        # 1. Look for active resume in resumes collection
+        active_resume = await db.resumes.find_one({"user_id": user_id, "is_active": True})
+        if active_resume:
+            parsed = active_resume.get("parsed_data")
             if isinstance(parsed, dict):
-                text = parsed.get("raw_text", "") or parsed.get("text", "")
-            elif isinstance(parsed, str):
-                text = parsed
-        # Fallback: try to build from profile fields
-        if not text:
-            profile = await db.users.find_one({"_id": ObjectId(user_id)}, {"profile": 1})
-            if profile and profile.get("profile"):
-                p = profile["profile"]
-                parts = []
-                if p.get("linkedin_headline"): parts.append(p["linkedin_headline"])
-                if p.get("summary"): parts.append(p["summary"])
-                if p.get("skills"): parts.append("Skills: " + ", ".join(p["skills"]))
-                if p.get("experience"): parts.append(str(p["experience"]))
-                text = "\n".join(parts)
-        return text if text else None
+                # Try the aggregated field first, then fallback to others
+                text = parsed.get("user_information_all") or parsed.get("raw_text", "") or parsed.get("text", "")
+                if text:
+                    return text
+
+        # 2. Fallback: try to build from profile fields in user_profiles collection
+        profile = await db.user_profiles.find_one({"user_id": user_id})
+        if profile:
+            parts = []
+            if profile.get("linkedin_headline"): parts.append(profile["linkedin_headline"])
+            if profile.get("linkedin_summary"): parts.append(profile["linkedin_summary"])
+            if profile.get("skills_summary"): parts.append(profile["skills_summary"])
+            if profile.get("experience_text"): parts.append(profile["experience_text"])
+            if profile.get("education_text"): parts.append(profile["education_text"])
+            
+            # Combine common fields if specific text blocks are missing
+            if not profile.get("experience_text") and profile.get("experience"):
+                parts.append(str(profile["experience"]))
+                
+            text = "\n".join([p for p in parts if p])
+            if text.strip():
+                return text
+
+        return None
     except Exception as e:
         logger.warning(f"Failed to get resume text for user {user_id}: {e}")
         return None

@@ -3177,6 +3177,7 @@ async function startAutomation(state, resumeCounters = null) {
       const applied = await clickEasyApplyAndProcess(state);
       if (applied) {
         automation.appliedThisTerm++;
+        sendProgress();
       } else {
         automation.totalSkipped++;
         sendProgress();
@@ -3302,13 +3303,19 @@ async function clickJobCard(card) {
 
   // Extract job description for AI context using robust selectors
   const selectors = [
+    '#job-details',
+    'article.jobs-description__container',
     '.jobs-description-content__text',
     '.jobs-description__content',
     '.jobs-box__html-content',
-    '.jobs-description',
-    '#job-details'
+    '.jobs-description'
   ];
   
+  // Wait up to 3s for JD to load after top card appears
+  await waitFor('#job-details, article.jobs-description__container, .jobs-description-content__text', 3000).catch(() => {});
+  // Give it a tiny moment to hydrate
+  await sleep(500);
+
   automation.currentJobDescription = '';
   for (const sel of selectors) {
     const el = document.querySelector(sel);

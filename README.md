@@ -249,7 +249,7 @@ The backend is configured to serve the compiled frontend from `frontend-react/di
 | POST | `/ai/answer-question` | AI Q&A with context |
 | POST | `/ai/cover-letter` | Generate cover letter |
 | POST | `/ai/ats-analyze` | Full ATS analysis |
-| POST | `/ai/linkedin-optimize` | LinkedIn optimization |
+
 | POST | `/ai/job-match` | Job matching |
 | POST | `/ai/resume-suggestions` | Resume improvements |
 

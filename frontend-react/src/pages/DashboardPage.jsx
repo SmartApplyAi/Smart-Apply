@@ -63,8 +63,8 @@ export default function DashboardPage() {
     setHistoryLoading(true); setHistoryError('');
     try {
       let url = `/jobs/history?skip=${historyPage * 10}&limit=10`;
-      if (historyFilter) url += `&status=${historyFilter}`;
-      if (debouncedSearchQuery) url += `&query=${encodeURIComponent(debouncedSearchQuery)}`;
+      if (historyFilter) url += `&result=${historyFilter}`;
+      if (debouncedSearchQuery) url += `&q=${encodeURIComponent(debouncedSearchQuery)}`;
       const data = await api.get(url);
       setHistory(data);
     } catch (err) {

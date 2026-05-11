@@ -54,6 +54,7 @@ export function createDefaultState() {
       maxApplications: 15,
       humanConfirmSubmit: false,
       delayBetweenApps: 3000,
+      minMatchScore: 65,
     },
   };
 }

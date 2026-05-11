@@ -97,9 +97,9 @@ async def login(body: LoginRequest, request: Request, response: Response):
             httponly=True,
             max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
             expires=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-            samesite="strict",
+            samesite="lax",
             secure=settings.is_production,
-            path="/api/auth/refresh",
+            path="/",
         )
         
         # Remove refresh token from JSON body response
@@ -142,8 +142,8 @@ async def logout(request: Request, response: Response, user: dict = Depends(get_
     response.delete_cookie(
         key="refresh_token",
         httponly=True,
-        samesite="strict",
-        path="/api/auth/refresh",
+        samesite="lax",
+        path="/",
         secure=__import__("config").settings.is_production,
     )
     
@@ -210,9 +210,9 @@ async def refresh_token(request: Request, response: Response):
             httponly=True,
             max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
             expires=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-            samesite="strict",
+            samesite="lax",
             secure=settings.is_production,
-            path="/api/auth/refresh",
+            path="/",
         )
         
         # We don't return refresh_token in the body
@@ -424,9 +424,9 @@ async def oauth_handoff(body: dict, response: Response):
         httponly=True,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         expires=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        samesite="strict",
+        samesite="lax",
         secure=settings.is_production,
-        path="/api/auth/refresh",
+        path="/",
     )
     
     return {

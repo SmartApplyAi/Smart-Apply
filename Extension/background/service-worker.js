@@ -252,11 +252,12 @@ async function scrapeJobDescription(tabId) {
       func: () => {
         // Try multiple selectors for LinkedIn JD
         const selectors = [
+          '#job-details',
+          'article.jobs-description__container',
           '.jobs-description-content__text',
           '.jobs-description__content',
           '.jobs-box__html-content',
           '.jobs-description',
-          '#job-details',
         ];
         for (const sel of selectors) {
           const el = document.querySelector(sel);
@@ -954,6 +955,34 @@ async function handleMessage(message, sender) {
       await saveState();
       chrome.runtime.sendMessage({ type: 'STATE_CHANGED', state: message.state }).catch(() => {});
       return { ok: true };
+    }
+
+    case 'PRE_APPLY_SCORE': {
+      const stored = await chrome.storage.session.get('userToken');
+      const token = stored.userToken || appState.runtime.token;
+      if (!token) return { ok: false, eligible: false, score: 0, reason: 'not_logged_in' };
+
+      try {
+        const response = await apiPost('/ai/pre-apply-score', {
+          job_description: message.job_description || '',
+          job_title: message.job_title || '',
+          company: message.company || '',
+        }, token);
+
+        return {
+          ok: true,
+          eligible: !!response.eligible,
+          score: response.score || 0,
+          matched_skills: response.matched_skills || [],
+          missing_skills: response.missing_skills || [],
+          skill_gap: response.skill_gap || {},
+          reason: response.reason || 'unknown',
+          summary: response.summary || '',
+        };
+      } catch (err) {
+        console.error('[SmartApply SW] PRE_APPLY_SCORE error:', err);
+        return { ok: false, eligible: false, score: 0, reason: 'network_error', error: err.message };
+      }
     }
 
     case 'ASK_AI_QUESTION': {

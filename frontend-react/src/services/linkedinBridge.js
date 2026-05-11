@@ -66,38 +66,7 @@ const LinkedInBridge = {
     return sendMessage({ type: 'SYNC_PROFILE', user }, 5000);
   },
 
-  /** Full import flow: scrape + save to backend */
-  async importAndSave(token, overwrite = false) {
-    const scrapeResult = await LinkedInBridge.scrapeProfile();
-    if (!scrapeResult.ok) {
-      const msgs = {
-        not_logged_in: 'Not logged into LinkedIn. Please log in first.',
-        scrape_failed: 'Could not read LinkedIn profile.',
-        timeout: 'Scrape timed out. LinkedIn loaded too slowly.',
-        extension_not_found: 'SmartApply extension not found.',
-      };
-      return { ok: false, error: msgs[scrapeResult.error] || scrapeResult.error };
-    }
 
-    try {
-      const resp = await fetch('/api/profile/import-linkedin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          raw_linkedin_data: scrapeResult.data,
-          overwrite,
-        }),
-      });
-      const data = await resp.json();
-      if (!resp.ok) return { ok: false, error: data.detail || 'save_failed' };
-      return { ok: true, data: scrapeResult.data, message: data.message };
-    } catch (e) {
-      return { ok: false, error: e.message || 'network_error' };
-    }
-  },
 };
 
 /** Fetch the extension ID from the backend config endpoint */

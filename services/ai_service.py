@@ -1,6 +1,6 @@
 """
 AI service: NVIDIA NIM integration for all LLM-powered features.
-Includes full ATS analyzer, cover letter generator, LinkedIn optimizer,
+Includes full ATS analyzer, cover letter generator,
 resume parser, and job matching — all powered by NVIDIA NIM.
 """
 
@@ -398,45 +398,7 @@ Return ONLY valid JSON."""
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  LINKEDIN OPTIMIZER — FULL IMPLEMENTATION
-# ═══════════════════════════════════════════════════════════════════════════
 
-
-async def optimize_linkedin(profile_data: dict) -> dict:
-    """
-    LinkedIn profile optimization suggestions using NVIDIA NIM.
-    """
-    system_prompt = """You are a LinkedIn optimization expert.
-Analyze the user's LinkedIn profile data and provide actionable optimization suggestions.
-Return a STRICT JSON object:
-
-{
-  "overall_score": <integer 0-100>,
-  "headline_suggestion": "Optimized headline text",
-  "summary_suggestion": "Optimized About section text",
-  "skills_to_add": ["skill1", "skill2", ...],
-  "keywords_to_include": ["keyword1", "keyword2", ...],
-  "section_improvements": [
-    {"section": "headline|summary|experience|skills|education", "current_score": 0-100, "suggestion": "..."},
-    ...
-  ],
-  "visibility_tips": ["tip1", "tip2", ...],
-  "overall_feedback": "Summary paragraph"
-}
-
-Return ONLY valid JSON."""
-
-    profile_str = json.dumps(profile_data, default=str)[:3000]
-    profile_str = redact_pii(profile_str)
-    user_prompt = f"LinkedIn Profile Data:\n{profile_str}"
-
-    raw = await _call_nim(system_prompt, user_prompt, max_tokens=2000, temperature=0.5)
-    parsed = _parse_json_from_response(raw)
-
-    if not parsed:
-        return {"analysis": raw, "message": "Raw analysis returned"}
-
-    return parsed
 
 
 # ═══════════════════════════════════════════════════════════════════════════

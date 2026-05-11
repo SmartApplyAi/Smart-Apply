@@ -23,7 +23,7 @@ import SettingsPage from './pages/SettingsPage';
 
 import ProfilePage from './pages/ProfilePage';
 import ATSPage from './pages/ATSPage';
-import LinkedInOptimizerPage from './pages/LinkedInOptimizerPage';
+
 import InterviewPrepPage from './pages/InterviewPrepPage';
 import SkillGapPage from './pages/SkillGapPage';
 import AdminPage from './pages/AdminPage';
@@ -144,7 +144,7 @@ function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/ats" element={<ATSPage />} />
-                <Route path="/linkedin-optimizer" element={<LinkedInOptimizerPage />} />
+
                 <Route path="/interview-prep" element={<InterviewPrepPage />} />
                 <Route path="/skill-gap" element={<SkillGapPage />} />
                 <Route path="/admin" element={<AdminPage />} />

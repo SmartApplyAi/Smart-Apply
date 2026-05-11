@@ -11,8 +11,8 @@ const FAQ_DATA = [
     a: 'Absolutely. Your data is encrypted end-to-end and stored securely. We never share your information with third parties. The extension runs locally in your browser with minimal permissions.',
   },
   {
-    q: 'Does it support LinkedIn?',
-    a: 'Yes! SmartApply currently supports LinkedIn Easy Apply. Our Chrome extension navigates LinkedIn, finds matching jobs, and fills out every form field using your saved resume and AI-generated answers.',
+    q: 'Which platforms are supported?',
+    a: 'SmartApply is exclusively optimized for LinkedIn Easy Apply. This specialization allows us to provide the highest reliability and success rates for your applications.',
   },
   {
     q: 'Can I customize my applications?',
