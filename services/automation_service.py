@@ -403,133 +403,139 @@ async def _process_manual_recommendation(user_id: str, result_data: dict):
         logger.warning(f"Failed to process manual recommendation: {e}")
 
 
-async def extension_report_result(user_id: str, session_id: str, result_data: dict) -> dict:
-    """Report a completed application result from the extension."""
-    db = get_db()
+# ── Private helpers for extension_report_result ───────────────────────────────
 
-    # Normalize result type case‑insensitively (e.g., "applied", "Applied")
-    result_type_raw = result_data.get("result", "Applied")
-    result_type = result_type_raw.capitalize()
+async def _update_session_counter(db, user_id: str, session_id: str, result_type: str) -> None:
+    """Increment the correct counter on the automation session document."""
     inc_field = {
         "Applied": "total_applied",
-        "Failed": "total_failed",
+        "Failed":  "total_failed",
         "Skipped": "total_skipped",
     }.get(result_type, "total_applied")
 
-    # Update session counters for this result.
-    # Prefer the explicit session_id if it is a valid ObjectId; otherwise fall back to any active session for the user.
     filter_doc: dict = {}
     if session_id:
         try:
             filter_doc["_id"] = ObjectId(session_id)
         except Exception:
-            logger.warning(f"Invalid session_id provided: {session_id}")
+            logger.warning(f"Invalid session_id: {session_id!r}")
+
     if not filter_doc:
-        # No valid session_id, match the latest running/paused session for the user.
         filter_doc = {"user_id": user_id, "status": {"$in": ["running", "paused"]}}
+
     try:
         await db.automation_sessions.update_one(
             filter_doc,
-            {
-                "$inc": {inc_field: 1},
-                "$set": {"updated_at": datetime.now(timezone.utc)},
-            },
+            {"$inc": {inc_field: 1}, "$set": {"updated_at": datetime.now(timezone.utc)}},
         )
     except Exception as e:
-        logger.warning(f"Failed to update session stats for user {user_id}: {e}")
+        logger.warning(f"Session counter update failed for user {user_id}: {e}")
 
-    # ── Match Score Computation ──────────────────────────────────────────
-    job_title = result_data.get("job_title", "").strip()
-    company = result_data.get("company", "").strip()
-    job_description = result_data.get("job_description", "").strip()
 
-    match_result = None
-    if result_type == "Applied" and job_description:
-        try:
-            # Get the user's resume text for matching
-            resume_text = await _get_user_resume_text(user_id)
-            if resume_text:
-                from services.ai_service import compute_match_score
-                match_result = await compute_match_score(resume_text, job_description)
-                # Inject match data into result_data for storage
-                result_data["match_score"] = match_result.get("match_score")
-                result_data["matched_skills"] = match_result.get("matched_skills", [])
-                result_data["missing_skills"] = match_result.get("missing_skills", [])
-                result_data["skill_gap"] = match_result.get("skill_gap", {})
-                result_data["job_description"] = job_description
-                logger.info(f"Match score computed for {job_title}: {match_result.get('match_score', 'N/A')}%")
-        except Exception as e:
-            logger.warning(f"Match score computation failed for {job_title}: {e}")
+async def _compute_and_attach_match_score(user_id: str, result_type: str, result_data: dict):
+    """
+    If the result is Applied and job_description is present, compute and
+    attach the match score into result_data in-place. Returns the raw match result.
+    """
+    if result_type != "Applied" or not result_data.get("job_description", "").strip():
+        return None
 
-    # Ensure job_url is populated from job_link if missing
-    if "job_url" not in result_data and "job_link" in result_data:
-        result_data["job_url"] = result_data.get("job_link", "")
+    try:
+        resume_text = await _get_user_resume_text(user_id)
+        if not resume_text:
+            return None
+        from services.ai_service import compute_match_score
+        match_result = await compute_match_score(resume_text, result_data["job_description"])
+        result_data["match_score"]     = match_result.get("match_score")
+        result_data["matched_skills"]  = match_result.get("matched_skills", [])
+        result_data["missing_skills"]  = match_result.get("missing_skills", [])
+        result_data["skill_gap"]       = match_result.get("skill_gap", {})
+        logger.info(
+            f"Match score for {result_data.get('job_title', '?')}: "
+            f"{match_result.get('match_score', 'N/A')}%"
+        )
+        return match_result
+    except Exception as e:
+        logger.warning(f"Match score failed for {result_data.get('job_title', '?')}: {e}")
+        return None
 
-    # Create job application record (ONLY if result is "Applied")
+
+async def _record_application_result(user_id: str, result_type: str, result_data: dict) -> None:
+    """
+    Persist the application (Applied), trigger recommendation (Skipped),
+    or log (Failed). Single responsibility for DB-write side-effects.
+    """
     from services.jobs_service import create_application
+
+    job_title = result_data.get("job_title", "").strip()
+    company   = result_data.get("company", "").strip()
 
     if result_type == "Applied" and job_title and company:
         await create_application(user_id, result_data)
     elif result_type == "Skipped" and result_data.get("reason") in ("external_apply", "no_easy_apply"):
         import asyncio
         asyncio.create_task(_process_manual_recommendation(user_id, result_data))
-        logger.info(f"Automation skipped job {job_title}. Triggered background recommendation check.")
+        logger.info(f"Skipped {job_title!r} — triggered background recommendation.")
     elif result_type != "Applied":
-        logger.info(f"Automation finished with {result_type} for user {user_id}. Skipping database application record.")
+        logger.info(f"{result_type} for user {user_id} — no application record written.")
     else:
-        logger.warning(f"Result reported with missing job_title or company for user {user_id}. Skipping application record.")
+        logger.warning(f"Missing job_title/company for user {user_id} — skipped record.")
 
-    # Log the result
-    await extension_report_step(
-        user_id, session_id,
-        step="application_result",
-        status=result_type,
-        message=f"{result_data.get('job_title', '')} at {result_data.get('company', '')}",
-        data=result_data,
-    )
 
-    # ── WebSocket Real-Time Broadcast ────────────────────────────────────
+async def _broadcast_result_event(
+    user_id: str, result_type: str, result_data: dict, match_result: dict | None
+) -> None:
+    """
+    Publish the job event to Redis pub/sub and, when a skill gap is detected,
+    also create an in-app notification and publish a SKILL_GAP_ALERT.
+    Non-fatal: all errors are caught and logged.
+    """
     try:
         from websocket.pubsub import publish_job_event, publish_skill_gap_event
-        from websocket.events import JOB_APPLIED, JOB_FAILED, JOB_SKIPPED, SKILL_GAP_ALERT
+        from websocket.events import JOB_APPLIED, JOB_FAILED, JOB_SKIPPED
 
         event_type = {
             "Applied": JOB_APPLIED,
-            "Failed": JOB_FAILED,
+            "Failed":  JOB_FAILED,
             "Skipped": JOB_SKIPPED,
         }.get(result_type, JOB_APPLIED)
 
-        event_payload = {
-            "job_title": job_title,
-            "company": company,
-            "platform": result_data.get("platform", "linkedin"),
-            "result": result_type,
-            "match_score": result_data.get("match_score"),
+        await publish_job_event(user_id, event_type, {
+            "job_title":      result_data.get("job_title", ""),
+            "company":        result_data.get("company", ""),
+            "platform":       result_data.get("platform", "linkedin"),
+            "result":         result_type,
+            "match_score":    result_data.get("match_score"),
             "matched_skills": result_data.get("matched_skills", []),
             "missing_skills": result_data.get("missing_skills", []),
-            "job_url": result_data.get("job_url", ""),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        await publish_job_event(user_id, event_type, event_payload)
+            "job_url":        result_data.get("job_url", ""),
+            "timestamp":      datetime.now(timezone.utc).isoformat(),
+        })
 
-        # ── Skill Gap Alert ──────────────────────────────────────────────
-        if match_result and match_result.get("skill_gap", {}).get("has_gap"):
-            skill_gap = match_result["skill_gap"]
-            # Only alert for minor/moderate gaps (user is close to qualifying)
-            if skill_gap.get("gap_severity") in ("minor", "moderate"):
+        # Skill gap notification — only for minor/moderate gaps (user is close)
+        if match_result:
+            skill_gap = match_result.get("skill_gap", {})
+            if skill_gap.get("has_gap") and skill_gap.get("gap_severity") in ("minor", "moderate"):
                 from services.notification_service import create_notification
                 missing = skill_gap.get("learnable_skills", [])[:5]
-                notif_msg = f"You're close to being a perfect fit for {job_title} at {company}! Missing skills: {', '.join(missing)}"
+                job_title = result_data.get("job_title", "")
+                company   = result_data.get("company", "")
                 await create_notification(
                     user_id=user_id,
                     type="skill_gap",
                     title="Skill Gap Detected",
-                    message=notif_msg,
-                    data={"job_title": job_title, "company": company, "missing_skills": missing, "severity": skill_gap.get("gap_severity")},
+                    message=(
+                        f"You're close to a perfect fit for {job_title} at {company}! "
+                        f"Missing: {', '.join(missing)}"
+                    ),
+                    data={
+                        "job_title": job_title, "company": company,
+                        "missing_skills": missing,
+                        "severity": skill_gap.get("gap_severity"),
+                    },
                 )
                 await publish_skill_gap_event(user_id, {
-                    "job_title": job_title,
-                    "company": company,
+                    "job_title": job_title, "company": company,
                     "missing_skills": missing,
                     "gap_severity": skill_gap.get("gap_severity"),
                     "recommendation": skill_gap.get("recommendation", ""),
@@ -538,10 +544,43 @@ async def extension_report_result(user_id: str, session_id: str, result_data: di
     except Exception as e:
         logger.warning(f"WebSocket broadcast failed (non-fatal): {e}")
 
-    # Legacy broadcast for SSE subscribers
-    await broadcast_update(user_id, f"Application {result_type} for {result_data.get('job_title', 'Unknown Job')} at {result_data.get('company', 'Unknown Company')}")
+
+# ── Public entry point ────────────────────────────────────────────────────────
+
+async def extension_report_result(user_id: str, session_id: str, result_data: dict) -> dict:
+    """Report a completed application result from the Chrome extension."""
+    db = get_db()
+
+    result_type = result_data.get("result", "Applied").capitalize()
+
+    # Normalise job_url from job_link if absent
+    if "job_url" not in result_data and "job_link" in result_data:
+        result_data["job_url"] = result_data["job_link"]
+
+    await _update_session_counter(db, user_id, session_id, result_type)
+    match_result = await _compute_and_attach_match_score(user_id, result_type, result_data)
+    await _record_application_result(user_id, result_type, result_data)
+
+    await extension_report_step(
+        user_id, session_id,
+        step="application_result",
+        status=result_type,
+        message=f"{result_data.get('job_title', '')} at {result_data.get('company', '')}",
+        data=result_data,
+    )
+
+    await _broadcast_result_event(user_id, result_type, result_data, match_result)
+
+    # Legacy SSE broadcast
+    await broadcast_update(
+        user_id,
+        f"Application {result_type} for "
+        f"{result_data.get('job_title', 'Unknown Job')} at "
+        f"{result_data.get('company', 'Unknown Company')}",
+    )
 
     return {"message": "Result recorded"}
+
 
 
 async def revoke_extension_token(user_id: str, token_id: str) -> dict:

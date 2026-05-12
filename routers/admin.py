@@ -80,13 +80,16 @@ async def hard_delete_user(request: Request, user_id: str, admin: dict = Depends
     return {"message": "User and all data permanently deleted"}
 
 @router.get("/admin/sessions")
-async def get_active_sessions(admin: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def get_active_sessions(request: Request, admin: dict = Depends(require_admin)):
     """View all active automation sessions."""
     sessions = await admin_service.get_active_sessions()
     return {"sessions": sessions}
 
 @router.get("/admin/audit-logs")
+@limiter.limit("10/minute")
 async def get_audit_logs(
+    request: Request,
     limit: int = Query(100, le=500),
     user_id: Optional[str] = Query(None),
     admin: dict = Depends(require_admin)
@@ -122,41 +125,48 @@ async def test_nim_key(
     return await admin_service.test_nim_key(key)
 
 @router.get("/admin/trends")
-async def get_trends(admin: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def get_trends(request: Request, admin: dict = Depends(require_admin)):
     """Get platform application trends for Chart.js."""
     return await admin_service.get_platform_trends()
 
 # ── Dynamic Questions ────────────────────────────────────────────────────────
 
 @router.get("/admin/questions")
-async def get_questions(admin: dict = Depends(require_admin)):
+@limiter.limit("20/minute")
+async def get_questions(request: Request, admin: dict = Depends(require_admin)):
     """Get all dynamic profile questions."""
     return await admin_service.get_all_questions()
 
 @router.post("/admin/questions")
-async def create_question(payload: dict = Body(...), admin: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def create_question(request: Request, payload: dict = Body(...), admin: dict = Depends(require_admin)):
     """Create a new dynamic profile question."""
     return await admin_service.create_question(payload)
 
 @router.put("/admin/questions/{question_id}")
-async def update_question(question_id: str, payload: dict = Body(...), admin: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def update_question(request: Request, question_id: str, payload: dict = Body(...), admin: dict = Depends(require_admin)):
     """Update a dynamic profile question."""
     return await admin_service.update_question(question_id, payload)
 
 @router.delete("/admin/questions/{question_id}")
-async def delete_question(question_id: str, admin: dict = Depends(require_admin)):
+@limiter.limit("5/minute")
+async def delete_question(request: Request, question_id: str, admin: dict = Depends(require_admin)):
     """Delete a dynamic profile question."""
     return await admin_service.delete_question(question_id)
 
 # ── Email Templates ──────────────────────────────────────────────────────────
 
 @router.get("/admin/email-templates")
-async def get_email_templates(admin: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def get_email_templates(request: Request, admin: dict = Depends(require_admin)):
     """Get all email templates."""
     return await admin_service.get_email_templates()
 
 @router.put("/admin/email-templates/{template_id}")
-async def update_email_template(template_id: str, payload: dict = Body(...), admin: dict = Depends(require_admin)):
+@limiter.limit("5/minute")
+async def update_email_template(request: Request, template_id: str, payload: dict = Body(...), admin: dict = Depends(require_admin)):
     """Update an email template."""
     return await admin_service.update_email_template(template_id, payload.get("content", ""))
 
@@ -166,7 +176,8 @@ class MailConfigBody(BaseModel):
     sender_email: Optional[str] = None
 
 @router.get("/admin/mail-config")
-async def get_mail_config(admin: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def get_mail_config(request: Request, admin: dict = Depends(require_admin)):
     """Get the current Brevo mail configuration."""
     return {
         "api_key": settings.BREVO_API_KEY[:6] + "..." if settings.BREVO_API_KEY else None,
@@ -174,7 +185,9 @@ async def get_mail_config(admin: dict = Depends(require_admin)):
     }
 
 @router.put("/admin/mail-config")
+@limiter.limit("5/minute")
 async def update_mail_config(
+    request: Request,
     body: MailConfigBody,
     admin: dict = Depends(require_admin)
 ):

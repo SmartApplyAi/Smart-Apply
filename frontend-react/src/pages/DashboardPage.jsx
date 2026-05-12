@@ -24,6 +24,69 @@ function MatchBadge({ score }) {
   );
 }
 
+function FunnelWidget({ data }) {
+  if (!data || !data.funnel) return null;
+
+  const colors = {
+    applied:   { bar: '#4f7cff', label: 'Applied' },
+    viewed:    { bar: '#22c55e', label: 'Viewed' },
+    interview: { bar: '#f59e0b', label: 'Interview' },
+    offer:     { bar: '#a855f7', label: 'Offer' },
+  };
+
+  const max = data.funnel[0]?.count || 1;
+
+  return (
+    <div className="card" style={{ padding: '20px', marginTop: '28px' }}>
+      <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#94a3b8',
+                   textTransform: 'uppercase', letterSpacing: '0.05em',
+                   marginBottom: '18px' }}>
+        Application Funnel
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {data.funnel.map(({ stage, count, pct }) => {
+          const cfg = colors[stage] || { bar: '#64748b', label: stage };
+          return (
+            <div key={stage}>
+              <div style={{ display: 'flex', justifyContent: 'space-between',
+                            marginBottom: '5px' }}>
+                <span style={{ fontSize: '13px', color: '#cbd5e1',
+                               fontWeight: 600 }}>
+                  {cfg.label}
+                </span>
+                <span style={{ fontSize: '13px', color: cfg.bar, fontWeight: 700 }}>
+                  {count} <span style={{ color: '#64748b', fontWeight: 400 }}>
+                    ({pct}%)
+                  </span>
+                </span>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.06)',
+                            borderRadius: '6px', height: '10px',
+                            overflow: 'hidden' }}>
+                <div style={{
+                  width: `${(count / max) * 100}%`,
+                  background: cfg.bar,
+                  height: '100%',
+                  borderRadius: '6px',
+                  transition: 'width 0.6s ease',
+                  minWidth: count > 0 ? '6px' : '0',
+                }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: '16px', paddingTop: '12px',
+                    borderTop: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex', justifyContent: 'space-between',
+                    fontSize: '12px', color: '#64748b' }}>
+        <span>Total: <strong style={{ color: '#f1f5f9' }}>{data.total_applications}</strong></span>
+        <span>Success rate: <strong style={{ color: '#22c55e' }}>{data.success_rate}%</strong></span>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -31,6 +94,7 @@ export default function DashboardPage() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('overview');
   const [summary, setSummary] = useState(null);
+  const [funnelData, setFunnelData] = useState(null);
   const [historyPage, setHistoryPage] = useState(0);
   const [historyFilter, setHistoryFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,6 +167,13 @@ export default function DashboardPage() {
     } catch { /* silent */ }
   }, []);
 
+  const loadFunnel = useCallback(async () => {
+    try {
+      const data = await api.get('/dashboard/funnel');
+      setFunnelData(data);
+    } catch { /* non-fatal */ }
+  }, []);
+
   const dismissWeeklyReview = async () => {
     setShowWeeklyReview(false);
     if (weeklyReview?.week_key) {
@@ -110,7 +181,7 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => { loadDashboard(); loadRecommendations(); loadStreak(); loadDailyTip(); loadWeeklyReview(); }, [loadDashboard, loadRecommendations, loadStreak, loadDailyTip, loadWeeklyReview]);
+  useEffect(() => { loadDashboard(); loadFunnel(); loadRecommendations(); loadStreak(); loadDailyTip(); loadWeeklyReview(); }, [loadDashboard, loadFunnel, loadRecommendations, loadStreak, loadDailyTip, loadWeeklyReview]);
   useEffect(() => { if (activeTab === 'history') loadHistory(); }, [activeTab, loadHistory]);
 
   // WebSocket-driven reactive updates (replace polling when WS connected)
@@ -276,6 +347,9 @@ export default function DashboardPage() {
                   )}
                 </div>
               )}
+
+              {/* Application Funnel */}
+              <FunnelWidget data={funnelData} />
 
               {/* Live Feed */}
               {liveFeed.length > 0 && (

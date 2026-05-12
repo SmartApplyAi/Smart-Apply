@@ -22,7 +22,9 @@ class RoadmapRequest(BaseModel):
 # ── Analysis ────────────────────────────────────────────────────────────────
 
 @router.get("/analysis")
+@limiter.limit("10/minute")
 async def get_skill_gap_analysis(
+    request: Request,
     days: int = Query(30, ge=1, le=365),
     user: dict = Depends(get_current_user),
 ):
@@ -102,7 +104,9 @@ async def generate_roadmap(
 
 
 @router.get("/roadmaps")
+@limiter.limit("20/minute")
 async def get_saved_roadmaps(
+    request: Request,
     limit: int = Query(10, ge=1, le=50),
     user: dict = Depends(get_current_user),
 ):
@@ -112,7 +116,9 @@ async def get_saved_roadmaps(
 
 
 @router.get("/roadmaps/{roadmap_id}")
+@limiter.limit("20/minute")
 async def get_roadmap(
+    request: Request,
     roadmap_id: str,
     user: dict = Depends(get_current_user),
 ):

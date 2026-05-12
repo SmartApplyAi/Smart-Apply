@@ -133,6 +133,7 @@ async def resend_pin(body: ResendPinRequest, request: Request):
 
 
 @router.post("/logout")
+@limiter.limit("20/minute")
 async def logout(request: Request, response: Response, user: dict = Depends(get_current_user)):
     """Logout and revoke tokens."""
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -150,7 +151,8 @@ async def logout(request: Request, response: Response, user: dict = Depends(get_
 
 
 @router.get("/me")
-async def get_me(user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def get_me(request: Request, user: dict = Depends(get_current_user)):
     """Get the current authenticated user profile summary."""
     # Filter sensitive fields
     return {
@@ -172,7 +174,8 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
 
 
 @router.post("/reset-password")
-async def reset_password(body: ResetPasswordRequest):
+@limiter.limit("5/minute")
+async def reset_password(request: Request, body: ResetPasswordRequest):
     """Reset password using the token from the email."""
     if body.new_password != body.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
@@ -222,8 +225,11 @@ async def refresh_token(request: Request, response: Response):
 
 
 @router.post("/change-password")
+@limiter.limit("5/minute")
 async def change_password(
-    body: ChangePasswordRequest, user: dict = Depends(get_current_user)
+    request: Request,
+    body: ChangePasswordRequest,
+    user: dict = Depends(get_current_user),
 ):
     """Change password for authenticated user."""
     try:
@@ -365,6 +371,7 @@ async def exchange_code(body: ExchangeCodeRequest, request: Request):
 
 
 @router.post("/verify-token")
+@limiter.limit("20/minute")
 async def verify_token(body: VerifyTokenRequest, request: Request):
     """Verify a Google access token (e.g., from Chrome Extension getAuthToken) and log in."""
     import httpx
@@ -392,7 +399,8 @@ async def verify_token(body: VerifyTokenRequest, request: Request):
 
 
 @router.post("/oauth-handoff")
-async def oauth_handoff(body: dict, response: Response):
+@limiter.limit("10/minute")
+async def oauth_handoff(request: Request, body: dict, response: Response):
     """Exchange a temporary handoff code for the actual access token."""
     from database import get_db
     from datetime import datetime, timezone

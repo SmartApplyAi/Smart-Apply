@@ -235,3 +235,42 @@ async def get_stats_by_period(user_id: str, period: str = "week") -> list:
         })
 
     return data
+
+
+async def get_funnel(user_id: str) -> dict:
+    """Get application pipeline funnel: Applied → Viewed → Interview → Offer."""
+    db = get_db()
+
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$group": {
+                "_id": None,
+                "applied": {"$sum": {"$cond": [{"$eq": ["$result", "Applied"]}, 1, 0]}},
+                "viewed": {"$sum": {"$cond": [{"$eq": ["$result", "Viewed"]}, 1, 0]}},
+                "interview": {"$sum": {"$cond": [{"$or": [{"$eq": ["$result", "Interview"]}, {"$eq": ["$status", "interviewed"]}]}, 1, 0]}},
+                "offer": {"$sum": {"$cond": [{"$eq": ["$result", "Offer"]}, 1, 0]}},
+                "total": {"$sum": 1},
+            }
+        },
+    ]
+
+    result = await db.job_applications.aggregate(pipeline).to_list(length=1)
+    counts = result[0] if result else {}
+
+    applied = counts.get("applied", 0)
+    viewed = counts.get("viewed", 0)
+    interview = counts.get("interview", 0)
+    offer = counts.get("offer", 0)
+    total = counts.get("total", 0)
+
+    funnel = []
+    for stage, count in [("applied", applied), ("viewed", viewed), ("interview", interview), ("offer", offer)]:
+        pct = round((count / total * 100), 1) if total > 0 else 0
+        funnel.append({"stage": stage, "count": count, "pct": pct})
+
+    return {
+        "funnel": funnel,
+        "total_applications": total,
+        "success_rate": round((offer / total * 100), 1) if total > 0 else 0,
+    }

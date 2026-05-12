@@ -3,29 +3,30 @@ Resume API routes.
 Matches frontend expectations at /api/resume/*.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 from dependencies import get_current_user, get_current_user_flexible
 from services import resume_service
+from limiter import limiter
 import io
 
 router = APIRouter(prefix="/resume", tags=["Resume"])
 
 
 @router.get("/stream-active")
-async def stream_active_resume(user: dict = Depends(get_current_user_flexible)):
+@limiter.limit("10/minute")
+async def stream_active_resume(
+    request: Request, user: dict = Depends(get_current_user_flexible)
+):
     """Retrieve and stream the user's currently active resume directly."""
     try:
         from services.audit_service import log_action
         from urllib.parse import quote
-        
+
         file_bytes, filename = await resume_service.get_active_resume_bytes(user["id"])
-        
-        # Proper header encoding for filenames with special characters (RFC 5987)
         encoded_filename = quote(filename)
-        
         await log_action(user["id"], "stream_active_resume", "resume", metadata={"filename": filename})
-        
+
         return StreamingResponse(
             io.BytesIO(file_bytes),
             media_type="application/pdf",
@@ -44,7 +45,9 @@ async def stream_active_resume(user: dict = Depends(get_current_user_flexible)):
 
 
 @router.post("/upload")
+@limiter.limit("10/minute")
 async def upload_resume(
+    request: Request,
     file: UploadFile = File(...),
     label: str = Form("Default"),
     user: dict = Depends(get_current_user),
@@ -69,14 +72,18 @@ async def upload_resume(
 
 
 @router.get("/list")
-async def list_resumes(user: dict = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def list_resumes(request: Request, user: dict = Depends(get_current_user)):
     """List all resumes for the current user."""
     return await resume_service.list_resumes(user["id"])
 
 
 @router.delete("/legacy")
+@limiter.limit("10/minute")
 async def delete_legacy_resume(
-    index: int = Query(...), user: dict = Depends(get_current_user)
+    request: Request,
+    index: int = Query(...),
+    user: dict = Depends(get_current_user),
 ):
     """Delete a legacy resume entry by index."""
     try:
@@ -85,11 +92,12 @@ async def delete_legacy_resume(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# ── Catch-all routes with path parameters (MUST stay at the bottom) ──────────
+# ── Catch-all routes with path parameters (MUST stay at the bottom) ───────────
 
 @router.post("/activate/{object_key:path}")
+@limiter.limit("10/minute")
 async def activate_resume(
-    object_key: str, user: dict = Depends(get_current_user)
+    request: Request, object_key: str, user: dict = Depends(get_current_user)
 ):
     """Set a resume as the active/primary resume."""
     try:
@@ -99,8 +107,9 @@ async def activate_resume(
 
 
 @router.get("/download/{object_key:path}")
+@limiter.limit("20/minute")
 async def download_resume(
-    object_key: str, user: dict = Depends(get_current_user)
+    request: Request, object_key: str, user: dict = Depends(get_current_user)
 ):
     """Download a resume via presigned R2 URL."""
     try:
@@ -113,8 +122,9 @@ async def download_resume(
 
 
 @router.get("/view/{object_key:path}")
+@limiter.limit("20/minute")
 async def view_resume(
-    object_key: str, user: dict = Depends(get_current_user)
+    request: Request, object_key: str, user: dict = Depends(get_current_user)
 ):
     """Stream the resume PDF for inline viewing."""
     try:
@@ -134,8 +144,9 @@ async def view_resume(
 
 
 @router.delete("/{object_key:path}")
+@limiter.limit("10/minute")
 async def delete_resume(
-    object_key: str, user: dict = Depends(get_current_user)
+    request: Request, object_key: str, user: dict = Depends(get_current_user)
 ):
     """Delete a resume from R2 and the database."""
     try:

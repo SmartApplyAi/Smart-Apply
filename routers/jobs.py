@@ -52,19 +52,23 @@ class BatchApplicationRequest(BaseModel):
 # ── Stats & History (Dashboard-facing) ──────────────────────────────────────
 
 @router.get("/stats")
-async def get_stats(user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def get_stats(request: Request, user: dict = Depends(get_current_user)):
     """Get application statistics for the dashboard."""
     return await jobs_service.get_stats(user["id"])
 
 
 @router.get("/public-stats")
-async def get_public_stats():
+@limiter.limit("30/minute")
+async def get_public_stats(request: Request):
     """Get global statistics for the landing page (no auth required)."""
     return await jobs_service.get_public_stats()
 
 
 @router.get("/history")
+@limiter.limit("30/minute")
 async def get_history(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     result: Optional[str] = Query(None),
@@ -81,7 +85,9 @@ async def get_history(
 
 
 @router.get("/recent")
+@limiter.limit("30/minute")
 async def get_recent(
+    request: Request,
     limit: int = Query(10, ge=1, le=50),
     user: dict = Depends(get_current_user),
 ):
@@ -93,8 +99,9 @@ async def get_recent(
 # ── CRUD ────────────────────────────────────────────────────────────────────
 
 @router.post("/applications")
+@limiter.limit("30/minute")
 async def create_application(
-    body: CreateApplicationRequest, user: dict = Depends(get_current_user)
+    request: Request, body: CreateApplicationRequest, user: dict = Depends(get_current_user)
 ):
     """Create a new job application record."""
     try:
@@ -104,7 +111,8 @@ async def create_application(
 
 
 @router.get("/applications/{app_id}")
-async def get_application(app_id: str, user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def get_application(request: Request, app_id: str, user: dict = Depends(get_current_user)):
     """Get a single application by ID."""
     try:
         return await jobs_service.get_application(user["id"], app_id)
@@ -113,7 +121,9 @@ async def get_application(app_id: str, user: dict = Depends(get_current_user)):
 
 
 @router.patch("/applications/{app_id}")
+@limiter.limit("20/minute")
 async def update_application(
+    request: Request,
     app_id: str,
     body: UpdateApplicationRequest,
     user: dict = Depends(get_current_user),
@@ -127,7 +137,8 @@ async def update_application(
 
 
 @router.delete("/applications/{app_id}")
-async def delete_application(app_id: str, user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def delete_application(request: Request, app_id: str, user: dict = Depends(get_current_user)):
     """Delete an application."""
     try:
         return await jobs_service.delete_application(user["id"], app_id)
@@ -136,8 +147,9 @@ async def delete_application(app_id: str, user: dict = Depends(get_current_user)
 
 
 @router.post("/applications/batch")
+@limiter.limit("10/minute")
 async def batch_create(
-    body: BatchApplicationRequest, user: dict = Depends(get_current_user)
+    request: Request, body: BatchApplicationRequest, user: dict = Depends(get_current_user)
 ):
     """Batch create applications (from extension)."""
     if len(body.applications) > 100:
@@ -163,7 +175,8 @@ async def save_linkedin_cookies(
 # ── Extension endpoints ─────────────────────────────────────────────────────
 
 @router.get("/extension/download")
-async def download_extension():
+@limiter.limit("10/minute")
+async def download_extension(request: Request):
     """Download the Chrome extension."""
     from pathlib import Path
     ext_path = Path(__file__).resolve().parent.parent / "extension.zip"

@@ -202,7 +202,7 @@ Webapp/
 - ✅ JWT access + refresh tokens with Argon2/bcrypt password hashing
 - ✅ Token blacklisting via Redis (revocation on logout)
 - ✅ Refresh token reuse detection — revokes all sessions on theft attempt
-- ✅ Rate limiting on auth and AI endpoints (SlowAPI)
+- ✅ Rate limiting on all API endpoints (SlowAPI) — auth, AI, dashboard, jobs, profile, resume, admin
 - ✅ CORS configured for frontend + Chrome extension origins
 - ✅ Security headers (HSTS, X-Content-Type-Options, X-Frame-Options, CSP)
 - ✅ Request ID tracing on every request
@@ -211,6 +211,21 @@ Webapp/
 - ✅ Input validation on all endpoints via Pydantic
 - ✅ Audit logging for sensitive actions
 - ✅ Email verification requirement (configurable)
+
+## Future Enhancements
+
+The following features are currently implemented and ship with this release:
+- ✅ Mock Interview Prep (services/ai_service.py — interview_chat)
+- ✅ Skill Gap Analysis (services/skillgap_service.py)
+- ✅ AI Learning Roadmap Generator (services/skillgap_service.py + frontend pages)
+- ✅ Smart Pre-Apply Scoring Gate (Extension/background/service-worker.js — PRE_APPLY_SCORE)
+
+Genuine next-phase features (not yet built):
+- 🔜 Smart job ranking UI — surface best-match jobs in a ranked list with score badges
+- 🔜 Recruiter analytics — track which companies viewed profiles vs responded
+- 🔜 Multi-resume routing — automatically select the most relevant resume per job domain
+- 🔜 Browser-native job board search — discover jobs from within the extension without navigating to LinkedIn
+- 🔜 Funnel email drip — auto-follow-up emails when application status stalls at "Viewed"
 
 ---
 

@@ -18,13 +18,23 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 @router.get("/summary")
-async def get_summary(user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def get_summary(request: Request, user: dict = Depends(get_current_user)):
     """Full dashboard summary with all stats."""
     return await dashboard_service.get_summary(user["id"])
 
 
+@router.get("/funnel")
+@limiter.limit("30/minute")
+async def get_funnel(request: Request, user: dict = Depends(get_current_user)):
+    """Application pipeline funnel: Applied → Viewed → Interview → Offer."""
+    return await dashboard_service.get_funnel(user["id"])
+
+
 @router.get("/recent-applications")
+@limiter.limit("30/minute")
 async def get_recent(
+    request: Request,
     limit: int = Query(10, ge=1, le=50),
     user: dict = Depends(get_current_user),
 ):
@@ -34,7 +44,9 @@ async def get_recent(
 
 
 @router.get("/activity-feed")
+@limiter.limit("30/minute")
 async def get_activity_feed(
+    request: Request,
     limit: int = Query(20, ge=1, le=100),
     user: dict = Depends(get_current_user),
 ):
@@ -44,7 +56,9 @@ async def get_activity_feed(
 
 
 @router.get("/stats-by-period")
+@limiter.limit("20/minute")
 async def get_stats_by_period(
+    request: Request,
     period: str = Query("week", regex="^(day|week|month)$"),
     user: dict = Depends(get_current_user),
 ):
@@ -53,15 +67,16 @@ async def get_stats_by_period(
     return {"data": data}
 
 
-# ── Streak Tracking ─────────────────────────────────────────────────────────
+# ── Streak Tracking ──────────────────────────────────────────────────────────
 
 @router.get("/streak")
-async def get_streak(user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def get_streak(request: Request, user: dict = Depends(get_current_user)):
     """Get the user's application streak (consecutive active days)."""
     return await get_user_streak(user["id"])
 
 
-# ── Daily AI Career Tip ─────────────────────────────────────────────────────
+# ── Daily AI Career Tip ──────────────────────────────────────────────────────
 
 @router.get("/daily-tip")
 @limiter.limit("10/minute")
@@ -70,10 +85,11 @@ async def daily_tip(request: Request, user: dict = Depends(get_current_user)):
     return await get_daily_career_tip(user["id"])
 
 
-# ── Weekly Review Widget ────────────────────────────────────────────────────
+# ── Weekly Review Widget ─────────────────────────────────────────────────────
 
 @router.get("/weekly-review")
-async def weekly_review(user: dict = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def weekly_review(request: Request, user: dict = Depends(get_current_user)):
     """Get weekly review stats for the dashboard widget."""
     return await get_weekly_review_stats(user["id"])
 
@@ -83,8 +99,11 @@ class WeeklyReviewSeenBody(BaseModel):
 
 
 @router.post("/weekly-review/seen")
+@limiter.limit("10/minute")
 async def mark_review_seen(
-    body: WeeklyReviewSeenBody, user: dict = Depends(get_current_user)
+    request: Request,
+    body: WeeklyReviewSeenBody,
+    user: dict = Depends(get_current_user),
 ):
     """Mark the weekly review as dismissed/seen."""
     await mark_weekly_review_seen(user["id"], body.week_key)
