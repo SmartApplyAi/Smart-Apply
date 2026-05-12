@@ -18,23 +18,25 @@ scheduler = AsyncIOScheduler()
 
 # ── Distributed Lock via Redis ──────────────────────────────────────────────
 
-async def _acquire_lock(lock_name: str, ttl_seconds: int = 600) -> bool:
+async def _acquire_lock(lock_name: str, ttl_seconds: int = 600, fail_open: bool = True) -> bool:
     """
     Acquire a distributed lock via Redis SETNX.
     Returns True if lock was acquired, False if another instance holds it.
-    Gracefully returns True (proceed) if Redis is unavailable.
+    If Redis is unavailable:
+    - If fail_open=True (default), returns True (proceed).
+    - If fail_open=False, returns False (stop).
     """
     try:
         from redis_client import get_redis
         redis = get_redis()
         if redis is None:
-            return True  # No Redis → single-instance mode, proceed
+            return fail_open  # Respect fail_open policy if Redis is dead
 
         acquired = await redis.set(lock_name, "1", nx=True, ex=ttl_seconds)
         return bool(acquired)
     except Exception as e:
-        logger.warning(f"Redis lock acquisition failed (proceeding anyway): {e}")
-        return True  # Fail open — better to run twice than never
+        logger.warning(f"Redis lock acquisition failed: {e}")
+        return fail_open
 
 
 async def _release_lock(lock_name: str):
@@ -60,8 +62,8 @@ async def _send_weekly_digests():
     """
     lock_name = "smartapply:lock:weekly_digest"
 
-    if not await _acquire_lock(lock_name, ttl_seconds=1800):
-        logger.info("📧 Weekly digest: another instance holds the lock. Skipping.")
+    if not await _acquire_lock(lock_name, ttl_seconds=1800, fail_open=False):
+        logger.info("📧 Weekly digest: lock acquisition failed or another instance holds it. Skipping.")
         return
 
     from database import get_db

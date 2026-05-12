@@ -50,13 +50,24 @@ async def upload_resume(
     # Upload to R2
     await upload_file_to_r2(file_bytes, object_key, "application/pdf")
 
-    # Parse the PDF (offload to thread as it can be heavy)
+    # Parse the PDF (offload to thread for extraction, then use AI)
     import asyncio
-    parsed = await asyncio.to_thread(_parse_pdf, file_bytes)
+    raw_text = await asyncio.to_thread(_extract_text, file_bytes)
+    
+    parsed = {}
+    if raw_text and len(raw_text.strip()) > 50:
+        from services.ai_service import parse_resume_with_ai
+        try:
+            # Try high-accuracy AI parsing first
+            parsed = await parse_resume_with_ai(raw_text)
+        except Exception as e:
+            logger.warning(f"AI parsing failed, falling back to regex: {e}")
+            parsed = _extract_fields(raw_text)
+    
     warning = None
-    if not parsed or parsed.get("error"):
+    if not parsed or not any(v for k,v in parsed.items() if k != "user_information_all"):
         warning = "Could not extract details from this PDF. You can fill them manually."
-        parsed = parsed or {}
+        parsed = parsed or {"user_information_all": redact_pii(raw_text) if raw_text else ""}
 
     # Store metadata in MongoDB
     resume_doc = {
