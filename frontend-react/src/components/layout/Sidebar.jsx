@@ -65,6 +65,13 @@ export default function Sidebar({ activeTab, isOpen, onClose, userName, userEmai
         >
           <span className="icon"><i className="fa-solid fa-route"></i></span> AI Roadmap
         </Link>
+        <Link 
+          to="/jarvis" 
+          className={`sidebar-link${activeTab === 'jarvis' ? ' active' : ''}`}
+          onClick={onClose}
+        >
+          <span className="icon"><i className="fa-solid fa-robot"></i></span> Jarvis AI Chat
+        </Link>
 
         {user?.role === 'admin' && (
           <>

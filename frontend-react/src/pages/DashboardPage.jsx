@@ -6,10 +6,10 @@ import { useWebSocket } from '../websocket/WebSocketProvider';
 import api from '../services/api';
 import { escHtml, timeAgo, formatDate } from '../services/utils';
 import StatCard from '../components/common/StatCard';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const PAGE_SIZE = 20;
 
@@ -348,6 +348,32 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {/* Success Rate Card */}
+              {summary && (
+                <div className="card" style={{ marginTop: '28px', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+                  <div style={{ width: '100px', height: '100px', position: 'relative', flexShrink: 0 }}>
+                    <Doughnut
+                      data={{
+                        datasets: [{
+                          data: [summary.success_rate || 0, 100 - (summary.success_rate || 0)],
+                          backgroundColor: ['#22c55e', 'rgba(255,255,255,0.06)'],
+                          borderWidth: 0,
+                          cutout: '78%',
+                        }],
+                      }}
+                      options={{ responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { enabled: false } } }}
+                    />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '18px', color: '#22c55e' }}>
+                      {summary.success_rate ?? 0}%
+                    </div>
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '16px', marginBottom: '4px' }}><i className="fa-solid fa-chart-simple"></i> Success Rate</h4>
+                    <p className="text-muted text-sm">{summary.applied ?? 0} successful out of {summary.total ?? 0} total applications</p>
+                  </div>
+                </div>
+              )}
+
               {/* Application Funnel */}
               <FunnelWidget data={funnelData} />
 
@@ -417,9 +443,30 @@ export default function DashboardPage() {
                 </div>
                 <div className="card">
                   <h4 style={{ marginBottom: '16px' }}><i className="fa-solid fa-chart-pie"></i> By Platform</h4>
-                  {Object.entries(summary?.by_platform || {}).length ? Object.entries(summary.by_platform).map(([p, c]) => (
-                    <div key={p} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}><span style={{ textTransform: 'capitalize', fontSize: '14px' }}>{p}</span><span style={{ fontWeight: 600, fontSize: '14px' }}>{c}</span></div>
-                  )) : <div style={{ textAlign: 'center', padding: '24px 0' }}><p className="text-muted text-sm">No data available yet.</p></div>}
+                  {Object.entries(summary?.by_platform || {}).length ? (
+                    <div style={{ maxWidth: '220px', margin: '0 auto', position: 'relative' }}>
+                      <Doughnut
+                        data={{
+                          labels: Object.keys(summary.by_platform).map(p => p.charAt(0).toUpperCase() + p.slice(1)),
+                          datasets: [{
+                            data: Object.values(summary.by_platform),
+                            backgroundColor: ['#4f7cff', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#06b6d4', '#ec4899'],
+                            borderWidth: 0,
+                            hoverOffset: 6,
+                          }],
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: true,
+                          cutout: '55%',
+                          plugins: {
+                            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 12 }, padding: 14, usePointStyle: true, pointStyleWidth: 8 } },
+                            tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', titleFont: { size: 13 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 8 },
+                          },
+                        }}
+                      />
+                    </div>
+                  ) : <div style={{ textAlign: 'center', padding: '24px 0' }}><p className="text-muted text-sm">No data available yet.</p></div>}
                 </div>
               </div>
             </div>

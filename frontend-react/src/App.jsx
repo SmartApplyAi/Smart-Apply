@@ -27,6 +27,7 @@ import ATSPage from './pages/ATSPage';
 import InterviewPrepPage from './pages/InterviewPrepPage';
 import SkillGapPage from './pages/SkillGapPage';
 import AdminPage from './pages/AdminPage';
+import JarvisChatPage from './pages/JarvisChatPage';
 
 import OrbLoader from './components/loader/OrbLoader';
 import './App.css';
@@ -148,6 +149,7 @@ function App() {
                 <Route path="/interview-prep" element={<InterviewPrepPage />} />
                 <Route path="/skill-gap" element={<SkillGapPage />} />
                 <Route path="/roadmap" element={<SkillGapPage />} />
+                <Route path="/jarvis" element={<JarvisChatPage />} />
                 <Route path="/admin" element={<AdminPage />} />
               </Route>
 

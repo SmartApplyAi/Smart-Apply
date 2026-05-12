@@ -6,6 +6,14 @@ import api from '../services/api';
 import PasswordInput from '../components/common/PasswordInput';
 import LoadingButton from '../components/common/LoadingButton';
 
+const NOTIF_PREFS_KEY = 'sa_notification_prefs';
+
+const DEFAULT_PREFS = {
+  application_status: true,
+  weekly_summary: true,
+  product_updates: true,
+};
+
 export default function SettingsPage() {
   const [activePanel, setActivePanel] = useState(() => localStorage.getItem('sa_settings_panel') || 'general');
   const { theme, setTheme } = useTheme();
@@ -19,6 +27,51 @@ export default function SettingsPage() {
   const [pwLoading, setPwLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+
+  // Notification preferences state
+  const [notifPrefs, setNotifPrefs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(NOTIF_PREFS_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_PREFS;
+    } catch {
+      return DEFAULT_PREFS;
+    }
+  });
+  const [notifSaving, setNotifSaving] = useState(false);
+
+  // Load notification preferences from backend on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const profile = await api.get('/profile/me');
+        const prefs = profile?.notification_preferences;
+        if (prefs && typeof prefs === 'object') {
+          const merged = { ...DEFAULT_PREFS, ...prefs };
+          setNotifPrefs(merged);
+          localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(merged));
+        }
+      } catch { /* use local defaults */ }
+    })();
+  }, []);
+
+  const updateNotifPref = async (key, value) => {
+    const updated = { ...notifPrefs, [key]: value };
+    setNotifPrefs(updated);
+    localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(updated));
+
+    setNotifSaving(true);
+    try {
+      await api.patch('/profile/me', { notification_preferences: updated });
+      showToast('Notification preference saved', 'success');
+    } catch {
+      showToast('Failed to save preference', 'error');
+      // Revert on failure
+      setNotifPrefs(notifPrefs);
+      localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(notifPrefs));
+    } finally {
+      setNotifSaving(false);
+    }
+  };
 
   useEffect(() => { localStorage.setItem('sa_settings_panel', activePanel); }, [activePanel]);
 
@@ -91,6 +144,12 @@ export default function SettingsPage() {
     { id: 'extension', icon: 'fa-solid fa-puzzle-piece', label: 'Extension' },
   ];
 
+  const NOTIF_OPTIONS = [
+    { key: 'application_status', label: 'Application Status Updates', desc: 'Receive alerts when applications are submitted successfully or fail.' },
+    { key: 'weekly_summary', label: 'Weekly Summary', desc: 'Get a weekly email with your job search progress.' },
+    { key: 'product_updates', label: 'Product Updates', desc: 'Stay informed about new features and improvements.' },
+  ];
+
   return (
     <>
       <div style={{ marginBottom: '32px' }}>
@@ -129,16 +188,21 @@ export default function SettingsPage() {
           {activePanel === 'notifications' && (
             <div className="card stagger">
               <h4 style={{ marginBottom: '20px' }}><i className="fa-solid fa-bell"></i> Notification Settings</h4>
-              {[
-                { label: 'Application Status Updates', desc: 'Receive alerts when applications are submitted successfully or fail.' },
-                { label: 'Weekly Summary', desc: 'Get a weekly email with your job search progress.' },
-                { label: 'Product Updates', desc: 'Stay informed about new features and improvements.' },
-              ].map((n, i) => (
-                <div className="toggle-row" key={i} style={{ padding: '12px 0', borderBottom: i < 2 ? '1px solid var(--border)' : 'none' }}>
+              {NOTIF_OPTIONS.map((n, i) => (
+                <div className="toggle-row" key={n.key} style={{ padding: '12px 0', borderBottom: i < NOTIF_OPTIONS.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <div><div style={{ fontWeight: 500, fontSize: '14px' }}>{n.label}</div><div className="text-muted text-sm">{n.desc}</div></div>
-                  <label className="toggle"><input type="checkbox" defaultChecked /><span className="toggle-slider"></span></label>
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={notifPrefs[n.key] ?? true}
+                      onChange={(e) => updateNotifPref(n.key, e.target.checked)}
+                      disabled={notifSaving}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
                 </div>
               ))}
+              {notifSaving && <p className="text-muted text-xs" style={{ marginTop: '8px' }}>Saving…</p>}
             </div>
           )}
           {activePanel === 'security' && (
