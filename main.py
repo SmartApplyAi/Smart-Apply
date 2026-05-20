@@ -200,15 +200,15 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # ── Register Routers ────────────────────────────────────────────────────────
-from routers import auth, profile, resume, jobs, automation, dashboard, ai, notifications, websocket_router, extension_auth, skillgap
+from routers import auth, profile, resume, jobs, dashboard, ai, notifications, websocket_router, skillgap
 
 app.include_router(auth.router, prefix="/api")
-app.include_router(extension_auth.router, prefix="/api")
+
 app.include_router(websocket_router.router)
 app.include_router(profile.router, prefix="/api")
 app.include_router(resume.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
-app.include_router(automation.router, prefix="/api")
+
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")

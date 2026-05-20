@@ -1,13 +1,12 @@
 """
 Jobs API routes.
 Matches frontend expectations at /api/jobs/*.
-Also includes automation and extension endpoints.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Request, Body
 from fastapi.responses import FileResponse, Response
 from dependencies import get_current_user
-from services import jobs_service, automation_service, profile_service
+from services import jobs_service, profile_service
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from limiter import limiter
@@ -151,111 +150,10 @@ async def delete_application(request: Request, app_id: str, user: dict = Depends
 async def batch_create(
     request: Request, body: BatchApplicationRequest, user: dict = Depends(get_current_user)
 ):
-    """Batch create applications (from extension)."""
+    """Batch create applications."""
     if len(body.applications) > 100:
         raise HTTPException(status_code=400, detail="Batch size limit exceeded (max 100)")
     return await jobs_service.batch_create_applications(user["id"], body.applications)
-
-
-@router.post("/extension/save-cookies")
-@limiter.limit("30/minute")
-async def save_linkedin_cookies(
-    request: Request,
-    body: dict = Body(...), user: dict = Depends(get_current_user)
-):
-    """Save LinkedIn session cookies."""
-    cookies = body.get("cookies")
-    if not cookies:
-        raise HTTPException(status_code=400, detail="Cookies required")
-    
-    await profile_service.save_linkedin_cookies(user["id"], cookies)
-    return {"message": "LinkedIn session saved successfully"}
-
-
-# ── Extension endpoints ─────────────────────────────────────────────────────
-
-@router.get("/extension/download")
-@limiter.limit("10/minute")
-async def download_extension(request: Request):
-    """Download the Chrome extension."""
-    from pathlib import Path
-    ext_path = Path(__file__).resolve().parent.parent / "extension.zip"
-    
-    if ext_path.exists():
-        return FileResponse(str(ext_path), filename="smartapply-extension.zip", media_type="application/zip")
-        
-    # Return a minimal dummy zip file if the actual file isn't found
-    # This prevents the UI from breaking when the user clicks download
-    dummy_zip = b'PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-    return Response(
-        content=dummy_zip, 
-        media_type="application/zip", 
-        headers={
-            "Content-Disposition": "attachment; filename=dummy-extension.zip",
-            "Content-Length": str(len(dummy_zip))
-        }
-    )
-
-
-@router.post("/extension/connect")
-@limiter.limit("10/minute")
-async def extension_connect(
-    request: Request,
-    body: dict = Body(...),
-    user: dict = Depends(get_current_user)
-):
-    """Deprecated."""
-    raise HTTPException(status_code=410, detail="Deprecated: use the new pairing flow endpoint /api/extension/pairing-code")
-
-
-# Deprecated heartbeat endpoint. New one is in extension_auth.py
-
-
-@router.post("/extension/report-step")
-@limiter.limit("120/minute")
-async def extension_report_step(request: Request):
-    """Report an automation step from the extension."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    
-    token = body.get("token", "")
-
-    user_id = await automation_service.validate_extension_token(token)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid extension token")
-
-    return await automation_service.extension_report_step(
-        user_id,
-        session_id=body.get("session_id", ""),
-        step=body.get("step", ""),
-        status=body.get("status", ""),
-        message=body.get("message", ""),
-        data=body.get("data", {}),
-    )
-
-
-@router.post("/extension/report-result")
-@limiter.limit("60/minute")
-async def extension_report_result(request: Request):
-    """Report a completed application result from the extension."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    
-    token = body.get("token", "")
-
-    user_id = await automation_service.validate_extension_token(token)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid extension token")
-
-    return await automation_service.extension_report_result(
-        user_id,
-        session_id=body.get("session_id", ""),
-        result_data=body.get("result", body),
-    )
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
