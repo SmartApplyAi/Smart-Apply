@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../hooks/useToast';
 import { getParam } from '../../services/utils';
 import api from '../../services/api';
 import Logo from '../../components/common/Logo';

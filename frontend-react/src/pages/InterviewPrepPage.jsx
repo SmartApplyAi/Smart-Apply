@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import api from '../services/api';
 import '../styles/InterviewPrepPage.css';
 

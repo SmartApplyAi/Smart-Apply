@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../hooks/useToast';
 import api from '../../services/api';
 import Logo from '../../components/common/Logo';
 import GoogleOAuthButton from '../../components/common/GoogleOAuthButton';

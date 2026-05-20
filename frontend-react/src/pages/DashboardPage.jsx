@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
-import { useWebSocket } from '../websocket/WebSocketProvider';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
+import { useWebSocket } from '../hooks/useWebSocket';
 import api from '../services/api';
 import { escHtml, timeAgo, formatDate } from '../services/utils';
 import StatCard from '../components/common/StatCard';
