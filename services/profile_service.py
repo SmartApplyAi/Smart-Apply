@@ -2,7 +2,6 @@
 Profile service: user profile, job preferences, platform accounts.
 """
 
-from typing import Optional, List
 from datetime import datetime, timezone
 from bson import ObjectId
 from database import get_db
@@ -193,23 +192,6 @@ async def update_platform_accounts(user_id: str, data: dict) -> dict:
     logger.info(f"Platform accounts updated for user: {user_id}")
     return {"message": "Platform accounts updated"}
 
-
-async def get_decrypted_platform_accounts(user_id: str) -> dict:
-    """Get platform accounts with decrypted passwords (for extension use only)."""
-    db = get_db()
-    platforms = await db.platform_accounts.find_one({"user_id": user_id})
-    if not platforms:
-        return {}
-
-    result = {}
-    for key, value in platforms.items():
-        if key in ("_id", "user_id", "created_at", "updated_at"):
-            continue
-        if "password" in key and value:
-            result[key] = decrypt_value(value)
-        else:
-            result[key] = value
-    return result
 
 
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 
 export default function TagInput({ id, hiddenId, tags = [], onChange, placeholder = 'Type and press Enter' }) {
   const inputRef = useRef(null);

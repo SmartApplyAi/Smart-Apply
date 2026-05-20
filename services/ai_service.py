@@ -16,6 +16,18 @@ _parse_json_from_response = ai_core._parse_json_from_response
 _call_nim = ai_core._call_nim
 reset_keys_cycle = ai_core.reset_keys_cycle
 
+__all__ = [
+    "analyze_ats",
+    "compute_match_score",
+    "parse_resume_with_ai",
+    "answer_question",
+    "generate_cover_letter",
+    "generate_skill_roadmap",
+    "suggest_resume_improvements",
+    "interview_chat",
+    "reset_keys_cycle",
+]
+
 _ATS_RUBRIC = """
 STRICT SCORING RUBRIC — follow exactly, do not be generous:
 

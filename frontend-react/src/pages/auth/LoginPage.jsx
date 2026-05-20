@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -34,6 +34,28 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const handleOAuthHandoff = useCallback(async (code) => {
+    setLoading(true);
+    setOauthError('');
+    try {
+      // Exchange code for actual tokens
+      const data = await api.post('/auth/oauth-handoff', { code });
+      save(data.access_token, data.user);
+      showToast('Welcome back!', 'success');
+      
+      // Navigate immediately to the appropriate page
+      const destination = data.user.has_profile ? '/dashboard' : '/profile';
+      navigate(destination, { replace: true });
+    } catch (err) {
+      console.error('OAuth handoff failed:', err);
+      setOauthError('Failed to complete Google sign-in. Please try again.');
+      // Clean up the URL so user can retry
+      window.history.replaceState({}, '', window.location.pathname);
+    } finally {
+      setLoading(false);
+    }
+  }, [save, showToast, navigate]);
+
   // Redirect if already authenticated (e.g. after OAuth handoff completes)
   useEffect(() => {
     if (isAuthenticated && !searchParams.get('oauth_code')) {
@@ -55,29 +77,7 @@ export default function LoginPage() {
     const msg = searchParams.get('msg');
     if (msg === 'verified') setSuccessMsg('Email verified! You can now log in.');
     if (msg === 'reset') setSuccessMsg('Password reset successfully. Please sign in.');
-  }, [searchParams]);
-
-  const handleOAuthHandoff = async (code) => {
-    setLoading(true);
-    setOauthError('');
-    try {
-      // Exchange code for actual tokens
-      const data = await api.post('/auth/oauth-handoff', { code });
-      save(data.access_token, data.user);
-      showToast('Welcome back!', 'success');
-      
-      // Navigate immediately to the appropriate page
-      const destination = data.user.has_profile ? '/dashboard' : '/profile';
-      navigate(destination, { replace: true });
-    } catch (err) {
-      console.error('OAuth handoff failed:', err);
-      setOauthError('Failed to complete Google sign-in. Please try again.');
-      // Clean up the URL so user can retry
-      window.history.replaceState({}, '', window.location.pathname);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [searchParams, handleOAuthHandoff]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

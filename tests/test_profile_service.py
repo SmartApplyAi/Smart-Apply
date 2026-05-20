@@ -128,21 +128,6 @@ async def test_update_platform_accounts_encrypts_passwords(mock_db):
         set_data = call_args[0][1]["$set"] if call_args[0] else call_args[1]["$set"]
         assert set_data["linkedin_password"] == "ENCRYPTED"
 
-
-async def test_get_decrypted_platform_accounts(mock_db):
-    mock_db.platform_accounts.find_one = AsyncMock(return_value={
-        "_id": ObjectId(), "user_id": FAKE_USER_ID,
-        "linkedin_email": "test@example.com", "linkedin_password": "ENC",
-        "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc),
-    })
-
-    with patch("services.profile_service.decrypt_value", return_value="decrypted"):
-        from services.profile_service import get_decrypted_platform_accounts
-        result = await get_decrypted_platform_accounts(FAKE_USER_ID)
-        assert result["linkedin_password"] == "decrypted"
-        assert "_id" not in result
-
-
 async def test_delete_full_profile(mock_db):
     mock_db.users.find_one = AsyncMock(return_value={"_id": FAKE_USER_OID})
     mock_db.users.delete_one = AsyncMock(return_value=MagicMock(deleted_count=1))

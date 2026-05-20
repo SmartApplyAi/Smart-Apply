@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 from bson import ObjectId
 from database import get_db
-from config import settings
 from loguru import logger
 
 
@@ -285,19 +284,6 @@ async def get_session_logs(user_id: str, session_id: Optional[str] = None, limit
 
 
 
-async def extension_heartbeat(token: str, ip_address: str = "") -> dict:
-    """Update the extension's last activity timestamp."""
-    db = get_db()
-
-    result = await db.extension_tokens.update_one(
-        {"token": token, "revoked": False},
-        {"$set": {"last_active": datetime.now(timezone.utc), "ip_address": ip_address}},
-    )
-
-    if result.modified_count == 0:
-        raise ValueError("Invalid or revoked extension token")
-
-    return {"message": "Heartbeat recorded"}
 
 
 async def validate_extension_token(token: str) -> Optional[str]:

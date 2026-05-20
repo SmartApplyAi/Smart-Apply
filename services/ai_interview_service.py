@@ -3,7 +3,6 @@ AI Interview Service: Mock Interviewer conversational logic.
 """
 
 from services import ai_core
-from utils import redact_pii
 
 _INTERVIEW_SYSTEM_PROMPTS = {
     "behavioral": "You are a behavioral interviewer. Ask ONE question at a time using STAR.",

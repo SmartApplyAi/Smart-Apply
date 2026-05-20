@@ -2,7 +2,6 @@
 FastAPI dependencies: JWT authentication, current-user extraction, role checks.
 """
 
-from datetime import datetime, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials

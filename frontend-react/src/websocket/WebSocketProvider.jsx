@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
+import { createContext, useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import api from '../services/api';
 
-const WebSocketContext = createContext(null);
+export const WebSocketContext = createContext(null);
 
 export function WebSocketProvider({ children }) {
   const { authState, logout } = useAuth();
@@ -15,10 +15,9 @@ export function WebSocketProvider({ children }) {
   const maxReconnectAttempts = 5;
   const shouldReconnect = useRef(true);
   const listenersRef = useRef({});
-  const [lastEvent, setLastEvent] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [liveFeed, setLiveFeed] = useState([]); // List of recent bot activities
-  const [recommendedJobs, setRecommendedJobs] = useState([]); // List of high-match external jobsc event types
+  const [recommendedJobs, setRecommendedJobs] = useState([]); // List of high-match external jobs
 
   // Subscribe to specific event types
   const subscribe = useCallback((eventType, callback) => {
@@ -41,7 +40,7 @@ export function WebSocketProvider({ children }) {
     }
   }, []);
 
-  const connect = async () => {
+  const connect = useCallback(async () => {
     if (ws.current?.readyState === WebSocket.OPEN) return;
 
     try {
@@ -70,9 +69,6 @@ export function WebSocketProvider({ children }) {
         try {
           const data = JSON.parse(event.data);
           const eventType = data.type;
-
-          // Update last event state
-          setLastEvent(data);
 
           switch (eventType) {
             case 'PONG':
@@ -157,17 +153,17 @@ export function WebSocketProvider({ children }) {
           // Notify registered listeners
           if (listenersRef.current[eventType]) {
             listenersRef.current[eventType].forEach((cb) => {
-              try { cb(data); } catch (e) { /* listener error */ }
+              try { cb(data); } catch { /* listener error */ }
             });
           }
           // Also notify wildcard listeners
           if (listenersRef.current['*']) {
             listenersRef.current['*'].forEach((cb) => {
-              try { cb(data); } catch (e) { /* listener error */ }
+              try { cb(data); } catch { /* listener error */ }
             });
           }
 
-        } catch (err) {
+        } catch {
           // parse error
         }
       };
@@ -184,19 +180,19 @@ export function WebSocketProvider({ children }) {
         }
       };
 
-      socket.onerror = (error) => {
+      socket.onerror = () => {
         socket.close(); // let onclose handle reconnect
       };
 
       ws.current = socket;
 
-    } catch (err) {
+    } catch {
       if (shouldReconnect.current && authState === 'authenticated' && reconnectAttempts.current < maxReconnectAttempts) {
         reconnectAttempts.current += 1;
         reconnectTimeout.current = setTimeout(connect, 5000);
       }
     }
-  };
+  }, [authState, logout, showToast]);
 
   useEffect(() => {
     if (authState === 'authenticated') {
@@ -209,8 +205,10 @@ export function WebSocketProvider({ children }) {
       }
       clearTimeout(reconnectTimeout.current);
       clearInterval(pingInterval.current);
-      setLiveFeed([]);
-      setRecommendedJobs([]);
+      setTimeout(() => {
+        setLiveFeed([]);
+        setRecommendedJobs([]);
+      }, 0);
     }
 
     return () => {
@@ -219,15 +217,11 @@ export function WebSocketProvider({ children }) {
       clearTimeout(reconnectTimeout.current);
       clearInterval(pingInterval.current);
     };
-  }, [authState]);
+  }, [authState, connect]);
 
   return (
     <WebSocketContext.Provider value={{ isConnected, sendMessage, liveFeed, recommendedJobs, subscribe }}>
       {children}
     </WebSocketContext.Provider>
   );
-}
-
-export function useWebSocket() {
-  return useContext(WebSocketContext);
 }

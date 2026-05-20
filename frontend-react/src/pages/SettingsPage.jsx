@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useToast } from '../context/ToastContext';
+import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
+import { useToast } from '../hooks/useToast';
 import api from '../services/api';
 import PasswordInput from '../components/common/PasswordInput';
 import LoadingButton from '../components/common/LoadingButton';

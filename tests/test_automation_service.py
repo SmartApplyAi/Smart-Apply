@@ -97,28 +97,6 @@ async def test_get_session_status_idle(mock_db):
     assert result["session"] is None
 
 
-# ── Extension Heartbeat ─────────────────────────────────────────────────────
-
-async def test_extension_heartbeat(mock_db):
-    mock_db.extension_tokens.update_one = AsyncMock(
-        return_value=MagicMock(modified_count=1)
-    )
-
-    from services.automation_service import extension_heartbeat
-    result = await extension_heartbeat("valid-token", "1.2.3.4")
-    assert result["message"] == "Heartbeat recorded"
-
-
-async def test_extension_heartbeat_invalid_token(mock_db):
-    mock_db.extension_tokens.update_one = AsyncMock(
-        return_value=MagicMock(modified_count=0)
-    )
-
-    from services.automation_service import extension_heartbeat
-    with pytest.raises(ValueError, match="Invalid or revoked"):
-        await extension_heartbeat("bad-token")
-
-
 # ── Report Result ───────────────────────────────────────────────────────────
 
 async def test_extension_report_result_applied(mock_db):

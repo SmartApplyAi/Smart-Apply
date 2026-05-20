@@ -1,7 +1,7 @@
-import { createContext, useContext, useCallback } from 'react';
+import { createContext, useCallback } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 
-const ToastContext = createContext(null);
+export const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
   const showToast = useCallback((message, type = 'info', duration) => {
@@ -49,10 +49,4 @@ export function ToastProvider({ children }) {
       />
     </ToastContext.Provider>
   );
-}
-
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within ToastProvider');
-  return ctx;
 }

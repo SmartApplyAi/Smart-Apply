@@ -353,8 +353,6 @@ async def high_match_failed(
     import asyncio
     from services.notification_service import create_notification
     from services.email_service import send_email, wrap_template
-    from config import settings
-
     user_id = user["id"]
     score = int(body.match_score)
 

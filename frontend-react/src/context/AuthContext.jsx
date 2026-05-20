@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useState, useCallback, useEffect } from 'react';
 import { authStore } from '../auth/authStore';
 import { refreshManager } from '../auth/refreshManager';
 import api from '../services/api';
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
@@ -42,16 +42,19 @@ export function AuthProvider({ children }) {
       const data = await refreshManager.refresh();
       setUser(data.user);
       setAuthState('authenticated');
-    } catch (err) {
+    } catch {
       // Refresh failed (no cookie, or expired cookie)
       setAuthState('unauthenticated');
       setUser(null);
     }
   }, []);
 
-  // Run on mount
+  // Run on mount with safe deferred timeout to prevent cascading renders
   useEffect(() => {
-    bootstrapAuth();
+    const timer = setTimeout(() => {
+      bootstrapAuth();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [bootstrapAuth]);
 
   const save = useCallback((newToken, newUser) => {
@@ -63,7 +66,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout', {});
-    } catch (e) {
+    } catch {
       // ignore
     }
     authStore.clear();
@@ -88,10 +91,4 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
 }

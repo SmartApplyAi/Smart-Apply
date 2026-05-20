@@ -3,10 +3,8 @@ Notification service: create, list, mark-read, delete notifications.
 """
 
 from datetime import datetime, timezone
-from typing import Optional
 from bson import ObjectId
 from database import get_db
-from loguru import logger
 
 
 async def create_notification(

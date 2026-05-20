@@ -2,7 +2,6 @@ from typing import Dict, Set
 from fastapi import WebSocket, status
 from loguru import logger
 import json
-import asyncio
 
 class ConnectionManager:
     def __init__(self):

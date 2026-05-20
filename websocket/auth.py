@@ -1,5 +1,4 @@
 import uuid
-from datetime import timedelta
 from redis_client import get_redis
 from loguru import logger
 import json

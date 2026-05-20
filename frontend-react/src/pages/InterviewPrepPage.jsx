@@ -46,14 +46,33 @@ export default function InterviewPrepPage() {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isAiThinking]);
 
-  // Cleanup on unmount
+  // ── Camera & Recognition base helpers (declared early for cleanup effect) ──
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const stopRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (err) {
+        /* Ignore abort errors on stop */
+      }
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
+
+  // Cleanup on unmount (now stopCamera/stopRecognition are declared above)
   useEffect(() => {
     return () => {
       stopCamera();
       stopRecognition();
       speechSynthesis?.cancel();
     };
-  }, []);
+  }, [stopCamera, stopRecognition]);
 
   // ── Camera ──
   const startCamera = useCallback(async () => {
@@ -69,12 +88,6 @@ export default function InterviewPrepPage() {
     }
   }, [showToast]);
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-  }, []);
-
   const toggleCamera = useCallback(() => {
     if (isCamOn) {
       stopCamera();
@@ -85,15 +98,11 @@ export default function InterviewPrepPage() {
     }
   }, [isCamOn, startCamera, stopCamera]);
 
-  // ── Speech Recognition ──
-  const stopRecognition = useCallback(() => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-      recognitionRef.current = null;
-    }
-    setIsListening(false);
-  }, []);
+  // ── Refs for circular references ──
+  const startListeningRef = useRef(null);
+  const handleUserMessageRef = useRef(null);
 
+  // ── Speech Recognition ──
   const startListening = useCallback(() => {
     if (!SpeechRecognition || !isMicOn) return;
     stopRecognition();
@@ -110,13 +119,20 @@ export default function InterviewPrepPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       if (transcript.trim()) {
-        handleUserMessage(transcript.trim());
+        handleUserMessageRef.current?.(transcript.trim());
       }
     };
 
     recognitionRef.current = recognition;
-    try { recognition.start(); } catch {}
+    try {
+      recognition.start();
+    } catch (err) {
+      /* Ignore start errors */
+    }
   }, [isMicOn, stopRecognition]);
+
+  // Assign to ref so it can be called safely in timeouts/other callbacks without circular dependency issues
+  startListeningRef.current = startListening;
 
   const toggleMic = useCallback(() => {
     if (isMicOn) {
@@ -185,17 +201,20 @@ export default function InterviewPrepPage() {
       await speakText(data.reply);
       // Auto-start listening after AI finishes speaking
       if (isMicOn && hasSpeechSupport) {
-        setTimeout(() => startListening(), 400);
+        setTimeout(() => startListeningRef.current?.(), 400);
       }
     }
-  }, [messages, sendToAI, speakText, isMicOn, hasSpeechSupport, startListening]);
+  }, [messages, sendToAI, speakText, isMicOn, hasSpeechSupport]);
+
+  // Assign to ref
+  handleUserMessageRef.current = handleUserMessage;
 
   const handleTextSubmit = useCallback((e) => {
     e.preventDefault();
     if (!textInput.trim() || isAiThinking) return;
-    handleUserMessage(textInput.trim());
+    handleUserMessageRef.current?.(textInput.trim());
     setTextInput('');
-  }, [textInput, isAiThinking, handleUserMessage]);
+  }, [textInput, isAiThinking]);
 
   // ── Start Interview ──
   const startInterview = useCallback(async () => {
@@ -218,10 +237,10 @@ export default function InterviewPrepPage() {
       setMessages([aiMsg]);
       await speakText(data.reply);
       if (isMicOn && hasSpeechSupport) {
-        setTimeout(() => startListening(), 400);
+        setTimeout(() => startListeningRef.current?.(), 400);
       }
     }
-  }, [startCamera, sendToAI, speakText, isMicOn, hasSpeechSupport, startListening]);
+  }, [startCamera, sendToAI, speakText, isMicOn, hasSpeechSupport]);
 
   // ── End Interview ──
   const endInterview = useCallback(async () => {

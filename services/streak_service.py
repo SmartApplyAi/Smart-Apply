@@ -4,7 +4,6 @@ Computes application streak (consecutive active days) and generates daily AI car
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from database import get_db
 from loguru import logger
 

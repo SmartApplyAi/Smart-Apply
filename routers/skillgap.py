@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from dependencies import get_current_user
 from services import skillgap_service
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List
 from limiter import limiter
 from loguru import logger
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from dependencies import get_current_user
 from redis_client import get_redis
-from utils import create_access_token, create_extension_token
+from utils import create_extension_token
 from loguru import logger
 from limiter import limiter
 import uuid

@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useState, useEffect, useCallback } from 'react';
 
-const ThemeContext = createContext(null);
+export const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => localStorage.getItem('sa_theme') || 'auto');
@@ -22,7 +22,7 @@ export function ThemeProvider({ children }) {
 
   const toggleTheme = useCallback(() => {
     const current = theme;
-    let next = 'dark';
+    let next;
     if (current === 'dark') next = 'light';
     else if (current === 'light') next = 'dark';
     else {
@@ -53,10 +53,4 @@ export function ThemeProvider({ children }) {
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return ctx;
 }

@@ -8,7 +8,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from database import get_db
 from datetime import datetime, timezone
 from loguru import logger
-import json
 from utils import decode_token
 
 class AdminAuditMiddleware(BaseHTTPMiddleware):

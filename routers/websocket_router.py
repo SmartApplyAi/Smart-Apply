@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException, status
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 from dependencies import get_current_user
 from websocket.auth import create_ws_ticket, consume_ws_ticket
 from websocket.manager import manager
@@ -6,7 +6,6 @@ from loguru import logger
 from limiter import limiter
 from fastapi import Request
 import json
-import asyncio
 
 router = APIRouter()
 

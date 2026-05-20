@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import api from '../services/api';
-import { useWebSocket } from '../websocket/WebSocketProvider';
+import { useWebSocket } from '../hooks/useWebSocket';
 import '../styles/SkillGapPage.css';
 
 const CIRCUMFERENCE = 2 * Math.PI * 72; // radius 72

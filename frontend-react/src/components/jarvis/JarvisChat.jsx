@@ -150,15 +150,6 @@ export default function JarvisChat() {
     }
   }, [isOpen]);
 
-  // Escape key to close
-  useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === 'Escape' && isOpen) handleClose();
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isOpen]);
-
   const handleClose = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
@@ -166,6 +157,15 @@ export default function JarvisChat() {
       setIsClosing(false);
     }, 350);
   }, []);
+
+  // Escape key to close
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && isOpen) handleClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, handleClose]);
 
   const handleToggle = useCallback(() => {
     if (isOpen) {

@@ -7,11 +7,8 @@ import io
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
-from bson import ObjectId
 from database import get_db
 from storage import upload_file_to_r2, get_presigned_url, get_file_from_r2, delete_file_from_r2
-from config import settings
 from utils import redact_pii
 from loguru import logger
 
@@ -268,15 +265,6 @@ async def activate_resume_by_key(user_id: str, object_key: str) -> dict:
     return {"message": "Resume activated"}
 
 
-# ── PDF Parsing ──────────────────────────────────────────────────────────────
-
-def _parse_pdf(file_bytes: bytes) -> dict:
-    """Extract structured information from a PDF resume."""
-    text = _extract_text(file_bytes)
-    if not text or len(text.strip()) < 50:
-        return {"error": "Could not extract text from PDF"}
-
-    return _extract_fields(text)
 
 
 def _extract_text(file_bytes: bytes) -> str:
