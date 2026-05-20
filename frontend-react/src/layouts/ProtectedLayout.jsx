@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import JarvisChat from '../components/jarvis/JarvisChat';

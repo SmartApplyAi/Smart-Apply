@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Menu, Sun, Moon, MonitorCog, Bell } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import './Navbar.css';
 

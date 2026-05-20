@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useToast } from '../context/ToastContext';
-import { useAuth } from '../context/AuthContext';
+import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import ScoreRing from '../components/common/ScoreRing';
 import Sidebar from '../components/layout/Sidebar';
